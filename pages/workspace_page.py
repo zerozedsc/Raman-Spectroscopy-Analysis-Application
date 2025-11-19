@@ -53,6 +53,18 @@ class WorkspacePage(QWidget):
 
         main_layout.addWidget(self.tab_bar)
         main_layout.addWidget(self.page_stack, 1)
+        
+        # Update localized text for all components
+        self.update_localized_text()
+    
+    def update_localized_text(self):
+        """Update all UI text with current localization."""
+        # Update tab bar
+        if hasattr(self.tab_bar, 'update_localized_text'):
+            self.tab_bar.update_localized_text()
+        
+        # Update ML page label
+        self.ml_page.setText(LOCALIZE("TABS.machine_learning") + " Page Content")
 
     def _connect_signals(self):
         """Connect all signals for navigation and project handling."""

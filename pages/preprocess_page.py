@@ -45,12 +45,19 @@ class PreprocessPage(QWidget):
         
         # Auto-refresh data when page is shown
         QTimer.singleShot(100, self.load_project_data)
+    
+    def update_localized_text(self):
+        """Update all UI text with current localization."""
+        # This method should be called when language changes
+        # Currently, we need to refresh the entire UI or store references to all labels
+        # For now, we'll implement a simple version that updates key components
+        pass  # Placeholder for future implementation
 
     def _setup_ui(self):
         """Setup the main UI layout."""
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(16, 12, 16, 16)  # Reduced top margin from 20 to 12
-        main_layout.setSpacing(16)  # Reduced spacing from 20 to 16
+        main_layout.setContentsMargins(16, 8, 16, 16)  # Reduced top margin to 8
+        main_layout.setSpacing(12)  # Reduced spacing to 12
 
         # Create main splitter
         main_splitter = QSplitter(Qt.Horizontal)
@@ -78,8 +85,8 @@ class PreprocessPage(QWidget):
         left_panel.setMaximumWidth(450)
         
         layout = QVBoxLayout(left_panel)
-        layout.setContentsMargins(12, 8, 12, 12)  # Reduced top margin from 16 to 8
-        layout.setSpacing(12)  # Reduced spacing from 16 to 12
+        layout.setContentsMargins(12, 4, 12, 12)  # Reduced top margin to 4
+        layout.setSpacing(10)  # Reduced spacing to 10
 
         # Input datasets section
         input_group = self._create_input_datasets_group()

@@ -3,8 +3,15 @@ import json
 import datetime
 from typing import List, Dict, Any
 import pandas as pd
+import argparse
 from configs.configs import *
 
+# --- Argument Parser for Command-Line Options ---
+parser = argparse.ArgumentParser(description="Raman Spectroscopy Data Analysis Application")
+parser.add_argument('--lang', type=str, choices=['en', 'ja'], default='ja',
+                    help='Set the application language (default: ja)')
+
+args = parser.parse_args()
 # --- Global In-Memory Data Store ---
 # This dictionary will hold the currently loaded DataFrames for the active project.
 # The keys are the user-defined dataset names.
@@ -208,9 +215,9 @@ class ProjectManager:
             metadata_dict[name] = package_info.get("metadata", {})
         return metadata_dict
 
-
+arg_lang = args.lang  # Command-line argument (default: 'ja')
 CONFIGS = load_config()
-LOCALIZEMANAGER = LocalizationManager(default_lang="ja")
+LOCALIZEMANAGER = LocalizationManager(default_lang=arg_lang)
 PROJECT_MANAGER = ProjectManager()
 
 # --- Shorthand Function ---

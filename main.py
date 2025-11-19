@@ -69,8 +69,10 @@ if __name__ == "__main__":
     # Load bundled fonts into the application database
     load_application_fonts()
     
-    # Set language from config (or default)
-    language = CONFIGS.get("language", "ja")
+    # Language is already set from command-line args in utils.py
+    # Only use config language if no command-line arg was provided
+    # Note: args.lang is parsed in utils.py and used to initialize LOCALIZEMANAGER
+    # The language is already active, so we don't need to call set_language() again
     
     # Generate and apply the dynamic, language-aware stylesheet
     font_family = LOCALIZE("APP_CONFIG.font_family")

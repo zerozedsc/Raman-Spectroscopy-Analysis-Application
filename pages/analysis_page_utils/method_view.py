@@ -9,7 +9,8 @@ from typing import Dict, Any, Callable, Optional
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QFrame, QScrollArea, QTabWidget, QGroupBox, QComboBox,
-    QSplitter, QTextEdit, QTableWidget, QTableWidgetItem
+    QSplitter, QTextEdit, QTableWidget, QTableWidgetItem, QListWidget,
+    QAbstractItemView, QStackedWidget, QButtonGroup, QRadioButton
 )
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFont
@@ -17,6 +18,7 @@ from PySide6.QtGui import QFont
 from components.widgets import load_icon
 from components.widgets.parameter_widgets import DynamicParameterWidget
 from .registry import ANALYSIS_METHODS
+from .group_assignment_table import GroupAssignmentTable
 
 
 def create_method_view(
@@ -70,7 +72,9 @@ def create_method_view(
     """)
     left_layout.addWidget(method_name_label)
     
-    method_desc_label = QLabel(method_info.get("description", ""))
+    # Use localized description from locales, not hardcoded from registry
+    method_desc_text = localize_func(f"ANALYSIS_PAGE.METHOD_DESC.{method_key}")
+    method_desc_label = QLabel(method_desc_text)
     method_desc_label.setWordWrap(True)
     method_desc_label.setStyleSheet("""
         font-size: 13px;
@@ -80,7 +84,10 @@ def create_method_view(
     """)
     left_layout.addWidget(method_desc_label)
     
-    # Dataset selection
+    # Dataset selection - conditional widget based on method requirements
+    dataset_selection_mode = method_info.get("dataset_selection_mode", "single")
+    min_datasets = method_info.get("min_datasets", 1)
+    
     dataset_group = QGroupBox(localize_func("ANALYSIS_PAGE.dataset_selection"))
     dataset_group.setStyleSheet("""
         QGroupBox {
@@ -98,34 +105,259 @@ def create_method_view(
     """)
     dataset_layout = QVBoxLayout(dataset_group)
     
-    dataset_combo = QComboBox()
-    dataset_combo.setObjectName("datasetComboBox")
-    dataset_combo.setMinimumHeight(36)
-    dataset_combo.addItems(dataset_names)  # dataset_names is already a list of strings
-    dataset_combo.setStyleSheet("""
-        QComboBox {
-            border: 1px solid #d0d0d0;
-            border-radius: 4px;
-            padding: 6px 12px;
-            background-color: white;
-        }
-        QComboBox:hover {
-            border-color: #0078d4;
-        }
-        QComboBox::drop-down {
-            border: none;
-            width: 24px;
-        }
-        QComboBox::down-arrow {
-            image: url(none);
-            border-left: 5px solid transparent;
-            border-right: 5px solid transparent;
-            border-top: 5px solid #6c757d;
-            width: 0;
-            height: 0;
-        }
-    """)
-    dataset_layout.addWidget(dataset_combo)
+    # For multi-dataset methods, add segmented control (toggle buttons)
+    mode_toggle = None
+    comparison_radio = None
+    classification_radio = None
+    
+    if dataset_selection_mode == "multi":
+        # Segmented control frame
+        toggle_frame = QFrame()
+        toggle_frame.setStyleSheet("""
+            QFrame {
+                background-color: #f5f5f5;
+                border: 1px solid #d0d0d0;
+                border-radius: 6px;
+                padding: 4px;
+            }
+        """)
+        toggle_layout = QHBoxLayout(toggle_frame)
+        toggle_layout.setContentsMargins(4, 4, 4, 4)
+        toggle_layout.setSpacing(4)
+        
+        # Comparison mode button
+        comparison_radio = QRadioButton("📊 Comparison (Simple)")
+        comparison_radio.setObjectName("comparison_radio")
+        comparison_radio.setChecked(True)
+        print("[DEBUG] Created comparison_radio button")
+        comparison_radio.setStyleSheet("""
+            QRadioButton {
+                background-color: white;
+                border: 2px solid #0078d4;
+                border-radius: 4px;
+                padding: 10px 20px;
+                font-weight: 600;
+                font-size: 13px;
+                color: #0078d4;
+            }
+            QRadioButton:hover {
+                background-color: #e7f3ff;
+            }
+            QRadioButton:checked {
+                background-color: #0078d4;
+                color: white;
+            }
+            QRadioButton::indicator {
+                width: 0px;
+                height: 0px;
+            }
+        """)
+        toggle_layout.addWidget(comparison_radio)
+        
+        # Add direct click handler for debugging
+        def on_comparison_clicked():
+            print("[DEBUG] comparison_radio.clicked() signal fired!")
+            print(f"[DEBUG] comparison_radio is checked: {comparison_radio.isChecked()}")
+        
+        comparison_radio.clicked.connect(on_comparison_clicked)
+        print("[DEBUG] Connected comparison_radio.clicked signal")
+        
+        # Classification mode button
+        classification_radio = QRadioButton("🔬 Classification (Groups)")
+        classification_radio.setObjectName("classification_radio")
+        print("[DEBUG] Created classification_radio button")
+        classification_radio.setStyleSheet("""
+            QRadioButton {
+                background-color: white;
+                border: 2px solid #28a745;
+                border-radius: 4px;
+                padding: 10px 20px;
+                font-weight: 600;
+                font-size: 13px;
+                color: #28a745;
+            }
+            QRadioButton:hover {
+                background-color: #e8f5e9;
+            }
+            QRadioButton:checked {
+                background-color: #28a745;
+                color: white;
+            }
+            QRadioButton::indicator {
+                width: 0px;
+                height: 0px;
+            }
+        """)
+        toggle_layout.addWidget(classification_radio)
+        
+        # Add direct click handler for debugging
+        def on_classification_clicked():
+            print("[DEBUG] classification_radio.clicked() signal fired!")
+            print(f"[DEBUG] classification_radio is checked: {classification_radio.isChecked()}")
+        
+        classification_radio.clicked.connect(on_classification_clicked)
+        print("[DEBUG] Connected classification_radio.clicked signal")
+        
+        # Button group to ensure mutual exclusion
+        mode_toggle = QButtonGroup()
+        print("[DEBUG] Creating QButtonGroup for mode toggle")
+        mode_toggle.addButton(comparison_radio, 0)
+        print(f"[DEBUG] Added comparison_radio to button group with ID 0")
+        mode_toggle.addButton(classification_radio, 1)
+        print(f"[DEBUG] Added classification_radio to button group with ID 1")
+        print(f"[DEBUG] Button group contains {len(mode_toggle.buttons())} buttons")
+        print(f"[DEBUG] comparison_radio object: {comparison_radio}")
+        print(f"[DEBUG] classification_radio object: {classification_radio}")
+        
+        dataset_layout.addWidget(toggle_frame)
+    
+    # Create stacked widget for simple vs group mode
+    dataset_stack = QStackedWidget()
+    
+    # === PAGE 0: Simple Selection (Comparison Mode) ===
+    simple_widget = QWidget()
+    simple_layout = QVBoxLayout(simple_widget)
+    simple_layout.setContentsMargins(0, 0, 0, 0)
+    
+    # Add hint label for multi-dataset methods
+    if dataset_selection_mode == "multi":
+        hint_label = QLabel(localize_func("ANALYSIS_PAGE.comparison_mode_hint"))
+        hint_label.setStyleSheet("""
+            font-size: 11px;
+            color: #6c757d;
+            padding: 8px;
+            background-color: #f8f9fa;
+            border-radius: 3px;
+            margin-top: 8px;
+        """)
+        hint_label.setWordWrap(True)
+        simple_layout.addWidget(hint_label)
+    
+    # Create appropriate widget based on selection mode
+    dataset_widget = None
+    if dataset_selection_mode == "single":
+        # Single dropdown for single-dataset methods
+        dataset_combo = QComboBox()
+        dataset_combo.setObjectName("datasetComboBox")
+        dataset_combo.setMinimumHeight(36)
+        dataset_combo.addItems(dataset_names)
+        dataset_combo.setStyleSheet("""
+            QComboBox {
+                border: 1px solid #d0d0d0;
+                border-radius: 4px;
+                padding: 6px 12px;
+                background-color: white;
+            }
+            QComboBox:hover {
+                border-color: #0078d4;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 24px;
+            }
+            QComboBox::down-arrow {
+                image: url(none);
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 5px solid #6c757d;
+                width: 0;
+                height: 0;
+            }
+        """)
+        dataset_widget = dataset_combo
+        simple_layout.addWidget(dataset_combo)
+    else:
+        # Multi-select list for multi-dataset methods
+        dataset_list = QListWidget()
+        dataset_list.setObjectName("datasetListWidget")
+        dataset_list.setSelectionMode(QAbstractItemView.MultiSelection)
+        dataset_list.setMinimumHeight(150)
+        dataset_list.setMaximumHeight(250)
+        dataset_list.addItems(dataset_names)
+        dataset_list.setStyleSheet("""
+            QListWidget {
+                border: 1px solid #d0d0d0;
+                border-radius: 4px;
+                padding: 4px;
+                background-color: white;
+            }
+            QListWidget:hover {
+                border-color: #0078d4;
+            }
+            QListWidget::item {
+                padding: 8px;
+                border-radius: 3px;
+                margin: 2px;
+            }
+            QListWidget::item:hover {
+                background-color: #f0f0f0;
+            }
+            QListWidget::item:selected {
+                background-color: #0078d4;
+                color: white;
+            }
+        """)
+        dataset_widget = dataset_list
+        simple_layout.addWidget(dataset_list)
+    
+    dataset_stack.addWidget(simple_widget)
+    
+    # === PAGE 1: Group Assignment (Classification Mode) ===
+    group_widget = None
+    if dataset_selection_mode == "multi":
+        group_widget = GroupAssignmentTable(dataset_names, localize_func)
+        group_widget.setMinimumHeight(400)
+        dataset_stack.addWidget(group_widget)
+        
+        # Connect mode toggle to switch between modes
+        def toggle_mode(button):
+            print("[DEBUG] toggle_mode called")
+            print(f"[DEBUG] Button clicked: {button}")
+            print(f"[DEBUG] Button objectName: {button.objectName()}")
+            print(f"[DEBUG] comparison_radio: {comparison_radio}")
+            print(f"[DEBUG] classification_radio: {classification_radio}")
+            print(f"[DEBUG] Current stack index BEFORE: {dataset_stack.currentIndex()}")
+            
+            # Check which button was clicked and switch pages
+            if button == comparison_radio:
+                print("[DEBUG] Switching to Comparison Mode (page 0)")
+                dataset_stack.setCurrentIndex(0)  # Show simple selection
+                print(f"[DEBUG] Stack index AFTER: {dataset_stack.currentIndex()}")
+            elif button == classification_radio:
+                print("[DEBUG] Switching to Classification Mode (page 1)")
+                dataset_stack.setCurrentIndex(1)  # Show group assignment table
+                print(f"[DEBUG] Stack index AFTER: {dataset_stack.currentIndex()}")
+            else:
+                print("[DEBUG] WARNING: Button not recognized!")
+            
+            print(f"[DEBUG] Current visible widget: {dataset_stack.currentWidget()}")
+        
+        # CRITICAL FIX: Connect individual button toggled signals instead of buttonClicked
+        # buttonClicked sometimes fails silently, toggled is more reliable
+        comparison_radio.toggled.connect(lambda checked: toggle_mode(comparison_radio) if checked else None)
+        classification_radio.toggled.connect(lambda checked: toggle_mode(classification_radio) if checked else None)
+        
+        # Also try buttonClicked as backup
+        mode_toggle.buttonClicked.connect(toggle_mode)
+        
+        print("[DEBUG] Mode toggle signals connected (toggled + buttonClicked)")
+        print(f"[DEBUG] comparison_radio.toggled: {comparison_radio.toggled}")
+        print(f"[DEBUG] classification_radio.toggled: {classification_radio.toggled}")
+        print(f"[DEBUG] mode_toggle.buttonClicked: {mode_toggle.buttonClicked}")
+        print(f"[DEBUG] Toggle function object: {toggle_mode}")
+        print(f"[DEBUG] Initial stack index: {dataset_stack.currentIndex()}")
+        print(f"[DEBUG] Initial visible widget: {dataset_stack.currentWidget()}")
+        print(f"[DEBUG] comparison_radio checked: {comparison_radio.isChecked()}")
+        print(f"[DEBUG] classification_radio checked: {classification_radio.isChecked()}")
+        
+        # Set initial page to Comparison Mode
+        dataset_stack.setCurrentIndex(0)
+        comparison_radio.setChecked(True)
+        print("[DEBUG] Set initial mode to Comparison (index 0)")
+        print(f"[DEBUG] After init - comparison_radio checked: {comparison_radio.isChecked()}")
+    
+    dataset_layout.addWidget(dataset_stack)
+    
     left_layout.addWidget(dataset_group)
     
     # Parameters section
@@ -237,8 +469,38 @@ def create_method_view(
             background-color: #c0c0c0;
         }
     """)
+    
+    # Connect run button - extract selected dataset(s) correctly
+    def _get_selected_datasets():
+        """
+        Extract selected dataset names based on widget type and mode.
+        
+        Returns:
+            For Comparison Mode:
+                - Single string (single-dataset methods)
+                - List of strings (multi-dataset methods)
+            For Classification Mode:
+                - Dict[str, List[str]] mapping group names to dataset lists
+        """
+        # Check if Classification Mode is active (for multi-dataset methods)
+        if classification_radio and classification_radio.isChecked() and group_widget:
+            # Return group assignments
+            groups = group_widget.get_groups()
+            if not groups:
+                # No groups assigned - show warning
+                return None
+            return groups
+        
+        # Comparison Mode (simple selection)
+        if dataset_selection_mode == "single":
+            return dataset_widget.currentText()  # Single string
+        else:
+            # Multi-select list widget
+            selected_items = dataset_widget.selectedItems()
+            return [item.text() for item in selected_items]  # List of strings
+    
     run_btn.clicked.connect(lambda: on_run_analysis(
-        category, method_key, dataset_combo.currentText(), param_widget
+        category, method_key, _get_selected_datasets(), param_widget
     ))
     button_layout.addWidget(run_btn)
     
@@ -255,7 +517,11 @@ def create_method_view(
     main_layout.addWidget(splitter)
     
     # Store references for external access
-    method_widget.dataset_combo = dataset_combo
+    method_widget.dataset_widget = dataset_widget  # Store the actual widget (QComboBox or QListWidget)
+    method_widget.group_widget = group_widget  # Store group widget (GroupAssignmentTable)
+    method_widget.comparison_radio = comparison_radio  # Store comparison mode button
+    method_widget.classification_radio = classification_radio  # Store classification mode button
+    method_widget.dataset_selection_mode = dataset_selection_mode
     method_widget.param_widget = param_widget
     method_widget.run_btn = run_btn
     method_widget.back_btn = back_btn
@@ -301,19 +567,8 @@ def create_results_panel(localize_func: Callable) -> QWidget:
     header_layout.addWidget(results_title)
     header_layout.addStretch()
     
-    # Export buttons (hidden until results available)
-    export_png_btn = QPushButton(localize_func("ANALYSIS_PAGE.export_png"))
-    export_png_btn.setObjectName("exportButton")
-    export_png_btn.setMinimumHeight(32)
-    export_png_btn.setVisible(False)
-    header_layout.addWidget(export_png_btn)
-    
-    export_svg_btn = QPushButton(localize_func("ANALYSIS_PAGE.export_svg"))
-    export_svg_btn.setObjectName("exportButton")
-    export_svg_btn.setMinimumHeight(32)
-    export_svg_btn.setVisible(False)
-    header_layout.addWidget(export_svg_btn)
-    
+    # Export CSV button (hidden until results available)
+    # Note: Plot export (PNG/SVG) available via matplotlib toolbar right-click
     export_data_btn = QPushButton(localize_func("ANALYSIS_PAGE.export_csv"))
     export_data_btn.setObjectName("exportButton")
     export_data_btn.setMinimumHeight(32)
@@ -361,8 +616,6 @@ def create_results_panel(localize_func: Callable) -> QWidget:
     
     # Store references for external access
     results_panel.tab_widget = tab_widget
-    results_panel.export_png_btn = export_png_btn
-    results_panel.export_svg_btn = export_svg_btn
     results_panel.export_data_btn = export_data_btn
     results_panel.results_title = results_title
     
@@ -390,16 +643,46 @@ def populate_results_tabs(
     while tab_widget.count() > 0:
         tab_widget.removeTab(0)
     
-    # Show export buttons
-    results_panel.export_png_btn.setVisible(True)
-    results_panel.export_svg_btn.setVisible(True)
+    # Show CSV export button (plot export via matplotlib toolbar)
     results_panel.export_data_btn.setVisible(True)
     
-    # === Plot Tab ===
-    if result.figure:
-        plot_tab = matplotlib_widget_class(result.figure)
+    # === Main Plot Tab (Scores/Primary Figure) ===
+    if result.primary_figure:
+        plot_tab = matplotlib_widget_class()
+        plot_tab.update_plot(result.primary_figure)
         plot_tab.setMinimumHeight(400)
-        tab_widget.addTab(plot_tab, "📈 " + localize_func("ANALYSIS_PAGE.plot_tab"))
+        tab_widget.addTab(plot_tab, "📈 " + localize_func("ANALYSIS_PAGE.scores_tab") if hasattr(result, "loadings_figure") else localize_func("ANALYSIS_PAGE.plot_tab"))
+    
+    # === Loadings Tab (for PCA/dimensionality reduction) ===
+    print(f"[DEBUG] Checking loadings_figure...")
+    print(f"[DEBUG]   hasattr(result, 'loadings_figure'): {hasattr(result, 'loadings_figure')}")
+    if hasattr(result, 'loadings_figure'):
+        print(f"[DEBUG]   result.loadings_figure is not None: {result.loadings_figure is not None}")
+        print(f"[DEBUG]   result.loadings_figure type: {type(result.loadings_figure)}")
+    
+    if hasattr(result, "loadings_figure") and result.loadings_figure:
+        print(f"[DEBUG] Creating Loadings tab...")
+        loadings_tab = matplotlib_widget_class()
+        loadings_tab.update_plot(result.loadings_figure)
+        loadings_tab.setMinimumHeight(400)
+        tab_widget.addTab(loadings_tab, "🔬 " + localize_func("ANALYSIS_PAGE.loadings_tab"))
+        print(f"[DEBUG] Loadings tab added successfully")
+    else:
+        print(f"[DEBUG] Loadings tab NOT created (figure missing or None)")
+    
+    # === Distributions Tab (for PCA/classification) ===
+    if hasattr(result, "distributions_figure") and result.distributions_figure:
+        dist_tab = matplotlib_widget_class()
+        dist_tab.update_plot(result.distributions_figure)
+        dist_tab.setMinimumHeight(400)
+        tab_widget.addTab(dist_tab, "📊 " + localize_func("ANALYSIS_PAGE.distributions_tab"))
+    
+    # === Legacy Secondary Figure Tab (deprecated but kept for compatibility) ===
+    if hasattr(result, "secondary_figure") and result.secondary_figure:
+        secondary_tab = matplotlib_widget_class()
+        secondary_tab.update_plot(result.secondary_figure)
+        secondary_tab.setMinimumHeight(400)
+        tab_widget.addTab(secondary_tab, "📊 " + localize_func("ANALYSIS_PAGE.secondary_plot_tab"))
     
     # === Data Table Tab ===
     if result.data_table is not None:
@@ -407,9 +690,9 @@ def populate_results_tabs(
         tab_widget.addTab(table_tab, "📋 " + localize_func("ANALYSIS_PAGE.data_tab"))
     
     # === Summary Tab ===
-    if result.summary:
-        summary_tab = create_summary_tab(result.summary)
-        tab_widget.addTab(summary_tab, "📝 " + localize_func("ANALYSIS_PAGE.summary_tab"))
+    if result.detailed_summary:
+        summary_tab = create_summary_tab(result.detailed_summary)
+        tab_widget.addTab(summary_tab, "📋 " + localize_func("ANALYSIS_PAGE.summary_tab"))
     
     # === Diagnostics Tab (if available) ===
     if hasattr(result, "diagnostics") and result.diagnostics:

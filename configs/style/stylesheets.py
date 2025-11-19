@@ -724,7 +724,7 @@ def get_main_stylesheet(font_family: str) -> str:
             font-size: 14px;
             font-weight: 500;
             color: #6c757d;
-            padding: 12px 24px;
+            padding: 8px 24px;
             border: none;
             background-color: transparent;
             border-bottom: 2px solid transparent;

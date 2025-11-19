@@ -226,21 +226,37 @@ def perform_peak_analysis(dataset_data: Dict[str, pd.DataFrame],
     top_peaks = peaks[sorted_indices]
     top_prominences = prominences[sorted_indices]
     
+    print(f"[DEBUG] Peak detection: Found {len(peaks)} total peaks, showing top {len(top_peaks)} peaks")
+    print(f"[DEBUG] top_n_peaks parameter: {top_n_peaks}")
+    print(f"[DEBUG] Actual peaks shown: {len(top_peaks)}")
+    
     # Create primary figure: Spectrum with peaks
-    fig1, ax1 = plt.subplots(figsize=(12, 6))
+    fig1, ax1 = plt.subplots(figsize=(14, 7))
     
     ax1.plot(wavenumbers, mean_spectrum, linewidth=1.5, color='blue', label='Mean spectrum')
     ax1.plot(wavenumbers[top_peaks], mean_spectrum[top_peaks],
-            'ro', markersize=8, label=f'Top {len(top_peaks)} peaks')
+            'ro', markersize=10, label=f'Top {len(top_peaks)} peaks', zorder=5)
     
-    # Annotate peaks
-    if show_assignments:
-        for peak_idx in top_peaks:
-            ax1.annotate(f'{wavenumbers[peak_idx]:.0f}',
-                        xy=(wavenumbers[peak_idx], mean_spectrum[peak_idx]),
-                        xytext=(0, 10), textcoords='offset points',
-                        ha='center', fontsize=9,
-                        bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.5))
+    # Annotate ALL peaks with wavenumber labels (CRITICAL for Raman analysis)
+    print(f"[DEBUG] Adding wavenumber annotations for {len(top_peaks)} peaks")
+    for i, peak_idx in enumerate(top_peaks):
+        wavenumber = wavenumbers[peak_idx]
+        intensity = mean_spectrum[peak_idx]
+        
+        # Alternate label positions to avoid overlap
+        y_offset = 15 if i % 2 == 0 else 25
+        
+        ax1.annotate(f'{wavenumber:.0f}',
+                    xy=(wavenumber, intensity),
+                    xytext=(0, y_offset), 
+                    textcoords='offset points',
+                    ha='center', 
+                    fontsize=8,
+                    fontweight='bold',
+                    bbox=dict(boxstyle='round,pad=0.4', facecolor='yellow', alpha=0.7, edgecolor='orange'),
+                    arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0', color='red', lw=1),
+                    zorder=10)
+        print(f"[DEBUG] Peak {i+1}/{len(top_peaks)}: {wavenumber:.0f} cm⁻¹")
     
     ax1.set_xlabel('Wavenumber (cm⁻¹)', fontsize=12)
     ax1.set_ylabel('Intensity', fontsize=12)

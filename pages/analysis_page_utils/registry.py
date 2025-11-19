@@ -16,7 +16,10 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
     "exploratory": {
         "pca": {
             "name": "PCA (Principal Component Analysis)",
-            "description": "Dimensionality reduction using PCA to identify variance patterns",
+            "description": "Dimensionality reduction using PCA to identify variance patterns. Select multiple datasets to compare groups (e.g., Control vs Disease).",
+            "min_datasets": 1,
+            "max_datasets": None,
+            "dataset_selection_mode": "multi",
             "params": {
                 "n_components": {
                     "type": "spinbox",
@@ -30,6 +33,11 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                     "default": "StandardScaler",
                     "label": "Scaling Method"
                 },
+                "show_ellipses": {
+                    "type": "checkbox",
+                    "default": True,
+                    "label": "Show 95% Confidence Ellipses"
+                },
                 "show_loadings": {
                     "type": "checkbox",
                     "default": True,
@@ -39,13 +47,21 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                     "type": "checkbox",
                     "default": True,
                     "label": "Show Scree Plot"
+                },
+                "show_distributions": {
+                    "type": "checkbox",
+                    "default": True,
+                    "label": "Show Score Distributions"
                 }
             },
             "function": "perform_pca_analysis"
         },
         "umap": {
             "name": "UMAP (Uniform Manifold Approximation)",
-            "description": "Non-linear dimensionality reduction preserving local and global structure",
+            "description": "Non-linear dimensionality reduction preserving local and global structure. Select multiple datasets to compare groups.",
+            "min_datasets": 1,
+            "max_datasets": None,
+            "dataset_selection_mode": "multi",
             "params": {
                 "n_neighbors": {
                     "type": "spinbox",
@@ -78,6 +94,9 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "tsne": {
             "name": "t-SNE (t-Distributed Stochastic Neighbor Embedding)",
             "description": "Non-linear dimensionality reduction for cluster visualization",
+            "min_datasets": 1,
+            "max_datasets": 1,
+            "dataset_selection_mode": "single",
             "params": {
                 "perplexity": {
                     "type": "spinbox",
@@ -104,6 +123,9 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "hierarchical_clustering": {
             "name": "Hierarchical Clustering with Dendrogram",
             "description": "Hierarchical cluster analysis with dendrogram visualization",
+            "min_datasets": 1,
+            "max_datasets": None,
+            "dataset_selection_mode": "multi",
             "params": {
                 "n_clusters": {
                     "type": "spinbox",
@@ -134,6 +156,9 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "kmeans": {
             "name": "K-Means Clustering",
             "description": "Partitioning clustering algorithm",
+            "min_datasets": 1,
+            "max_datasets": None,
+            "dataset_selection_mode": "multi",
             "params": {
                 "n_clusters": {
                     "type": "spinbox",
@@ -166,6 +191,9 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "spectral_comparison": {
             "name": "Group Mean Spectral Comparison",
             "description": "Compare mean spectra across groups with statistical testing",
+            "min_datasets": 2,
+            "max_datasets": None,
+            "dataset_selection_mode": "multi",
             "params": {
                 "confidence_level": {
                     "type": "double_spinbox",
@@ -195,6 +223,9 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "peak_analysis": {
             "name": "Peak Detection and Analysis",
             "description": "Automated peak detection with statistical comparison",
+            "min_datasets": 1,
+            "max_datasets": 1,
+            "dataset_selection_mode": "single",
             "params": {
                 "prominence_threshold": {
                     "type": "double_spinbox",
@@ -226,6 +257,9 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "correlation_analysis": {
             "name": "Spectral Correlation Analysis",
             "description": "Analyze correlations between spectral regions",
+            "min_datasets": 1,
+            "max_datasets": 1,
+            "dataset_selection_mode": "single",
             "params": {
                 "method": {
                     "type": "combo",
@@ -251,6 +285,9 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "anova_test": {
             "name": "ANOVA Statistical Test",
             "description": "One-way ANOVA across multiple groups",
+            "min_datasets": 3,
+            "max_datasets": None,
+            "dataset_selection_mode": "multi",
             "params": {
                 "alpha": {
                     "type": "double_spinbox",
@@ -278,6 +315,9 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "heatmap": {
             "name": "Spectral Heatmap with Clustering",
             "description": "2D heatmap visualization with hierarchical clustering",
+            "min_datasets": 1,
+            "max_datasets": None,
+            "dataset_selection_mode": "multi",
             "params": {
                 "cluster_rows": {
                     "type": "checkbox",
@@ -311,6 +351,9 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "mean_spectra_overlay": {
             "name": "Mean Spectra Overlay Plot",
             "description": "Overlay mean spectra from different groups/datasets",
+            "min_datasets": 2,
+            "max_datasets": None,
+            "dataset_selection_mode": "multi",
             "params": {
                 "show_std": {
                     "type": "checkbox",
@@ -342,6 +385,9 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "waterfall_plot": {
             "name": "3D Waterfall Plot",
             "description": "3D visualization of multiple spectra",
+            "min_datasets": 1,
+            "max_datasets": 1,
+            "dataset_selection_mode": "single",
             "params": {
                 "offset_scale": {
                     "type": "double_spinbox",
@@ -368,6 +414,9 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "correlation_heatmap": {
             "name": "Correlation Heatmap",
             "description": "Heatmap of pairwise spectral correlations",
+            "min_datasets": 1,
+            "max_datasets": None,
+            "dataset_selection_mode": "multi",
             "params": {
                 "method": {
                     "type": "combo",
@@ -397,6 +446,9 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
         "peak_intensity_scatter": {
             "name": "Peak Intensity Scatter Plot",
             "description": "2D/3D scatter plot of peak intensities",
+            "min_datasets": 1,
+            "max_datasets": None,
+            "dataset_selection_mode": "multi",
             "params": {
                 "peak_1_position": {
                     "type": "spinbox",

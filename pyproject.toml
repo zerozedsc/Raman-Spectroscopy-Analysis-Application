@@ -51,6 +51,7 @@ dependencies = [
     "skl2onnx>=1.19.1",
     "slicer",
     "sniffio",
+    "statsmodels>=0.14.5",
     "threadpoolctl",
     "tifffile",
     "tomli>=2.3.0",
@@ -58,6 +59,8 @@ dependencies = [
     "typing-extensions",
     "typing-inspection",
     "tzdata",
+    "umap>=0.1.1",
+    "umap-learn>=0.5.9.post2",
     "wget",
     "zipp",
 ]

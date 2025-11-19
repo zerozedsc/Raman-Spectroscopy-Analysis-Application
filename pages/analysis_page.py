@@ -47,7 +47,7 @@ from PySide6.QtGui import QFont
 
 from components.widgets import load_icon
 from components.widgets.matplotlib_widget import MatplotlibWidget
-from configs.configs import LocalizationManager, load_config
+from configs.configs import load_config
 from utils import RAMAN_DATA, PROJECT_MANAGER
 
 # Import analysis utilities
@@ -106,13 +106,9 @@ class AnalysisPage(QWidget):
         # Core references
         self.raman_data = RAMAN_DATA
         self.project_manager = PROJECT_MANAGER
-        # Localization
-        self.config = load_config()
-        self.locale_manager = LocalizationManager(
-            locale_dir='assets/locales',
-            default_lang=self.config.get('language', 'en')
-        )
-        self.localize = self.locale_manager.get  # Use .get() method, not .get_text()
+        # Use global localization manager instead of creating a new one
+        from utils import LOCALIZE
+        self.localize = LOCALIZE  # Use global LOCALIZE function
         
         # State management
         self.current_view = "startup"  # 'startup' or 'method'
@@ -129,11 +125,6 @@ class AnalysisPage(QWidget):
         
         # Build UI
         self._setup_ui()
-        
-        # Connect dataset updates
-        if self.raman_data:
-            self.raman_data.dataset_loaded.connect(self._on_dataset_changed)
-            self.raman_data.dataset_removed.connect(self._on_dataset_changed)
     
     def _setup_ui(self):
         """Setup main UI layout with stacked views."""
@@ -141,9 +132,9 @@ class AnalysisPage(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
         
-        # Top bar
-        self.top_bar = create_top_bar(self.localize, self._show_startup_view)
-        main_layout.addWidget(self.top_bar)
+        # Top bar with reduced height
+        # self.top_bar = create_top_bar(self.localize, self._show_startup_view)
+        # main_layout.addWidget(self.top_bar)
         
         # Main content: Sidebar + Stacked Views
         content_splitter = QSplitter(Qt.Horizontal)
@@ -178,10 +169,11 @@ class AnalysisPage(QWidget):
         self.current_view = "startup"
         self.view_stack.setCurrentWidget(self.startup_view)
         
-        # Update top bar
-        self.top_bar.new_analysis_btn.setVisible(False)
-        self.top_bar.back_btn.setVisible(False)
-        self.top_bar.title_label.setText("📊 " + self.localize("ANALYSIS_PAGE.title"))
+        # Update top bar (if enabled)
+        if hasattr(self, 'top_bar'):
+            self.top_bar.new_analysis_btn.setVisible(False)
+            self.top_bar.back_btn.setVisible(False)
+            self.top_bar.title_label.setText("📊 " + self.localize("ANALYSIS_PAGE.title"))
     
     def _show_method_view(self, category: str, method_key: str):
         """
@@ -221,53 +213,127 @@ class AnalysisPage(QWidget):
             self._show_startup_view
         )
         
-        # Connect export buttons
+        # Connect export buttons (plot export via matplotlib toolbar)
         results_panel = self.method_view.results_panel
-        results_panel.export_png_btn.clicked.connect(self._export_png)
-        results_panel.export_svg_btn.clicked.connect(self._export_svg)
         results_panel.export_data_btn.clicked.connect(self._export_csv)
         
         self.view_stack.addWidget(self.method_view)
         self.view_stack.setCurrentWidget(self.method_view)
         
-        # Update top bar
-        self.top_bar.new_analysis_btn.setVisible(True)
-        self.top_bar.back_btn.setVisible(True)
-        self.top_bar.title_label.setText(f"📊 {method_info['name']}")
+        # Update top bar (if enabled)
+        if hasattr(self, 'top_bar'):
+            self.top_bar.new_analysis_btn.setVisible(True)
+            self.top_bar.back_btn.setVisible(True)
+            self.top_bar.title_label.setText(f"📊 {method_info['name']}")
     
-    def _run_analysis(self, category: str, method_key: str, dataset_name: str, param_widget):
+    def _run_analysis(self, category: str, method_key: str, dataset_selection, param_widget):
         """
         Execute analysis with selected parameters.
         
         Args:
             category: Method category
             method_key: Method identifier
-            dataset_name: Selected dataset name
+            dataset_selection: Can be:
+                - string: Single dataset name
+                - list: Multiple dataset names
+                - dict: Group assignments {group_label: [dataset_names]}
             param_widget: DynamicParameterWidget instance
         """
-        # Get dataset
-        dataset = self.raman_data.get_dataset_by_name(dataset_name)
-        if dataset is None:
+        # Get method info for validation
+        method_info = ANALYSIS_METHODS[category][method_key]
+        min_datasets = method_info.get("min_datasets", 1)
+        max_datasets = method_info.get("max_datasets", None)
+        
+        # Handle group-based selection
+        group_labels = None
+        if isinstance(dataset_selection, dict):
+            # Group mode: {group_label: [dataset_names]}
+            if not dataset_selection:
+                QMessageBox.warning(
+                    self,
+                    self.localize("ANALYSIS_PAGE.validation_error_title"),
+                    self.localize("ANALYSIS_PAGE.no_groups_defined")
+                )
+                return
+            
+            # Flatten groups to get all dataset names
+            selected_datasets = []
+            group_labels = {}  # {dataset_name: group_label}
+            for group_name, datasets in dataset_selection.items():
+                for ds in datasets:
+                    selected_datasets.append(ds)
+                    group_labels[ds] = group_name
+        
+        # Normalize dataset_selection to list for consistent processing
+        elif isinstance(dataset_selection, str):
+            selected_datasets = [dataset_selection]
+        elif isinstance(dataset_selection, list):
+            selected_datasets = dataset_selection
+        else:
             QMessageBox.critical(
                 self,
                 self.localize("ANALYSIS_PAGE.error_title"),
-                self.localize("ANALYSIS_PAGE.dataset_not_found")
+                "Invalid dataset selection format"
+            )
+            return
+        
+        # Validate number of datasets selected
+        num_selected = len(selected_datasets)
+        if num_selected < min_datasets:
+            QMessageBox.warning(
+                self,
+                self.localize("ANALYSIS_PAGE.validation_error_title"),
+                self.localize("ANALYSIS_PAGE.insufficient_datasets_message", 
+                            required=min_datasets, selected=num_selected)
+            )
+            return
+        
+        if max_datasets is not None and num_selected > max_datasets:
+            QMessageBox.warning(
+                self,
+                self.localize("ANALYSIS_PAGE.validation_error_title"),
+                self.localize("ANALYSIS_PAGE.too_many_datasets_message",
+                            max=max_datasets, selected=num_selected)
+            )
+            return
+        
+        # Get datasets from RAMAN_DATA dict
+        dataset_data = {}
+        missing_datasets = []
+        for name in selected_datasets:
+            dataset = self.raman_data.get(name)
+            if dataset is None:
+                missing_datasets.append(name)
+            else:
+                dataset_data[name] = dataset
+        
+        if missing_datasets:
+            QMessageBox.critical(
+                self,
+                self.localize("ANALYSIS_PAGE.error_title"),
+                self.localize("ANALYSIS_PAGE.datasets_not_found", 
+                            datasets=", ".join(missing_datasets))
             )
             return
         
         # Extract parameters from widget using get_parameters() method
         parameters = param_widget.get_parameters() if param_widget else {}
         
+        # Add group labels to parameters if present
+        if group_labels:
+            parameters['_group_labels'] = group_labels
+        
         # Disable run button during execution
         self.method_view.run_btn.setEnabled(False)
         self.method_view.run_btn.setText(self.localize("ANALYSIS_PAGE.running"))
         
         # Create and start analysis thread
+        # AnalysisThread expects dataset_data as Dict[str, pd.DataFrame]
         self.analysis_thread = AnalysisThread(
-            category, method_key, dataset, parameters
+            category, method_key, parameters, dataset_data
         )
         self.analysis_thread.finished.connect(
-            lambda result: self._on_analysis_finished(result, category, method_key, dataset_name, parameters)
+            lambda result: self._on_analysis_finished(result, category, method_key, selected_datasets, parameters)
         )
         self.analysis_thread.error.connect(self._on_analysis_error)
         self.analysis_thread.progress.connect(self._on_analysis_progress)
@@ -283,7 +349,7 @@ class AnalysisPage(QWidget):
         result: AnalysisResult,
         category: str,
         method_key: str,
-        dataset_name: str,
+        dataset_names: list,
         parameters: Dict
     ):
         """
@@ -293,12 +359,12 @@ class AnalysisPage(QWidget):
             result: Analysis result object
             category: Method category
             method_key: Method identifier
-            dataset_name: Dataset name
+            dataset_names: List of dataset names used
             parameters: Analysis parameters
         """
         # Re-enable run button
         self.method_view.run_btn.setEnabled(True)
-        self.method_view.run_btn.setText(self.localize("ANALYSIS_PAGE.run_analysis"))
+        self.method_view.run_btn.setText(self.localize("ANALYSIS_PAGE.start_analysis_button"))
         
         # Store result
         self.current_result = result
@@ -311,14 +377,15 @@ class AnalysisPage(QWidget):
             MatplotlibWidget
         )
         
-        # Add to history
+        # Add to history (use first dataset name for display, full list in result)
         method_info = ANALYSIS_METHODS[category][method_key]
+        display_name = dataset_names[0] if len(dataset_names) == 1 else f"{len(dataset_names)} datasets"
         history_item = AnalysisHistoryItem(
             timestamp=datetime.now(),
             category=category,
             method_key=method_key,
             method_name=method_info["name"],
-            dataset_name=dataset_name,
+            dataset_name=display_name,
             parameters=parameters,
             result=result
         )
@@ -338,7 +405,7 @@ class AnalysisPage(QWidget):
         # Re-enable run button
         if self.method_view:
             self.method_view.run_btn.setEnabled(True)
-            self.method_view.run_btn.setText(self.localize("ANALYSIS_PAGE.run_analysis"))
+            self.method_view.run_btn.setText(self.localize("ANALYSIS_PAGE.start_analysis_button"))
         
         # Show error dialog
         QMessageBox.critical(
@@ -350,17 +417,16 @@ class AnalysisPage(QWidget):
         # Emit signal
         self.error_occurred.emit(error_msg)
     
-    def _on_analysis_progress(self, progress: int, message: str):
+    def _on_analysis_progress(self, progress: int):
         """
         Update progress during analysis.
         
         Args:
             progress: Progress percentage (0-100)
-            message: Progress message
         """
         # Update button text with progress
         if self.method_view:
-            self.method_view.run_btn.setText(f"{message} ({progress}%)")
+            self.method_view.run_btn.setText(f"{self.localize('ANALYSIS_PAGE.running')}... ({progress}%)")
     
     def _update_history_list(self):
         """Update history sidebar with recent analyses."""
@@ -396,11 +462,18 @@ class AnalysisPage(QWidget):
         
         # Restore parameters (if possible)
         if self.method_view and hasattr(self.method_view, 'param_widget'):
-            # Set dataset
-            dataset_combo = self.method_view.dataset_combo
-            dataset_idx = dataset_combo.findText(history_item.dataset_name)
-            if dataset_idx >= 0:
-                dataset_combo.setCurrentIndex(dataset_idx)
+            # Set dataset - handle both simple and group modes
+            dataset_widget = self.method_view.dataset_widget
+            if dataset_widget and isinstance(history_item.dataset_name, str):
+                # Handle both QComboBox (single mode) and QListWidget (multi mode)
+                if hasattr(dataset_widget, 'findText'):  # QComboBox
+                    dataset_idx = dataset_widget.findText(history_item.dataset_name)
+                    if dataset_idx >= 0:
+                        dataset_widget.setCurrentIndex(dataset_idx)
+                elif hasattr(dataset_widget, 'findItems'):  # QListWidget
+                    items = dataset_widget.findItems(history_item.dataset_name, Qt.MatchExactly)
+                    if items:
+                        items[0].setSelected(True)
             
             # Restore parameters by recreating the widget with saved params
             # The DynamicParameterWidget constructor accepts saved_params
@@ -432,41 +505,58 @@ class AnalysisPage(QWidget):
     
     def _on_dataset_changed(self):
         """Handle dataset changes (load/remove)."""
-        # If in method view, update dataset combo
-        if self.method_view and hasattr(self.method_view, 'dataset_combo'):
-            combo = self.method_view.dataset_combo
-            current = combo.currentText()
-            combo.clear()
+        # If in method view, update dataset widget
+        if self.method_view and hasattr(self.method_view, 'dataset_widget'):
+            widget = self.method_view.dataset_widget
             
-            if self.raman_data:
-                combo.addItems([ds.name for ds in self.raman_data.datasets])
+            # Handle QComboBox (single-dataset mode)
+            if hasattr(widget, 'currentText'):
+                current = widget.currentText()
+                widget.clear()
                 
-                # Restore selection if still available
-                idx = combo.findText(current)
-                if idx >= 0:
-                    combo.setCurrentIndex(idx)
+                if self.raman_data:
+                    # RAMAN_DATA is a dict, get dataset names from keys
+                    widget.addItems(list(self.raman_data.keys()))
+                    
+                    # Restore selection if still available
+                    idx = widget.findText(current)
+                    if idx >= 0:
+                        widget.setCurrentIndex(idx)
+            
+            # Handle QListWidget (multi-dataset mode)
+            elif hasattr(widget, 'selectedItems'):
+                selected_names = [item.text() for item in widget.selectedItems()]
+                widget.clear()
+                
+                if self.raman_data:
+                    widget.addItems(list(self.raman_data.keys()))
+                    
+                    # Restore selections if still available
+                    for i in range(widget.count()):
+                        if widget.item(i).text() in selected_names:
+                            widget.item(i).setSelected(True)
     
     # === Export Methods ===
     
     def _export_png(self):
         """Export current plot as PNG."""
-        if not self.current_result or not self.current_result.figure:
+        if not self.current_result or not self.current_result.primary_figure:
             return
         
         method_name = ANALYSIS_METHODS[self.current_category][self.current_method_key]["name"]
         filename = f"{method_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
         
-        self.export_manager.export_plot_png(self.current_result.figure, filename)
+        self.export_manager.export_plot_png(self.current_result.primary_figure, filename)
     
     def _export_svg(self):
         """Export current plot as SVG."""
-        if not self.current_result or not self.current_result.figure:
+        if not self.current_result or not self.current_result.primary_figure:
             return
         
         method_name = ANALYSIS_METHODS[self.current_category][self.current_method_key]["name"]
         filename = f"{method_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.svg"
         
-        self.export_manager.export_plot_svg(self.current_result.figure, filename)
+        self.export_manager.export_plot_svg(self.current_result.primary_figure, filename)
     
     def _export_csv(self):
         """Export current data table as CSV."""
@@ -489,7 +579,16 @@ class AnalysisPage(QWidget):
             return
         
         method_name = ANALYSIS_METHODS[self.current_category][self.current_method_key]["name"]
-        dataset_name = self.method_view.dataset_combo.currentText() if self.method_view else "Unknown"
+        
+        # Get dataset name from widget
+        dataset_name = "Unknown"
+        if self.method_view and hasattr(self.method_view, 'dataset_widget'):
+            widget = self.method_view.dataset_widget
+            if hasattr(widget, 'currentText'):
+                dataset_name = widget.currentText()
+            elif hasattr(widget, 'selectedItems'):
+                selected = widget.selectedItems()
+                dataset_name = selected[0].text() if selected else "Multiple"
         
         # Get current parameters
         parameters = {}
@@ -517,7 +616,16 @@ class AnalysisPage(QWidget):
             return
         
         method_name = ANALYSIS_METHODS[self.current_category][self.current_method_key]["name"]
-        dataset_name = self.method_view.dataset_combo.currentText() if self.method_view else "Unknown"
+        
+        # Get dataset name from widget
+        dataset_name = "Unknown"
+        if self.method_view and hasattr(self.method_view, 'dataset_widget'):
+            widget = self.method_view.dataset_widget
+            if hasattr(widget, 'currentText'):
+                dataset_name = widget.currentText()
+            elif hasattr(widget, 'selectedItems'):
+                selected = widget.selectedItems()
+                dataset_name = selected[0].text() if selected else "Multiple"
         
         # Get current parameters
         parameters = {}

@@ -1,7 +1,67 @@
 # Base Memory - AI Agent Knowledge Base
 
 > **Core knowledge and reference system for AI-assisted development**  
-> **Last Updated**: October 21, 2025 - Build Troubleshooting Guide (Part 7)
+> **Last Updated**: November 19, 2025 - Localization Initialization Pattern (Critical Fix)
+
+## 🌐 LOCALIZATION PATTERN (November 19, 2025) ⭐ CRITICAL
+
+### Single Initialization Rule
+**CRITICAL**: LocalizationManager must be initialized **ONLY ONCE** in `utils.py`
+
+**Correct Pattern**:
+```python
+# utils.py (SINGLE SOURCE OF TRUTH)
+arg_lang = args.lang  # Command-line argument (default: 'ja')
+CONFIGS = load_config()
+LOCALIZEMANAGER = LocalizationManager(default_lang=arg_lang)
+
+def LOCALIZE(key, **kwargs):
+    return LOCALIZEMANAGER.get(key, **kwargs)
+```
+
+**Usage in Other Files**:
+```python
+# ANY other Python file
+from utils import LOCALIZE  # ✅ USE THIS
+
+# NOT this:
+from configs.configs import LocalizationManager  # ❌ NEVER IMPORT THIS
+localize = LocalizationManager()  # ❌ NEVER INSTANTIATE
+```
+
+### Common Mistakes to Avoid
+
+❌ **WRONG**: Creating new instance
+```python
+from configs.configs import LocalizationManager
+localize = LocalizationManager()  # Creates duplicate!
+```
+
+❌ **WRONG**: Calling set_language() after initialization
+```python
+# main.py
+language = CONFIGS.get("language", "ja")
+LOCALIZEMANAGER.set_language(language)  # Overrides command-line arg!
+```
+
+✅ **CORRECT**: Use global LOCALIZE function
+```python
+from utils import LOCALIZE
+text = LOCALIZE("KEY.subkey")
+```
+
+### Why This Matters
+- Command-line arguments (`--lang en`) must take priority over config files
+- Multiple initializations cause language to be overridden
+- Global state should be initialized once at module import
+- Prevents "Successfully loaded language" appearing multiple times in logs
+
+### Priority Hierarchy
+1. **Command-line arguments** (highest priority) - set in utils.py
+2. **Config file** (fallback) - currently not used
+3. **Code defaults** (last resort) - argparse default='ja'
+
+---
 
 ## 🔧 BUILD SYSTEM (October 21, 2025) ⭐ UPDATED
 
@@ -1128,3 +1188,293 @@ if current_row < len(self.pipeline_steps):
 - [Recent Changes](./RECENT_CHANGES.md)
 - [File Structure](./FILE_STRUCTURE.md)
 - [Bug Fixes Report](../FINAL_BUG_FIX_REPORT.md)
+
+---
+
+##  MATPLOTLIB PATCH MANAGEMENT (November 20, 2025)  CRITICAL
+
+### Patches Cannot Be Transferred Between Figures
+
+**CRITICAL RULE**: Matplotlib patches (Ellipse, Rectangle, Polygon) belong to ONE figure and CANNOT be moved to another figure.
+
+**The Problem**:
+`python
+#  WRONG (causes RuntimeError)
+ellipse = Ellipse(xy=(x, y), ...)
+ax1.add_patch(ellipse)  # Ellipse belongs to fig1
+
+# Later, trying to display in new figure:
+new_ax.add_patch(ellipse)  # RuntimeError: Can not put single artist in more than one figure
+`
+
+**The Solution - Recreate Patches**:
+`python
+#  CORRECT (recreate patch with same properties)
+for patch in old_ax.patches:
+    if isinstance(patch, Ellipse):
+        new_ellipse = Ellipse(
+            xy=patch.center,
+            width=patch.width,
+            height=patch.height,
+            angle=patch.angle,
+            facecolor=patch.get_facecolor(),
+            edgecolor=patch.get_edgecolor(),
+            linestyle=patch.get_linestyle(),
+            linewidth=patch.get_linewidth(),
+            alpha=patch.get_alpha(),
+            label=patch.get_label()
+        )
+        new_ax.add_patch(new_ellipse)
+`
+
+### Implementation Pattern
+
+**Location**: components/widgets/matplotlib_widget.py lines 200-240
+
+**Type Checking Required**:
+- Ellipse - PCA confidence intervals (CRITICAL for Chemometrics)
+- Rectangle - Bar charts, histograms
+- Polygon - Custom shapes (not yet implemented)
+
+**Debug Logging**:
+`python
+print(f"[DEBUG] Recreating {len(ax.patches)} patches on new axis")
+print(f"[DEBUG] Recreated ellipse at {patch.center} on new axis")
+`
+
+### Scientific Context
+
+**Why This Matters**:
+- Confidence ellipses are **mandatory** in Chemometrics PCA plots
+- Prove statistical separation between groups (e.g., MM vs MGUS)
+- Without ellipses, plots are scientifically incomplete
+- Medical diagnostics depend on visual separation proof
+
+**Previous Workaround**: Skip patches entirely  Loss of critical information
+**Current Solution**: Recreate patches  Full functionality restored
+
+### Common Failure Modes
+
+1. **Attempting to copy patches directly**:
+   `python
+   new_ax.add_patch(patch)  # RuntimeError!
+   `
+
+2. **Not handling patch types**:
+   `python
+   # Ellipse and Rectangle have different constructors
+   # Must use isinstance() to check type
+   `
+
+3. **Forgetting to preserve properties**:
+   `python
+   # Must copy: color, alpha, linewidth, linestyle, label
+   `
+
+### Testing Requirements
+
+1. Create PCA plot with confidence ellipses
+2. Display in matplotlib_widget
+3. Verify terminal shows "Recreated ellipse" messages
+4. Verify ellipses visible in UI
+5. No RuntimeError
+
+
+---
+
+##  QT BUTTON GROUP SIGNAL DEBUGGING (November 20, 2025)  CRITICAL
+
+### Why Qt Signals Fail Silently
+
+**CRITICAL ISSUE**: Qt signal connections can fail without Python exceptions. Only way to diagnose is comprehensive debug logging.
+
+**The Problem**:
+`python
+# Signal connection might fail silently:
+button_group.buttonClicked.connect(handler)
+# User clicks button  NOTHING HAPPENS
+# No error, no exception, no feedback
+`
+
+### Comprehensive Debug Strategy
+
+**5-Stage Debug Logging** (Required for diagnosing button issues):
+
+#### Stage 1: Button Creation
+`python
+button = QRadioButton("Label")
+button.setObjectName("my_button")  # CRITICAL for debugging
+print("[DEBUG] Created my_button")
+`
+
+#### Stage 2: Individual Click Handlers
+`python
+def on_button_clicked():
+    print("[DEBUG] button.clicked() signal fired!")
+    print(f"[DEBUG] Button is checked: {button.isChecked()}")
+
+button.clicked.connect(on_button_clicked)
+print("[DEBUG] Connected button.clicked signal")
+`
+
+**Why Individual Handlers**: 
+- clicked() signal fires BEFORE uttonClicked() on button group
+- If clicked() works but not uttonClicked(), group connection is broken
+- If neither fires, button click not reaching Qt event loop (CSS/layout issue)
+
+#### Stage 3: Button Group Setup
+`python
+button_group = QButtonGroup()
+print("[DEBUG] Creating QButtonGroup")
+
+button_group.addButton(button1, 0)
+print(f"[DEBUG] Added button1 with ID 0")
+
+button_group.addButton(button2, 1)
+print(f"[DEBUG] Added button2 with ID 1")
+
+print(f"[DEBUG] Button group contains {len(button_group.buttons())} buttons")
+`
+
+#### Stage 4: Signal Connection Verification
+`python
+button_group.buttonClicked.connect(toggle_function)
+print("[DEBUG] Signal connected")
+print(f"[DEBUG] Signal object: {button_group.buttonClicked}")
+print(f"[DEBUG] Handler function: {toggle_function}")
+print(f"[DEBUG] button1 checked: {button1.isChecked()}")
+print(f"[DEBUG] button2 checked: {button2.isChecked()}")
+`
+
+#### Stage 5: Handler Function Logging
+`python
+def toggle_function(button):
+    print("[DEBUG] toggle_function called")
+    print(f"[DEBUG] Button clicked: {button}")
+    print(f"[DEBUG] Button objectName: {button.objectName()}")
+    
+    if button == button1:
+        print("[DEBUG] Switching to mode 1")
+        # ... action
+    elif button == button2:
+        print("[DEBUG] Switching to mode 2")
+        # ... action
+    else:
+        print("[DEBUG] WARNING: Button not recognized!")
+`
+
+### Diagnostic Flow
+
+**Expected Terminal Output When Button Works**:
+`
+[DEBUG] button2.clicked() signal fired!
+[DEBUG] Button is checked: True
+[DEBUG] toggle_function called
+[DEBUG] Button clicked: <PySide6.QtWidgets.QRadioButton(0x...) at 0x...>
+[DEBUG] Button objectName: button2
+[DEBUG] Switching to mode 2
+`
+
+**Troubleshooting Decision Tree**:
+
+| Symptom | Diagnosis | Solution |
+|---------|-----------|----------|
+| No clicked() signal | Button click not reaching Qt | Check CSS pointer-events, isEnabled() |
+| clicked() fires, but not buttonClicked() | Button group connection broken | Verify addButton() calls |
+| buttonClicked() fires, but wrong action | Button identity comparison failed | Use objectName or button IDs |
+| All signals fire, but UI doesn't change | Widget/state issue | Check actual action code |
+
+### Common Failure Patterns
+
+#### 1. Missing objectName
+`python
+#  WRONG (can't debug button identity)
+button = QRadioButton("Label")
+
+#  CORRECT (can identify in debug output)
+button = QRadioButton("Label")
+button.setObjectName("classification_button")
+`
+
+#### 2. No Individual Click Handlers
+`python
+#  WRONG (can't detect if click reaches Qt)
+button_group.buttonClicked.connect(handler)
+
+#  CORRECT (can detect click even if group fails)
+button.clicked.connect(lambda: print("[DEBUG] Click detected"))
+button_group.buttonClicked.connect(handler)
+`
+
+#### 3. No Button Group Verification
+`python
+#  WRONG (don't know if buttons added)
+button_group.addButton(button1)
+button_group.addButton(button2)
+
+#  CORRECT (verify button count)
+button_group.addButton(button1, 0)
+print(f"[DEBUG] Added button1, group has {len(button_group.buttons())} buttons")
+button_group.addButton(button2, 1)
+print(f"[DEBUG] Added button2, group has {len(button_group.buttons())} buttons")
+`
+
+#### 4. Missing Initial State Verification
+`python
+#  WRONG (don't know initial state)
+button1.setChecked(True)
+
+#  CORRECT (verify state was set)
+button1.setChecked(True)
+print(f"[DEBUG] button1 checked: {button1.isChecked()}")
+print(f"[DEBUG] button2 checked: {button2.isChecked()}")
+`
+
+### Qt Signal/Slot Architecture
+
+**Signal Types**:
+- **Widget-specific**: clicked(), 	oggled(), alueChanged()
+- **Button group**: uttonClicked(QAbstractButton*)
+
+**Signal Timing**:
+1. User clicks button
+2. Button's clicked() signal fires
+3. Button group's uttonClicked() signal fires
+4. Widget updates
+
+**Connection Failures**:
+- Type mismatch (signal emits int, slot expects str)
+- Object deleted (button destroyed before signal fires)
+- Lambda capture issues (wrong variable captured)
+
+### Implementation Location
+
+**File**: pages/analysis_page_utils/method_view.py lines 128-338
+
+**Debug Statements Added**: 23 total
+- Button creation: 2
+- Individual click handlers: 4
+- Button group setup: 8
+- Signal connection: 7
+- Initial state: 2
+
+### Testing Requirements
+
+1. Run app, navigate to page with button group
+2. Verify terminal shows all creation messages
+3. Click each button
+4. Verify terminal shows:
+   - clicked() signal fired!
+   - 	oggle_function called
+   - Correct button identification
+   - Expected action messages
+5. Verify UI changes as expected
+
+### Scientific Impact
+
+**Why This Matters for Raman App**:
+- Classification mode button controls PCA group assignment
+- Group assignment critical for medical diagnostics (MM vs MGUS vs Normal)
+- Silent failure blocks entire analysis workflow
+- Debug logging enables rapid troubleshooting during experiments
+

@@ -188,9 +188,9 @@ class ExportManager(QObject):
             report_folder.mkdir(parents=True, exist_ok=True)
             
             # Export plot
-            if result.figure:
+            if result.primary_figure:
                 plot_path = report_folder / "plot.png"
-                result.figure.savefig(plot_path, dpi=300, bbox_inches='tight')
+                result.primary_figure.savefig(plot_path, dpi=300, bbox_inches='tight')
             
             # Export data table
             if result.data_table is not None:
@@ -212,10 +212,10 @@ class ExportManager(QObject):
                     f.write(f"  {key}: {value}\n")
                 f.write("\n" + "="*60 + "\n\n")
                 
-                if result.summary:
+                if result.detailed_summary:
                     f.write("Summary:\n")
-                    f.write(result.summary)
-                    f.write("\n\n" + "="*60 + "\n\n")
+                    f.write(result.detailed_summary)
+                    f.write("\n" + "="*60 + "\n")
                 
                 if hasattr(result, 'diagnostics') and result.diagnostics:
                     f.write("Diagnostics:\n")
@@ -265,9 +265,9 @@ class ExportManager(QObject):
             result_folder.mkdir(parents=True, exist_ok=True)
             
             # Save plot
-            if result.figure:
+            if result.primary_figure:
                 plot_path = result_folder / "plot.png"
-                result.figure.savefig(plot_path, dpi=300, bbox_inches='tight')
+                result.primary_figure.savefig(plot_path, dpi=300, bbox_inches='tight')
             
             # Save data
             if result.data_table is not None:
@@ -282,7 +282,7 @@ class ExportManager(QObject):
                 "dataset": dataset_name,
                 "parameters": parameters,
                 "timestamp": timestamp,
-                "summary": result.summary if result.summary else ""
+                "summary": result.detailed_summary if result.detailed_summary else ""
             }
             with open(result_folder / "metadata.json", 'w', encoding='utf-8') as f:
                 json.dump(metadata, f, indent=2, ensure_ascii=False)

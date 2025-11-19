@@ -23,7 +23,7 @@ class AppTabBar(QWidget):
         
         # --- Layout and Button Group ---
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 0, 10, 0)
+        layout.setContentsMargins(10, 6, 10, 6)
         layout.setSpacing(5)
         layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
@@ -32,7 +32,8 @@ class AppTabBar(QWidget):
 
         # --- Define Tabs ---
         # Note: Home tab is separate and handled differently
-        tabs = [
+        # Store tab definitions for dynamic text updates
+        self.tab_definitions = [
             ("data", "TABS.data"),
             ("preprocessing", "TABS.preprocessing"),
             ("analysis", "TABS.analysis"),
@@ -49,10 +50,11 @@ class AppTabBar(QWidget):
         layout.addSpacing(10)
 
         # --- Create and Add Tab Buttons ---
-        for index, (object_name, loc_key) in enumerate(tabs):
+        for index, (object_name, loc_key) in enumerate(self.tab_definitions):
             button = QPushButton(LOCALIZE(loc_key))
             button.setObjectName(object_name) # For specific styling if needed
             button.setCheckable(True)
+            button.setProperty("loc_key", loc_key)  # Store localization key for updates
             layout.addWidget(button)
             self.button_group.addButton(button, index)
 
@@ -62,6 +64,19 @@ class AppTabBar(QWidget):
         # Set the first tab as active by default
         if self.button_group.button(0):
             self.button_group.button(0).setChecked(True)
+    
+    def update_localized_text(self):
+        """Update all button texts with current localization."""
+        # Update home button
+        self.home_button.setText(LOCALIZE("TABS.home"))
+        
+        # Update all tab buttons
+        for index in range(len(self.tab_definitions)):
+            button = self.button_group.button(index)
+            if button:
+                loc_key = button.property("loc_key")
+                if loc_key:
+                    button.setText(LOCALIZE(loc_key))
 
     def setActiveTab(self, index: int):
         """Programmatically sets the active tab."""

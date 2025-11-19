@@ -2,6 +2,146 @@
 
 ## Code Architecture Patterns
 
+### 0.0.0. Method Card with Preview Images Pattern (November 19, 2025) 🆕⭐🖼️
+**PURPOSE**: Display analysis method cards with preview images showing typical visualization outputs  
+**CONTEXT**: Analysis page method selection cards, any card-based method gallery interface
+
+**✅ CORRECT Pattern - Method Card with Image**:
+```python
+import os
+from PySide6.QtWidgets import QFrame, QVBoxLayout, QLabel, QPushButton
+from PySide6.QtCore import Qt, QSize
+from PySide6.QtGui import QPixmap
+
+# Step 1: Create method-to-image mapping dictionary
+METHOD_IMAGES = {
+    "pca": "pca_analysis.png",
+    "umap": "umap.png",
+    "tsne": "t-sne.png",
+    "spectral_heatmap": "spectral_heatmap.png",
+    "waterfall_plot": "waterfall.png",
+    # ... more mappings
+}
+
+def create_method_card(method_key, method_info, localize_func, on_click):
+    """Create card with preview image at top."""
+    card = QFrame()
+    card.setObjectName("methodCard")
+    card.setMinimumHeight(200)  # Increased for image
+    card.setCursor(Qt.PointingHandCursor)
+    
+    layout = QVBoxLayout(card)
+    layout.setSpacing(8)
+    
+    # Step 2: Add image if available (TOP of card)
+    if method_key in METHOD_IMAGES:
+        image_label = QLabel()
+        image_label.setAlignment(Qt.AlignCenter)
+        
+        # Resolve path relative to project root
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__)
+        )))
+        image_path = os.path.join(base_dir, "assets", "image", 
+                                 METHOD_IMAGES[method_key])
+        
+        # Load and scale image
+        if os.path.exists(image_path):
+            pixmap = QPixmap(image_path)
+            if not pixmap.isNull():
+                # Scale with quality (max 240×120px)
+                scaled_pixmap = pixmap.scaled(
+                    240, 120,
+                    Qt.KeepAspectRatio,
+                    Qt.SmoothTransformation
+                )
+                image_label.setPixmap(scaled_pixmap)
+                image_label.setStyleSheet("""
+                    QLabel {
+                        background-color: #f8f9fa;
+                        border-radius: 4px;
+                        padding: 4px;
+                    }
+                """)
+                layout.addWidget(image_label)
+    
+    # Step 3: Add method name (after image)
+    name_label = QLabel(localize_func(f"METHOD.{method_key}"))
+    name_label.setStyleSheet("font-weight: 600; font-size: 14px;")
+    layout.addWidget(name_label)
+    
+    # Step 4: Add description
+    desc_label = QLabel(localize_func(f"METHOD_DESC.{method_key}"))
+    desc_label.setWordWrap(True)
+    layout.addWidget(desc_label)
+    
+    layout.addStretch()
+    
+    # Step 5: Add action button (bottom)
+    btn = QPushButton(localize_func("start_analysis"))
+    btn.clicked.connect(lambda: on_click(method_key))
+    layout.addWidget(btn)
+    
+    return card
+```
+
+**Image Specifications**:
+- **Location**: `assets/image/` folder (PNG files)
+- **Max Dimensions**: 240px width × 120px height
+- **Scaling**: Maintain aspect ratio with smooth transformation
+- **Background**: Light gray (#f8f9fa) with 4px border radius
+- **Positioning**: Top of card, centered
+- **Padding**: 4px around image
+
+**Card Layout Order** (Top to Bottom):
+1. Preview Image (if available)
+2. Method Name (bold, 14px)
+3. Description (word-wrapped)
+4. Stretch spacer
+5. Action Button
+
+**Why This Pattern Works**:
+1. **Visual Learning**: Users see output before selecting method
+2. **Fast Recognition**: Images faster to scan than text
+3. **Professional Look**: Images make interface more polished
+4. **Clear Expectations**: Users know what method produces
+5. **Graceful Degradation**: Works even if images missing
+
+**Benefits**:
+- Improved user experience with visual previews
+- Faster method selection
+- Reduced learning curve for new users
+- Professional, modern interface design
+
+**❌ INCORRECT Pattern - Don't hardcode paths**:
+```python
+# DON'T: Hardcode absolute paths
+image_path = "C:/Users/me/project/assets/image/pca.png"
+
+# DON'T: Use relative paths without resolution
+image_path = "../../../assets/image/pca.png"
+
+# DON'T: Skip existence checks
+pixmap = QPixmap(image_path)
+image_label.setPixmap(pixmap)  # May fail silently
+```
+
+**Best Practices**:
+1. Always resolve paths relative to project root
+2. Check file existence before loading
+3. Validate pixmap is not null before displaying
+4. Use smooth transformation for high quality scaling
+5. Maintain aspect ratio to prevent distortion
+6. Provide light background for image separation
+7. Position images at top for maximum impact
+
+**Related Patterns**:
+- Icon Loading Pattern (0.0)
+- Card-Based UI Pattern (Section 3)
+- Modern Card-Based UI Pattern (October 2025)
+
+---
+
 ### 0.0. Icon Loading Pattern (October 16, 2025) 🆕⭐
 **PURPOSE**: Standardized icon loading using centralized icon management  
 **CONTEXT**: All UI components requiring icons (buttons, toolbars, widgets)

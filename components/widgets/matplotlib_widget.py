@@ -169,14 +169,91 @@ class MatplotlibWidget(QWidget):
                 # For multiple subplots, try to preserve layout
                 new_ax = self.figure.add_subplot(len(axes_list), 1, i+1)
             
-            # Copy all lines from the original axes
-            line_count = len(ax.get_lines())
+            # Copy all line plots from the original axes
             for line in ax.get_lines():
                 new_ax.plot(line.get_xdata(), line.get_ydata(), 
                            label=line.get_label(), 
                            color=line.get_color(),
                            linestyle=line.get_linestyle(),
-                           linewidth=line.get_linewidth())
+                           linewidth=line.get_linewidth(),
+                           marker=line.get_marker(),
+                           markersize=line.get_markersize())
+            
+            # Copy scatter plots (PathCollections) from the original axes
+            from matplotlib.collections import LineCollection
+            
+            for collection in ax.collections:
+                # Skip LineCollection (used in dendrograms, heatmaps) - they don't have get_sizes()
+                if isinstance(collection, LineCollection):
+                    print(f"[DEBUG] Skipping LineCollection (no get_sizes method)")
+                    continue
+                
+                offsets = collection.get_offsets()
+                if len(offsets) > 0:
+                    # Get collection properties
+                    facecolors = collection.get_facecolors()
+                    edgecolors = collection.get_edgecolors()
+                    sizes = collection.get_sizes() if hasattr(collection, 'get_sizes') else [50]
+                    label = collection.get_label()
+                    
+                    # Create scatter plot
+                    new_ax.scatter(offsets[:, 0], offsets[:, 1],
+                                 c=facecolors if len(facecolors) > 0 else None,
+                                 s=sizes[0] if len(sizes) > 0 else 50,
+                                 edgecolors=edgecolors if len(edgecolors) > 0 else None,
+                                 label=label if label and not label.startswith('_') else None,
+                                 alpha=collection.get_alpha() or 1.0)
+            
+            # Recreate patches (ellipses, rectangles) on new axis
+            # Patches can't be transferred between figures (RuntimeError), so we recreate them
+            # Skip if too many patches (likely heatmap/correlation plot with many cells)
+            num_patches = len(ax.patches)
+            print(f"[DEBUG] Found {num_patches} patches on axis")
+            
+            if num_patches > 100:
+                print(f"[DEBUG] Too many patches ({num_patches}), skipping recreation (likely heatmap)")
+                print(f"[DEBUG] Heatmap patches are handled by matplotlib's internal rendering")
+            else:
+                print(f"[DEBUG] Recreating {num_patches} patches on new axis")
+                
+                from matplotlib.patches import Ellipse, Rectangle, Polygon
+                
+                for patch in ax.patches:
+                    # Get patch properties
+                    if isinstance(patch, Ellipse):
+                        # Recreate ellipse with same properties
+                        new_ellipse = Ellipse(
+                            xy=patch.center,
+                            width=patch.width,
+                            height=patch.height,
+                            angle=patch.angle,
+                            facecolor=patch.get_facecolor(),
+                            edgecolor=patch.get_edgecolor(),
+                            linestyle=patch.get_linestyle(),
+                            linewidth=patch.get_linewidth(),
+                            alpha=patch.get_alpha(),
+                            label=patch.get_label() if not patch.get_label().startswith('_') else None
+                        )
+                        new_ax.add_patch(new_ellipse)
+                        print(f"[DEBUG] Recreated ellipse at {patch.center} on new axis")
+                    
+                    elif isinstance(patch, Rectangle):
+                        # Recreate rectangle (for bar plots)
+                        new_rect = Rectangle(
+                            xy=(patch.get_x(), patch.get_y()),
+                            width=patch.get_width(),
+                            height=patch.get_height(),
+                            facecolor=patch.get_facecolor(),
+                            edgecolor=patch.get_edgecolor(),
+                            linewidth=patch.get_linewidth(),
+                            alpha=patch.get_alpha()
+                        )
+                        new_ax.add_patch(new_rect)
+                        print(f"[DEBUG] Recreated rectangle at ({patch.get_x()}, {patch.get_y()}) on new axis")
+                    
+                    else:
+                        # For other patch types, log and skip
+                        print(f"[DEBUG] Skipping unsupported patch type: {type(patch).__name__}")
             
             # Copy axes properties
             new_ax.set_title(ax.get_title())
@@ -185,9 +262,13 @@ class MatplotlibWidget(QWidget):
             new_ax.set_xlim(ax.get_xlim())
             new_ax.set_ylim(ax.get_ylim())
             
-            # Copy legend if it exists
-            if ax.get_legend():
-                new_ax.legend()
+            # Copy legend if it exists and has valid artists
+            legend = ax.get_legend()
+            if legend and legend.get_texts():
+                # Check if there are any labeled artists
+                handles, labels = ax.get_legend_handles_labels()
+                if handles and labels:
+                    new_ax.legend(handles, labels, loc=legend._loc if hasattr(legend, '_loc') else 'best')
             
             # Add grid
             new_ax.grid(True, which='both', linestyle='--', linewidth=0.5)
