@@ -396,11 +396,16 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
         },
         "waterfall_plot": {
             "name": "Waterfall Plot",
-            "description": "visualization of multiple spectra",
+            "description": "2D/3D visualization of multiple spectra with offset",
             "min_datasets": 1,
             "max_datasets": 1,
             "dataset_selection_mode": "single",
             "params": {
+                "use_3d": {
+                    "type": "checkbox",
+                    "default": False,
+                    "label": "3D Waterfall Plot"
+                },
                 "offset_scale": {
                     "type": "double_spinbox",
                     "default": 1.0,
@@ -416,9 +421,14 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                 },
                 "colormap": {
                     "type": "combo",
-                    "options": ["viridis", "plasma", "coolwarm", "rainbow"],
+                    "options": ["viridis", "plasma", "coolwarm", "rainbow", "jet", "turbo"],
                     "default": "viridis",
                     "label": "Colormap"
+                },
+                "show_grid": {
+                    "type": "checkbox",
+                    "default": True,
+                    "label": "Show Grid Lines"
                 }
             },
             "function": "create_waterfall_plot"
@@ -457,7 +467,7 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
         },
         "peak_intensity_scatter": {
             "name": "Peak Intensity Scatter Plot",
-            "description": "2D/3D scatter plot of peak intensities",
+            "description": "2D/3D scatter plot of peak intensities with statistical annotations",
             "min_datasets": 1,
             "max_datasets": None,
             "dataset_selection_mode": "multi",
@@ -474,21 +484,44 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                     "range": (400, 4000),
                     "label": "Peak 2 Position (cm⁻¹)"
                 },
-                "use_3d": {
-                    "type": "checkbox",
-                    "default": False,
-                    "label": "3D Scatter (3 peaks)"
-                },
                 "peak_3_position": {
                     "type": "spinbox",
                     "default": 2900,
                     "range": (400, 4000),
                     "label": "Peak 3 Position (cm⁻¹)"
                 },
+                "tolerance": {
+                    "type": "spinbox",
+                    "default": 10,
+                    "range": (1, 50),
+                    "label": "Peak Tolerance (cm⁻¹)"
+                },
+                "use_3d": {
+                    "type": "checkbox",
+                    "default": False,
+                    "label": "3D Scatter (3 peaks)"
+                },
+                "show_statistics": {
+                    "type": "checkbox",
+                    "default": True,
+                    "label": "Show Statistics"
+                },
                 "show_legend": {
                     "type": "checkbox",
                     "default": True,
                     "label": "Show Legend"
+                },
+                "colormap": {
+                    "type": "combo",
+                    "default": "tab10",
+                    "options": ["tab10", "Set1", "Set2", "Dark2", "Paired", "viridis", "plasma"],
+                    "label": "Color Scheme"
+                },
+                "marker_size": {
+                    "type": "spinbox",
+                    "default": 60,
+                    "range": (20, 200),
+                    "label": "Marker Size"
                 }
             },
             "function": "create_peak_scatter"

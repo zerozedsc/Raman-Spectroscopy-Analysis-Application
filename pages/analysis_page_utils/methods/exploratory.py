@@ -7,7 +7,7 @@ t-SNE, and clustering techniques.
 
 import numpy as np
 import pandas as pd
-from typing import Dict, Any, Callable, Optional
+from typing import Dict, Any, Callable, Optional, Tuple, List
 import matplotlib
 matplotlib.use('Agg')  # Use non-GUI backend for thread safety
 from matplotlib import pyplot as plt
@@ -21,6 +21,7 @@ from sklearn.cluster import KMeans
 from scipy.cluster.hierarchy import dendrogram, linkage
 from scipy.spatial.distance import pdist
 from scipy import stats
+from scipy.interpolate import interp1d
 
 try:
     import umap
@@ -29,9 +30,202 @@ except ImportError:
     UMAP_AVAILABLE = False
 
 
+# =============================================================================
+# HIGH-CONTRAST COLOR PALETTE for multi-group visualization
+# =============================================================================
+def get_high_contrast_colors(num_groups: int) -> List[str]:
+    """
+    Get high-contrast color palette for clear visual distinction.
+    
+    ✅ FIX: Use distinct colors like "red and blue, green and red, yellow and blue"
+    for maximum visibility in t-SNE, PCA, UMAP visualizations.
+    
+    Args:
+        num_groups: Number of groups/datasets to color
+        
+    Returns:
+        List of hex color strings with high contrast
+    """
+    if num_groups == 2:
+        # Maximum contrast: Blue and Red
+        return ['#0066cc', '#ff4444']
+    elif num_groups == 3:
+        # High contrast: Blue, Red, Green
+        return ['#0066cc', '#ff4444', '#00cc66']
+    elif num_groups == 4:
+        # Blue, Red, Green, Orange
+        return ['#0066cc', '#ff4444', '#00cc66', '#ff9900']
+    elif num_groups == 5:
+        # Blue, Red, Green, Orange, Purple
+        return ['#0066cc', '#ff4444', '#00cc66', '#ff9900', '#9933ff']
+    elif num_groups == 6:
+        # Blue, Red, Green, Orange, Purple, Cyan
+        return ['#0066cc', '#ff4444', '#00cc66', '#ff9900', '#9933ff', '#00cccc']
+    else:
+        # For 7+ groups, use tab10 with good spacing
+        colors = plt.cm.tab10(np.linspace(0, 0.9, num_groups))
+        return [f'#{int(c[0]*255):02x}{int(c[1]*255):02x}{int(c[2]*255):02x}' for c in colors]
+
+
+# =============================================================================
+# WAVENUMBER INTERPOLATION for multi-dataset dimension mismatch fix
+# =============================================================================
+def interpolate_to_common_wavenumbers(
+    dataset_data: Dict[str, pd.DataFrame],
+    method: str = 'linear'
+) -> Tuple[np.ndarray, List[np.ndarray], List[str], np.ndarray]:
+    """
+    Interpolate all datasets to a common wavenumber grid.
+    
+    ✅ FIX: Resolves "ValueError: all the input array dimensions except for the
+    concatenation axis must match exactly, but along dimension 1, the array at
+    index 0 has size 2000 and the array at index 1 has size 559"
+    
+    This function finds the common overlapping wavenumber range across all datasets
+    and resamples each dataset to this common grid using scipy.interpolate.interp1d.
+    
+    For Raman spectroscopy:
+    - Different instruments may have different wavenumber resolutions
+    - Different measurement settings may result in different ranges
+    - This interpolation ensures all spectra have the same dimension for analysis
+    
+    Args:
+        dataset_data: Dictionary of {dataset_name: DataFrame} where each DataFrame
+                     has wavenumbers as index and spectra as columns
+        method: Interpolation method ('linear', 'cubic', 'nearest')
+        
+    Returns:
+        Tuple containing:
+            - common_wavenumbers: The shared wavenumber grid (1D array)
+            - interpolated_spectra: List of interpolated spectra matrices
+            - labels: List of dataset labels for each spectrum
+            - X: Concatenated matrix ready for analysis (n_spectra, n_wavenumbers)
+    """
+    print("[DEBUG] interpolate_to_common_wavenumbers() called")
+    
+    # Step 1: Find common wavenumber range
+    wn_mins = []
+    wn_maxs = []
+    wn_counts = []
+    
+    for dataset_name, df in dataset_data.items():
+        wavenumbers = df.index.values.astype(float)
+        wn_mins.append(np.min(wavenumbers))
+        wn_maxs.append(np.max(wavenumbers))
+        wn_counts.append(len(wavenumbers))
+        print(f"[DEBUG] Dataset '{dataset_name}': {len(wavenumbers)} points, range [{np.min(wavenumbers):.1f}, {np.max(wavenumbers):.1f}]")
+    
+    # Common range is the intersection of all ranges
+    common_min = max(wn_mins)
+    common_max = min(wn_maxs)
+    
+    if common_min >= common_max:
+        raise ValueError(
+            f"No overlapping wavenumber range found between datasets. "
+            f"Ranges: min={wn_mins}, max={wn_maxs}"
+        )
+    
+    # Use the minimum number of points from all datasets within the common range
+    # This prevents unnecessary upsampling and preserves data integrity
+    avg_density = np.mean(wn_counts) / np.mean([mx - mn for mn, mx in zip(wn_mins, wn_maxs)])
+    n_common_points = int(avg_density * (common_max - common_min))
+    n_common_points = max(n_common_points, 50)  # At least 50 points
+    n_common_points = min(n_common_points, max(wn_counts))  # Don't exceed original resolution
+    
+    common_wavenumbers = np.linspace(common_min, common_max, n_common_points)
+    
+    print(f"[DEBUG] Common wavenumber range: [{common_min:.1f}, {common_max:.1f}] with {n_common_points} points")
+    
+    # Step 2: Interpolate each dataset to common grid
+    interpolated_spectra = []
+    labels = []
+    
+    for dataset_name, df in dataset_data.items():
+        original_wn = df.index.values.astype(float)
+        spectra = df.values  # Shape: (n_wavenumbers, n_spectra)
+        
+        # Interpolate each spectrum
+        interpolated = np.zeros((n_common_points, spectra.shape[1]))
+        
+        for col_idx in range(spectra.shape[1]):
+            spectrum = spectra[:, col_idx]
+            
+            # Create interpolation function
+            # Use fill_value='extrapolate' to handle edge cases, but we shouldn't need it
+            # since we're using the common overlapping range
+            interp_func = interp1d(
+                original_wn, 
+                spectrum, 
+                kind=method, 
+                fill_value='extrapolate',
+                bounds_error=False
+            )
+            
+            interpolated[:, col_idx] = interp_func(common_wavenumbers)
+        
+        # Transpose to get (n_spectra, n_wavenumbers) for vstack
+        interpolated_spectra.append(interpolated.T)
+        labels.extend([dataset_name] * spectra.shape[1])
+        
+        print(f"[DEBUG] Interpolated '{dataset_name}': {spectra.shape[1]} spectra, now {n_common_points} points each")
+    
+    # Step 3: Concatenate all interpolated spectra
+    X = np.vstack(interpolated_spectra)
+    
+    print(f"[DEBUG] Final combined matrix shape: {X.shape}")
+    
+    return common_wavenumbers, interpolated_spectra, labels, X
+
+
+def interpolate_to_common_wavenumbers_with_groups(
+    dataset_data: Dict[str, pd.DataFrame],
+    group_labels_map: Optional[Dict[str, str]] = None,
+    method: str = 'linear'
+) -> Tuple[np.ndarray, np.ndarray, List[str]]:
+    """
+    Interpolate datasets with group label support.
+    
+    Same as interpolate_to_common_wavenumbers but handles group_labels_map
+    for PCA, UMAP, t-SNE group coloring.
+    
+    Args:
+        dataset_data: Dictionary of {dataset_name: DataFrame}
+        group_labels_map: Optional {dataset_name: group_label} mapping
+        method: Interpolation method
+        
+    Returns:
+        Tuple containing:
+            - common_wavenumbers: The shared wavenumber grid (1D array)
+            - X: Concatenated matrix ready for analysis (n_spectra, n_wavenumbers)
+            - labels: List of group labels for each spectrum
+    """
+    common_wn, interp_spectra, raw_labels, X = interpolate_to_common_wavenumbers(
+        dataset_data, method=method
+    )
+    
+    # Apply group labels if provided
+    if group_labels_map:
+        labels = []
+        idx = 0
+        for dataset_name, df in dataset_data.items():
+            n_spectra = df.shape[1]  # Number of columns = number of spectra
+            if dataset_name in group_labels_map:
+                labels.extend([group_labels_map[dataset_name]] * n_spectra)
+            else:
+                labels.extend([dataset_name] * n_spectra)
+            idx += n_spectra
+    else:
+        labels = raw_labels
+    
+    return common_wn, X, labels
+
+
 def add_confidence_ellipse(ax, x, y, n_std=1.96, facecolor='none', edgecolor='red', linestyle='--', linewidth=2, alpha=0.7, label=None):
     """
-    Add a confidence ellipse to a matplotlib axis.
+    Add a confidence ellipse to a matplotlib axis using DUAL-LAYER PATTERN.
+    
+    ✅ FIX #3 (P0): Dual-layer ellipses for better visibility
+    Consensus from 6 AI analyses: α=0.08 fill + α=0.85 edge prevents dark overlaps
     
     For Raman spectroscopy Chemometrics, 95% confidence ellipses (n_std=1.96) are critical
     for proving statistical group separation in PCA plots.
@@ -40,11 +234,13 @@ def add_confidence_ellipse(ax, x, y, n_std=1.96, facecolor='none', edgecolor='re
         ax: matplotlib axis object
         x, y: Data coordinates (numpy arrays)
         n_std: Number of standard deviations (1.96 for 95% CI)
-        facecolor, edgecolor, linestyle, linewidth, alpha: matplotlib styling
+        facecolor: Color for fill layer (will be made very transparent)
+        edgecolor: Color for edge layer
+        linestyle, linewidth, alpha: Edge styling
         label: Legend label for the ellipse
     
     Returns:
-        Ellipse patch object
+        Ellipse patch object (edge layer, for legend)
     """
     if x.size == 0 or y.size == 0:
         return None
@@ -70,14 +266,38 @@ def add_confidence_ellipse(ax, x, y, n_std=1.96, facecolor='none', edgecolor='re
     mean_x = np.mean(x)
     mean_y = np.mean(y)
     
-    # Create ellipse
-    ellipse = Ellipse(xy=(mean_x, mean_y), width=width, height=height, angle=angle,
-                      facecolor=facecolor, edgecolor=edgecolor, linestyle=linestyle,
-                      linewidth=linewidth, alpha=alpha, label=label)
+    # ✅ DUAL-LAYER PATTERN: Layer 1 - Very transparent fill (barely visible)
+    color_to_use = edgecolor if facecolor == 'none' else facecolor
+    ellipse_fill = Ellipse(
+        xy=(mean_x, mean_y), 
+        width=width, 
+        height=height, 
+        angle=angle,
+        facecolor=color_to_use,
+        edgecolor='none',  # No edge on fill layer
+        alpha=0.08,  # ✅ Ultra-light fill (8% opacity)
+        zorder=5
+    )
+    ax.add_patch(ellipse_fill)
     
-    ax.add_patch(ellipse)
-    print(f"[DEBUG] Ellipse added to axis at ({mean_x:.2f}, {mean_y:.2f}), size: {width:.2f}x{height:.2f}")
-    return ellipse
+    # ✅ DUAL-LAYER PATTERN: Layer 2 - Bold visible edge (strong boundary)
+    ellipse_edge = Ellipse(
+        xy=(mean_x, mean_y), 
+        width=width, 
+        height=height, 
+        angle=angle,
+        facecolor='none',  # No fill on edge layer
+        edgecolor=edgecolor,
+        linestyle=linestyle,
+        linewidth=linewidth if linewidth else 2.5,  # ✅ Thicker edge
+        alpha=0.85,  # ✅ Strong edge visibility
+        label=label,  # Only the edge gets the label for legend
+        zorder=15  # Above scatter points
+    )
+    ax.add_patch(ellipse_edge)
+    
+    print(f"[DEBUG] Dual-layer ellipse added: center=({mean_x:.2f}, {mean_y:.2f}), size={width:.2f}x{height:.2f}, fill α=0.08, edge α=0.85")
+    return ellipse_edge  # Return edge ellipse for legend
 
 
 def perform_pca_analysis(dataset_data: Dict[str, pd.DataFrame],
@@ -127,24 +347,16 @@ def perform_pca_analysis(dataset_data: Dict[str, pd.DataFrame],
     print(f"[DEBUG] PCA parameters: n_components={n_components}, show_ellipses={show_ellipses}")
     print(f"[DEBUG] show_loadings={show_loadings}, show_scree={show_scree}, show_distributions={show_distributions}")
     
-    # CRITICAL: Concatenate ALL datasets into ONE matrix for group comparison
-    all_spectra = []
-    labels = []
+    # ✅ FIX: Use interpolation to handle datasets with different wavenumber ranges
+    # This resolves "ValueError: all input array dimensions except for concatenation axis must match"
+    wavenumbers, X, labels = interpolate_to_common_wavenumbers_with_groups(
+        dataset_data, 
+        group_labels_map=group_labels_map,
+        method='linear'
+    )
     
-    for dataset_name, df in dataset_data.items():
-        spectra_matrix = df.values.T  # Shape: (n_spectra, n_wavenumbers)
-        all_spectra.append(spectra_matrix)
-        
-        # Use group label if available, otherwise use dataset name
-        if group_labels_map and dataset_name in group_labels_map:
-            label = group_labels_map[dataset_name]
-        else:
-            label = dataset_name
-        
-        labels.extend([label] * spectra_matrix.shape[0])
-    
-    X = np.vstack(all_spectra)  # Combined matrix: (total_spectra, n_wavenumbers)
-    wavenumbers = dataset_data[list(dataset_data.keys())[0]].index.values
+    print(f"[DEBUG] Combined matrix after interpolation: {X.shape}")
+    print(f"[DEBUG] Common wavenumber range: [{wavenumbers[0]:.1f}, {wavenumbers[-1]:.1f}]")
     
     if progress_callback:
         progress_callback(30)
@@ -231,9 +443,18 @@ def perform_pca_analysis(dataset_data: Dict[str, pd.DataFrame],
     ax1.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)',
                    fontsize=12, fontweight='bold')
     
+    # ✅ FIX #6 (P1): Clear title and legend labels
     # Title changes based on whether ellipses are shown
     if show_ellipses:
         ax1.set_title('PCA Score Plot with 95% Confidence Ellipses', fontsize=14, fontweight='bold')
+       # Add explanatory footnote for scientific clarity
+        ax1.text(0.02, 0.02,
+                "95% Confidence Ellipses calculated using Hotelling's T² (1.96σ)",
+                transform=ax1.transAxes,
+                fontsize=9, color='#555555', style='italic',
+                verticalalignment='bottom',
+                bbox=dict(boxstyle='round,pad=0.5', facecolor='white',
+                         alpha=0.92, edgecolor='#cccccc', linewidth=0.5))
     else:
         ax1.set_title('PCA Score Plot', fontsize=14, fontweight='bold')
     
@@ -250,44 +471,59 @@ def perform_pca_analysis(dataset_data: Dict[str, pd.DataFrame],
     fig_scree = None
     if show_scree:
         print("[DEBUG] Creating scree plot...")
-        fig_scree, ax_scree = plt.subplots(figsize=(10, 6))
         
-        # Plot cumulative and individual variance
+        # ✅ FIX #7 (P1): Side-by-side layout (bar LEFT | cumulative RIGHT)
+        from matplotlib.gridspec import GridSpec
+        
+        fig_scree = plt.figure(figsize=(14, 5.5))
+        gs = GridSpec(1, 2, figure=fig_scree, wspace=0.25)
+        
         pc_indices = np.arange(1, n_components + 1)
         explained_variance = pca.explained_variance_ratio_ * 100
         cumulative_variance = np.cumsum(explained_variance)
         
-        # Bar plot for individual variance
-        ax_scree.bar(pc_indices, explained_variance, alpha=0.7, color='#0078d4', 
-                    edgecolor='#005a9e', linewidth=1.5, label='Individual Variance')
+        # LEFT: Bar chart for individual variance
+        ax_bar = fig_scree.add_subplot(gs[0, 0])
+        bar_colors = ['#e74c3c' if var > 10 else '#4a90e2' for var in explained_variance]
+        bars = ax_bar.bar(pc_indices, explained_variance, color=bar_colors, 
+                          edgecolor='white', linewidth=1.5, alpha=0.85, width=0.65)
         
-        # Line plot for cumulative variance
-        ax2 = ax_scree.twinx()
-        ax2.plot(pc_indices, cumulative_variance, color='#d13438', marker='o', 
-                linewidth=2.5, markersize=8, label='Cumulative Variance')
+        for bar, var in zip(bars, explained_variance):
+            ax_bar.text(bar.get_x() + bar.get_width()/2., bar.get_height(),
+                       f'{var:.1f}%', ha='center', va='bottom', fontsize=9, fontweight='bold')
         
-        # Add value labels
-        for i, (var, cum) in enumerate(zip(explained_variance, cumulative_variance)):
-            ax_scree.text(i+1, var + 1, f'{var:.1f}%', ha='center', va='bottom', 
-                         fontsize=10, fontweight='bold')
-            if i < 5:  # Only label first 5 components
-                ax2.text(i+1, cum - 3, f'{cum:.1f}%', ha='center', va='top',
-                        fontsize=9, color='#d13438', fontweight='bold')
+        ax_bar.set_xlabel('Principal Component', fontsize=12, fontweight='bold')
+        ax_bar.set_ylabel('Variance Explained (%)', fontsize=12, fontweight='bold')
+        ax_bar.set_title('Individual Variance per PC', fontsize=13, fontweight='bold')
+        ax_bar.set_xticks(pc_indices)
+        ax_bar.set_ylim(0, max(explained_variance) * 1.15)
+        ax_bar.grid(True, alpha=0.3, axis='y', linestyle='--')
         
-        ax_scree.set_xlabel('Principal Component', fontsize=12, fontweight='bold')
-        ax_scree.set_ylabel('Variance Explained (%)', fontsize=12, fontweight='bold', color='#0078d4')
-        ax2.set_ylabel('Cumulative Variance (%)', fontsize=12, fontweight='bold', color='#d13438')
-        ax_scree.set_title('Scree Plot: Variance Explained by Each PC', fontsize=14, fontweight='bold')
-        ax_scree.set_xticks(pc_indices)
-        ax_scree.set_ylim(0, max(explained_variance) * 1.15)
-        ax2.set_ylim(0, 105)
-        ax_scree.grid(True, alpha=0.3, axis='y')
-        ax_scree.legend(loc='upper left', fontsize=11)
-        ax2.legend(loc='upper right', fontsize=11)
-        ax_scree.tick_params(axis='y', labelcolor='#0078d4')
-        ax2.tick_params(axis='y', labelcolor='#d13438')
-        fig_scree.tight_layout()
-        print("[DEBUG] Scree plot created successfully")
+        # RIGHT: Cumulative variance line
+        ax_cum = fig_scree.add_subplot(gs[0, 1])
+        ax_cum.plot(pc_indices, cumulative_variance, marker='o', markersize=9, 
+                   linewidth=2.8, color='#2ecc71', markeredgecolor='white',
+                   markeredgewidth=1.5, alpha=0.95, label='Cumulative')
+        ax_cum.axhline(y=80, color='#f39c12', linestyle='--', linewidth=2.5,
+                      alpha=0.75, label='80% Threshold')
+        ax_cum.axhline(y=95, color='#e74c3c', linestyle='--', linewidth=2.5,
+                      alpha=0.75, label='95% Threshold')
+        
+        for i, cum in enumerate(cumulative_variance):
+            if i < 5:
+                ax_cum.text(i+1, cum + 2, f'{cum:.1f}%', ha='center', va='bottom',
+                           fontsize=9, fontweight='bold', color='#2ecc71')
+        
+        ax_cum.set_xlabel('Principal Component', fontsize=12, fontweight='bold')
+        ax_cum.set_ylabel('Cumulative Variance (%)', fontsize=12, fontweight='bold')
+        ax_cum.set_title('Cumulative Variance Explained', fontsize=13, fontweight='bold')
+        ax_cum.set_xticks(pc_indices)
+        ax_cum.set_ylim(0, 105)
+        ax_cum.grid(True, alpha=0.3, linestyle='--')
+        ax_cum.legend(loc='lower right', fontsize=10, framealpha=0.9)
+        
+        fig_scree.tight_layout(pad=1.2)
+        print("[DEBUG] Side-by-side scree plot created successfully")
     
     # === FIGURE 4: Biplot (Scores + Loadings Overlay) ===
     fig_biplot = None
@@ -422,10 +658,11 @@ def perform_pca_analysis(dataset_data: Dict[str, pd.DataFrame],
             # Remove x-axis tick labels (wavenumbers) as requested
             ax.set_xticklabels([])
             
-            # Annotate top 3 peak positions for this component
+            # ✅ FIX #8 (P1): Annotate top 5 peak positions for this component (increased from 3)
+            # Consensus from 6 AI analyses: Top 5 peaks provide better spectral interpretation
             loadings = pca.components_[pc_idx]
             abs_loadings = np.abs(loadings)
-            top_indices = np.argsort(abs_loadings)[-3:]  # Top 3 peaks
+            top_indices = np.argsort(abs_loadings)[-5:]  # Top 5 peaks (increased from 3)
             
             for peak_idx in top_indices:
                 peak_wn = wavenumbers[peak_idx]
@@ -770,25 +1007,15 @@ def perform_umap_analysis(dataset_data: Dict[str, pd.DataFrame],
     print(f"[DEBUG] UMAP parameters: n_neighbors={n_neighbors}, min_dist={min_dist}, metric={metric}")
     print(f"[DEBUG] Group labels map: {group_labels_map}")
     
-    # Combine all datasets (like PCA approach)
-    all_spectra = []
-    labels = []
+    # ✅ FIX: Use interpolation to handle datasets with different wavenumber ranges
+    # This resolves "ValueError: all input array dimensions except for concatenation axis must match"
+    wavenumbers, X, labels = interpolate_to_common_wavenumbers_with_groups(
+        dataset_data, 
+        group_labels_map=group_labels_map,
+        method='linear'
+    )
     
-    for dataset_name, df in dataset_data.items():
-        spectra_matrix = df.values.T
-        all_spectra.append(spectra_matrix)
-        
-        # Use group label if available, otherwise use dataset name
-        if group_labels_map and dataset_name in group_labels_map:
-            label = group_labels_map[dataset_name]
-        else:
-            label = dataset_name
-        
-        labels.extend([label] * spectra_matrix.shape[0])
-    
-    X = np.vstack(all_spectra)
-    
-    print(f"[DEBUG] Combined matrix shape: {X.shape}")
+    print(f"[DEBUG] Combined matrix shape after interpolation: {X.shape}")
     print(f"[DEBUG] Unique labels: {sorted(set(labels))}")
     
     if progress_callback:
@@ -808,19 +1035,14 @@ def perform_umap_analysis(dataset_data: Dict[str, pd.DataFrame],
     if progress_callback:
         progress_callback(80)
     
-    # Create figure with high-contrast colors (like PCA)
+    # ✅ FIX: Use high-contrast color palette for clear visual distinction
     fig, ax = plt.subplots(figsize=(12, 10))
     
     unique_labels = sorted(set(labels))
     num_groups = len(unique_labels)
     
-    # Use same color scheme as PCA for consistency
-    if num_groups == 2:
-        colors = ['#0066cc', '#ffd700']  # Blue and Gold
-    elif num_groups == 3:
-        colors = ['#0066cc', '#cc0000', '#00cc66']  # Blue, Red, Green
-    else:
-        colors = plt.cm.tab10(np.linspace(0, 1, num_groups))
+    # Use unified high-contrast color palette
+    colors = get_high_contrast_colors(num_groups)
     
     print(f"[DEBUG] Plotting {num_groups} groups with high-contrast colors")
     
@@ -890,24 +1112,16 @@ def perform_tsne_analysis(dataset_data: Dict[str, pd.DataFrame],
     print(f"[DEBUG] t-SNE parameters: perplexity={perplexity}, learning_rate={learning_rate}")
     print(f"[DEBUG] t-SNE n_iter={n_iter} (will use as max_iter for sklearn)")
     
-    # Combine all datasets
-    all_spectra = []
-    labels = []
+    # ✅ FIX: Use interpolation to handle datasets with different wavenumber ranges
+    # This resolves "ValueError: all input array dimensions except for concatenation axis must match"
+    wavenumbers, X, labels = interpolate_to_common_wavenumbers_with_groups(
+        dataset_data, 
+        group_labels_map=group_labels_map,
+        method='linear'
+    )
     
-    for dataset_name, df in dataset_data.items():
-        spectra_matrix = df.values.T
-        all_spectra.append(spectra_matrix)
-        
-        # Use group label if available, otherwise use dataset name
-        if group_labels_map and dataset_name in group_labels_map:
-            label = group_labels_map[dataset_name]
-        else:
-            label = dataset_name
-            
-        labels.extend([label] * spectra_matrix.shape[0])
-    
-    X = np.vstack(all_spectra)
     n_samples = X.shape[0]
+    print(f"[DEBUG] Combined matrix shape after interpolation: {X.shape}")
     
     # CRITICAL FIX: Perplexity must be less than n_samples
     if perplexity >= n_samples:
@@ -932,22 +1146,28 @@ def perform_tsne_analysis(dataset_data: Dict[str, pd.DataFrame],
     if progress_callback:
         progress_callback(80)
     
-    # Create figure
+    # ✅ FIX: Use high-contrast color palette for clear visual distinction
+    # User requested: "distinct colours (eg: red and blue, green and red, yellow and blue)"
     fig, ax = plt.subplots(figsize=(10, 8))
     
     unique_labels = sorted(set(labels))
-    colors = plt.cm.tab10(np.linspace(0, 1, len(unique_labels)))
+    num_groups = len(unique_labels)
+    
+    # Use unified high-contrast color palette (same as PCA and UMAP)
+    colors = get_high_contrast_colors(num_groups)
+    print(f"[DEBUG] t-SNE using high-contrast colors for {num_groups} groups: {colors}")
     
     for i, dataset_label in enumerate(unique_labels):
         mask = np.array([l == dataset_label for l in labels])
         ax.scatter(embedding[mask, 0], embedding[mask, 1],
-                  c=[colors[i]], label=dataset_label,
-                  alpha=0.7, s=50)
+                  color=colors[i], label=dataset_label,
+                  alpha=0.7, s=100, edgecolors='white', linewidth=1.0)
     
-    ax.set_xlabel('t-SNE 1', fontsize=12)
-    ax.set_ylabel('t-SNE 2', fontsize=12)
+    ax.set_xlabel('t-SNE 1', fontsize=12, fontweight='bold')
+    ax.set_ylabel('t-SNE 2', fontsize=12, fontweight='bold')
     ax.set_title('t-SNE Projection', fontsize=14, fontweight='bold')
-    ax.legend(loc='best')
+    ax.legend(loc='best', framealpha=0.95, fontsize=10,
+              edgecolor='#cccccc', fancybox=True, shadow=True)
     ax.grid(True, alpha=0.3)
     
     # Create data table
@@ -994,16 +1214,15 @@ def perform_hierarchical_clustering(dataset_data: Dict[str, pd.DataFrame],
     distance_metric = params.get("distance_metric", "euclidean")
     n_clusters = params.get("n_clusters", None)
     
-    # Combine all datasets
-    all_spectra = []
-    labels = []
+    # ✅ FIX: Use interpolation to handle datasets with different wavenumber ranges
+    # This resolves "ValueError: all input array dimensions except for concatenation axis must match"
+    wavenumbers, X, labels = interpolate_to_common_wavenumbers_with_groups(
+        dataset_data, 
+        group_labels_map=None,  # Hierarchical clustering uses dataset names as labels
+        method='linear'
+    )
     
-    for dataset_name, df in dataset_data.items():
-        spectra_matrix = df.values.T
-        all_spectra.append(spectra_matrix)
-        labels.extend([dataset_name] * spectra_matrix.shape[0])
-    
-    X = np.vstack(all_spectra)
+    print(f"[DEBUG] Hierarchical clustering: Combined matrix shape after interpolation: {X.shape}")
     
     if progress_callback:
         progress_callback(40)
@@ -1096,16 +1315,15 @@ def perform_kmeans_clustering(dataset_data: Dict[str, pd.DataFrame],
     print(f"[DEBUG]   max_iter = {max_iter} (type: {type(max_iter).__name__})")
     print(f"[DEBUG]   show_pca = {show_pca}")
     
-    # Combine all datasets
-    all_spectra = []
-    labels = []
+    # ✅ FIX: Use interpolation to handle datasets with different wavenumber ranges
+    # This resolves "ValueError: all input array dimensions except for concatenation axis must match"
+    wavenumbers, X, labels = interpolate_to_common_wavenumbers_with_groups(
+        dataset_data, 
+        group_labels_map=None,  # K-Means uses dataset names as labels
+        method='linear'
+    )
     
-    for dataset_name, df in dataset_data.items():
-        spectra_matrix = df.values.T
-        all_spectra.append(spectra_matrix)
-        labels.extend([dataset_name] * spectra_matrix.shape[0])
-    
-    X = np.vstack(all_spectra)
+    print(f"[DEBUG] K-Means: Combined matrix shape after interpolation: {X.shape}")
     
     if progress_callback:
         progress_callback(30)
@@ -1130,8 +1348,8 @@ def perform_kmeans_clustering(dataset_data: Dict[str, pd.DataFrame],
         
         fig, ax = plt.subplots(figsize=(10, 8))
         
-        # Plot clusters
-        colors = plt.cm.tab10(np.linspace(0, 1, n_clusters))
+        # ✅ FIX: Use high-contrast colors for cluster visualization
+        colors = get_high_contrast_colors(n_clusters)
         for i in range(n_clusters):
             mask = cluster_labels == i
             ax.scatter(X_pca[mask, 0], X_pca[mask, 1],
@@ -1191,7 +1409,11 @@ def perform_kmeans_clustering(dataset_data: Dict[str, pd.DataFrame],
 
 def create_spectrum_preview_figure(dataset_data: Dict[str, pd.DataFrame]) -> Figure:
     """
-    Create a preview figure of the spectra from all datasets.
+    Create a preview figure showing MEAN SPECTRA ONLY with vertical offset stacking.
+    
+    ✅ FIX #5 (P1): Mean-only display reduces visual clutter
+    Consensus from 6 AI analyses: Show only mean, not all 74 individual spectra
+    Implements RAMANMETRIX (2018) spectral stacking standard: 15% offset
     
     Args:
         dataset_data: Dictionary of {dataset_name: DataFrame}
@@ -1199,28 +1421,61 @@ def create_spectrum_preview_figure(dataset_data: Dict[str, pd.DataFrame]) -> Fig
     Returns:
         Matplotlib Figure object
     """
-    fig, ax = plt.subplots(figsize=(10, 6))
+    # ✅ FIX: Correct unpacking of plt.subplots (returns tuple of fig, ax)
+    fig, ax = plt.subplots(figsize=(12, 6))
     
-    # Use high-contrast colors
-    colors = plt.cm.tab10(np.linspace(0, 1, max(1, len(dataset_data))))
+    # Colorblind-safe palette (Tableau 10)
+    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
     
-    for i, (name, df) in enumerate(dataset_data.items()):
-        wavenumbers = df.index.values
-        # Plot mean spectrum
-        mean_spectrum = df.mean(axis=1).values
+    offset = 0
+    max_intensity_overall = 0
+    
+    for idx, (dataset_name, df) in enumerate(dataset_data.items()):
+        # Calculate statistics
+        mean_spectrum = df.mean(axis=1).values  # Mean across columns (spectra)
         std_spectrum = df.std(axis=1).values
+        wavenumbers = df.index.values
+        n_spectra = df.shape[1]
         
-        color = colors[i]
-        ax.plot(wavenumbers, mean_spectrum, label=name, color=color, linewidth=1.5)
-        ax.fill_between(wavenumbers, mean_spectrum - std_spectrum, mean_spectrum + std_spectrum,
-                       color=color, alpha=0.2)
+        # Apply vertical offset for stacking
+        mean_with_offset = mean_spectrum + offset
+        
+        # Plot MEAN line only (bold, prominent)
+        ax.plot(
+            wavenumbers, mean_with_offset,
+            color=colors[idx % len(colors)],
+            linewidth=2.8,  # Thick for visibility
+            label=f'{dataset_name} (mean, n={n_spectra})',
+            alpha=0.95,
+            zorder=10 + idx
+        )
+        
+        # Optional: Add VERY subtle ±0.5σ envelope (barely visible)
+        ax.fill_between(
+            wavenumbers,
+            mean_with_offset - std_spectrum * 0.5,
+            mean_with_offset + std_spectrum * 0.5,
+            color=colors[idx % len(colors)],
+            alpha=0.08,  # Barely visible (8% opacity)
+            edgecolor='none',
+            zorder=5 + idx
+        )
+        
+        # Calculate next offset (15% above max intensity)
+        max_intensity = (mean_with_offset + std_spectrum).max()
+        offset = max_intensity * 1.15  # 15% spacing (RAMANMETRIX standard)
+        max_intensity_overall = max(max_intensity_overall, max_intensity)
     
-    ax.set_xlabel('Wavenumber (cm⁻¹)', fontsize=12)
-    ax.set_ylabel('Intensity', fontsize=12)
-    ax.set_title('Spectral Data Preview (Mean ± SD)', fontsize=14, fontweight='bold')
-    ax.legend(loc='best')
-    ax.grid(True, alpha=0.3)
-    ax.invert_xaxis()  # Raman convention
+    # Styling
+    ax.set_xlabel('Wavenumber (cm⁻¹)', fontsize=12, fontweight='bold')
+    ax.set_ylabel('Intensity (offset for clarity)', fontsize=12, fontweight='bold')
+    ax.set_title('Mean Spectra (Vertically Stacked)', fontsize=14, fontweight='bold')
+    ax.legend(loc='upper right', fontsize=10, framealpha=0.9)
+    ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
+    ax.invert_xaxis()  # Raman convention: high → low wavenumber
     
-    fig.tight_layout()
+    # Adjust y-limits
+    ax.set_ylim(-max_intensity_overall * 0.05, offset + max_intensity_overall * 0.05)
+    
+    fig.tight_layout(pad=1.2)
     return fig

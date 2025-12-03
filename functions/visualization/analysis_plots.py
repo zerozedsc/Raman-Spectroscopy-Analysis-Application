@@ -283,14 +283,16 @@ def create_waterfall_plot(dataset_data: Dict[str, pd.DataFrame],
                          params: Dict[str, Any],
                          progress_callback: Optional[Callable] = None) -> Dict[str, Any]:
     """
-    Create waterfall plot of spectra with vertical offset.
+    Create waterfall plot of spectra with vertical offset (2D or 3D).
     
     Args:
         dataset_data: Dictionary of {dataset_name: DataFrame}
         params: Analysis parameters
+            - use_3d: Use 3D visualization (default False)
             - offset_scale: Vertical offset scale (default 1.0)
             - max_spectra: Maximum number of spectra to plot (default 50)
             - colormap: Colormap for gradient (default 'viridis')
+            - show_grid: Show grid lines (default True)
             - reverse_order: Reverse plotting order (default False)
         progress_callback: Optional callback for progress updates
     
@@ -301,9 +303,11 @@ def create_waterfall_plot(dataset_data: Dict[str, pd.DataFrame],
         progress_callback(10)
     
     # Get parameters
+    use_3d = params.get("use_3d", False)
     offset_scale = params.get("offset_scale", 1.0)
     max_spectra = params.get("max_spectra", 50)
     colormap = params.get("colormap", "viridis")
+    show_grid = params.get("show_grid", True)
     reverse_order = params.get("reverse_order", False)
     
     # Combine all datasets
@@ -327,52 +331,114 @@ def create_waterfall_plot(dataset_data: Dict[str, pd.DataFrame],
     if progress_callback:
         progress_callback(40)
     
-    # Create figure
-    fig, ax = plt.subplots(figsize=(12, 10))
-    
-    # Calculate offset
-    max_intensity = max(np.max(spec) for spec in all_spectra)
-    offset = max_intensity * offset_scale
-    
     # Color gradient
-    colors = plt.cm.get_cmap(colormap)(np.linspace(0, 1, len(all_spectra)))
+    cmap = plt.cm.get_cmap(colormap)
+    colors = cmap(np.linspace(0, 1, len(all_spectra)))
     
-    # Plot spectra
-    plot_order = range(len(all_spectra))
-    if reverse_order:
-        plot_order = reversed(plot_order)
-    
-    for i in plot_order:
-        spectrum = all_spectra[i]
-        y_offset = i * offset
-        ax.plot(wavenumbers, spectrum + y_offset,
-               color=colors[i], linewidth=1.0, alpha=0.8)
-    
-    if progress_callback:
-        progress_callback(80)
-    
-    ax.set_xlabel('Wavenumber (cm⁻¹)', fontsize=12)
-    ax.set_ylabel('Intensity (offset)', fontsize=12)
-    ax.set_title('Waterfall Plot', fontsize=14, fontweight='bold')
-    ax.grid(True, alpha=0.3, axis='x')
-    ax.invert_xaxis()
-    
-    # Remove y-ticks (offsets are arbitrary)
-    ax.set_yticks([])
+    if use_3d:
+        # === 3D WATERFALL PLOT ===
+        from mpl_toolkits.mplot3d import Axes3D
+        from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+        
+        fig = plt.figure(figsize=(14, 10))
+        ax = fig.add_subplot(111, projection='3d')
+        
+        # Normalize spectra for consistent height
+        all_spectra_normalized = []
+        global_min = min(np.min(s) for s in all_spectra)
+        global_max = max(np.max(s) for s in all_spectra)
+        range_val = global_max - global_min
+        
+        for spectrum in all_spectra:
+            normalized = (spectrum - global_min) / range_val if range_val > 0 else spectrum
+            all_spectra_normalized.append(normalized)
+        
+        # Plot each spectrum as a 3D line with filled polygon
+        plot_order = range(len(all_spectra_normalized))
+        if reverse_order:
+            plot_order = list(reversed(plot_order))
+        
+        for i in plot_order:
+            spectrum = all_spectra_normalized[i]
+            y_pos = i * offset_scale
+            
+            # Plot the spectrum line
+            ax.plot(wavenumbers, [y_pos] * len(wavenumbers), spectrum,
+                   color=colors[i], linewidth=1.0, alpha=0.9)
+            
+            # Add filled polygon underneath for visibility
+            verts = [(wavenumbers[0], y_pos, 0)]
+            for j, (wn, z) in enumerate(zip(wavenumbers, spectrum)):
+                verts.append((wn, y_pos, z))
+            verts.append((wavenumbers[-1], y_pos, 0))
+            
+            poly = Poly3DCollection([verts], alpha=0.3, facecolor=colors[i], edgecolor='none')
+            ax.add_collection3d(poly)
+        
+        # Axis labels and styling
+        ax.set_xlabel('Wavenumber (cm⁻¹)', fontsize=12, fontweight='bold', labelpad=10)
+        ax.set_ylabel('Spectrum Index', fontsize=12, fontweight='bold', labelpad=10)
+        ax.set_zlabel('Intensity (normalized)', fontsize=12, fontweight='bold', labelpad=10)
+        ax.set_title('3D Waterfall Plot', fontsize=14, fontweight='bold')
+        
+        # Invert x-axis (Raman convention)
+        ax.set_xlim(wavenumbers.max(), wavenumbers.min())
+        ax.set_ylim(0, len(all_spectra_normalized) * offset_scale)
+        ax.set_zlim(0, 1.1)
+        
+        # Adjust viewing angle for better visibility
+        ax.view_init(elev=25, azim=45)
+        
+        if show_grid:
+            ax.grid(True, alpha=0.3)
+    else:
+        # === 2D WATERFALL PLOT (Original) ===
+        fig, ax = plt.subplots(figsize=(12, 10))
+        
+        # Calculate offset
+        max_intensity = max(np.max(spec) for spec in all_spectra)
+        offset = max_intensity * offset_scale
+        
+        # Plot spectra
+        plot_order = range(len(all_spectra))
+        if reverse_order:
+            plot_order = reversed(plot_order)
+        
+        for i in plot_order:
+            spectrum = all_spectra[i]
+            y_offset = i * offset
+            ax.plot(wavenumbers, spectrum + y_offset,
+                   color=colors[i], linewidth=1.0, alpha=0.8)
+            
+            # Optional: fill under curve for better visibility
+            ax.fill_between(wavenumbers, y_offset, spectrum + y_offset,
+                           color=colors[i], alpha=0.15)
+        
+        ax.set_xlabel('Wavenumber (cm⁻¹)', fontsize=12)
+        ax.set_ylabel('Intensity (offset)', fontsize=12)
+        ax.set_title('Waterfall Plot', fontsize=14, fontweight='bold')
+        
+        if show_grid:
+            ax.grid(True, alpha=0.3, axis='x')
+        
+        ax.invert_xaxis()
+        ax.set_yticks([])  # Remove y-ticks (offsets are arbitrary)
     
     if progress_callback:
         progress_callback(90)
     
     summary = f"Waterfall plot created with {len(all_spectra)} spectra.\n"
-    summary += f"Offset scale: {offset_scale}"
+    summary += f"Mode: {'3D' if use_3d else '2D'}\n"
+    summary += f"Offset scale: {offset_scale}\n"
+    summary += f"Colormap: {colormap}"
     
     return {
         "primary_figure": fig,
         "secondary_figure": None,
         "data_table": None,
         "summary_text": summary,
-        "detailed_summary": f"Colormap: {colormap}",
-        "raw_results": {}
+        "detailed_summary": f"Total spectra plotted: {len(all_spectra)}",
+        "raw_results": {"n_spectra": len(all_spectra), "use_3d": use_3d}
     }
 
 
@@ -459,52 +525,87 @@ def create_peak_scatter(dataset_data: Dict[str, pd.DataFrame],
                        params: Dict[str, Any],
                        progress_callback: Optional[Callable] = None) -> Dict[str, Any]:
     """
-    Create scatter plot of peak intensities across datasets.
+    Create scatter plot of peak intensities across datasets with statistical annotations.
+    
+    Supports both 2D (2 peaks) and 3D (3 peaks) visualization modes with comprehensive
+    statistics for research reference including mean, std, min, max, and CV%.
     
     Args:
         dataset_data: Dictionary of {dataset_name: DataFrame}
         params: Analysis parameters
-            - peak_positions: List of wavenumber positions (default auto-detect)
-            - tolerance: Tolerance for peak matching (default 5 cm-1)
-            - prominence: Prominence threshold for auto-detection (default 0.05)
+            - peak_1_position: First peak wavenumber position (cm⁻¹)
+            - peak_2_position: Second peak wavenumber position (cm⁻¹)
+            - peak_3_position: Third peak wavenumber position (cm⁻¹)
+            - tolerance: Tolerance for peak matching (default 10 cm⁻¹)
+            - use_3d: Enable 3D scatter plot mode
+            - show_statistics: Show statistical annotations
+            - show_legend: Show legend on plot
+            - colormap: Color scheme for datasets
+            - marker_size: Size of scatter markers
         progress_callback: Optional callback for progress updates
     
     Returns:
-        Dictionary with peak scatter plot
+        Dictionary with peak scatter plot, statistics table, and detailed summary
     """
     if progress_callback:
-        progress_callback(10)
+        progress_callback(5)
     
-    # Get parameters
-    peak_positions = params.get("peak_positions", None)
-    tolerance = params.get("tolerance", 5)
-    prominence = params.get("prominence", 0.05)
+    # Get parameters with defaults
+    peak_1_pos = params.get("peak_1_position", 1000)
+    peak_2_pos = params.get("peak_2_position", 1650)
+    peak_3_pos = params.get("peak_3_position", 2900)
+    tolerance = params.get("tolerance", 10)
+    use_3d = params.get("use_3d", False)
+    show_statistics = params.get("show_statistics", True)
+    show_legend = params.get("show_legend", True)
+    colormap_name = params.get("colormap", "tab10")
+    marker_size = params.get("marker_size", 60)
     
-    # Get wavenumbers from first dataset
-    wavenumbers = dataset_data[list(dataset_data.keys())[0]].index.values
-    
-    # Auto-detect peaks if not provided
-    if peak_positions is None:
-        # Use mean spectrum from first dataset for peak detection
-        first_dataset = list(dataset_data.values())[0]
-        mean_spectrum = first_dataset.mean(axis=1).values
-        
-        # Normalize
-        norm_spectrum = (mean_spectrum - mean_spectrum.min()) / (mean_spectrum.max() - mean_spectrum.min())
-        
-        # Find peaks
-        peaks, _ = find_peaks(norm_spectrum, prominence=prominence)
-        peak_positions = wavenumbers[peaks]
-        
-        # Limit to top 10 peaks
-        if len(peak_positions) > 10:
-            # Get prominences and select top 10
-            _, properties = find_peaks(norm_spectrum, prominence=prominence)
-            top_indices = np.argsort(properties['prominences'])[-10:]
-            peak_positions = wavenumbers[peaks[top_indices]]
+    # Define peak positions based on mode
+    if use_3d:
+        peak_positions = [peak_1_pos, peak_2_pos, peak_3_pos]
+    else:
+        peak_positions = [peak_1_pos, peak_2_pos]
     
     if progress_callback:
-        progress_callback(40)
+        progress_callback(15)
+    
+    # Get wavenumbers from first dataset
+    first_dataset_name = list(dataset_data.keys())[0]
+    wavenumbers = dataset_data[first_dataset_name].index.values
+    
+    # Validate peak positions are within wavenumber range
+    wn_min, wn_max = wavenumbers.min(), wavenumbers.max()
+    valid_peaks = []
+    warnings = []
+    
+    for i, peak_pos in enumerate(peak_positions, 1):
+        if peak_pos < wn_min or peak_pos > wn_max:
+            warnings.append(f"Peak {i} ({peak_pos} cm⁻¹) is outside data range [{wn_min:.0f}, {wn_max:.0f}]")
+        else:
+            valid_peaks.append(peak_pos)
+    
+    if len(valid_peaks) < 2:
+        # Not enough valid peaks - return error info
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.text(0.5, 0.5, f"Error: Not enough valid peaks\n\n{chr(10).join(warnings)}", 
+                ha='center', va='center', fontsize=12, transform=ax.transAxes,
+                bbox=dict(boxstyle='round', facecolor='#ffdddd', edgecolor='red'))
+        ax.axis('off')
+        
+        return {
+            "primary_figure": fig,
+            "secondary_figure": None,
+            "data_table": pd.DataFrame(),
+            "summary_text": f"Error: {'; '.join(warnings)}",
+            "detailed_summary": "Please adjust peak positions to be within the wavenumber range.",
+            "raw_results": {"errors": warnings}
+        }
+    
+    peak_positions = valid_peaks
+    
+    if progress_callback:
+        progress_callback(25)
     
     # Extract peak intensities from all datasets
     peak_data = []
@@ -513,78 +614,204 @@ def create_peak_scatter(dataset_data: Dict[str, pd.DataFrame],
         for col in df.columns:
             spectrum = df[col].values
             
-            intensities = []
+            intensities = {}
             for peak_pos in peak_positions:
-                # Find closest wavenumber
+                # Find closest wavenumber within tolerance
                 idx = np.argmin(np.abs(wavenumbers - peak_pos))
-                if np.abs(wavenumbers[idx] - peak_pos) <= tolerance:
-                    intensities.append(spectrum[idx])
+                actual_wn = wavenumbers[idx]
+                
+                if np.abs(actual_wn - peak_pos) <= tolerance:
+                    # Get local maximum within tolerance window for better peak detection
+                    wn_mask = np.abs(wavenumbers - peak_pos) <= tolerance
+                    local_intensities = spectrum[wn_mask]
+                    if len(local_intensities) > 0:
+                        # Use maximum intensity in the tolerance window
+                        max_idx = np.argmax(local_intensities)
+                        peak_intensity = local_intensities[max_idx]
+                        intensities[f'Peak_{peak_pos:.0f}'] = peak_intensity
+                    else:
+                        intensities[f'Peak_{peak_pos:.0f}'] = np.nan
                 else:
-                    intensities.append(np.nan)
+                    intensities[f'Peak_{peak_pos:.0f}'] = np.nan
             
             peak_data.append({
                 'dataset': dataset_name,
-                'spectrum': col,
-                **{f'Peak_{peak_pos:.0f}': intensity
-                   for peak_pos, intensity in zip(peak_positions, intensities)}
+                'spectrum_id': col,
+                **intensities
             })
     
     peak_df = pd.DataFrame(peak_data)
     
+    # Remove rows with NaN values (spectra where peaks couldn't be found)
+    valid_peak_cols = [f'Peak_{p:.0f}' for p in peak_positions]
+    peak_df_clean = peak_df.dropna(subset=valid_peak_cols)
+    
+    if len(peak_df_clean) == 0:
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.text(0.5, 0.5, "Error: No valid peak data found\n\nCheck peak positions and tolerance", 
+                ha='center', va='center', fontsize=12, transform=ax.transAxes,
+                bbox=dict(boxstyle='round', facecolor='#ffdddd', edgecolor='red'))
+        ax.axis('off')
+        
+        return {
+            "primary_figure": fig,
+            "secondary_figure": None,
+            "data_table": peak_df,
+            "summary_text": "Error: No valid peak data found within tolerance",
+            "detailed_summary": f"Tolerance: {tolerance} cm⁻¹. Try increasing tolerance or adjusting peak positions.",
+            "raw_results": {"peak_positions": peak_positions, "tolerance": tolerance}
+        }
+    
     if progress_callback:
-        progress_callback(70)
+        progress_callback(50)
     
-    # Create scatter plot
-    n_peaks = len(peak_positions)
-    fig, axes = plt.subplots(1, min(n_peaks, 4), figsize=(16, 4))
-    
-    if n_peaks == 1:
-        axes = [axes]
-    elif n_peaks < 4:
-        pass
-    else:
-        # Only show first 4 peaks
-        peak_positions = peak_positions[:4]
+    # Get colormap
+    try:
+        cmap = plt.cm.get_cmap(colormap_name)
+    except ValueError:
+        cmap = plt.cm.tab10
     
     dataset_names = list(dataset_data.keys())
-    colors = plt.cm.tab10(np.linspace(0, 1, len(dataset_names)))
+    n_datasets = len(dataset_names)
+    colors = [cmap(i / max(n_datasets - 1, 1)) for i in range(n_datasets)]
     
-    for i, peak_pos in enumerate(peak_positions):
-        ax = axes[i] if n_peaks > 1 else axes[0]
+    # Create scatter plot
+    if use_3d and len(peak_positions) >= 3:
+        # 3D scatter plot
+        from mpl_toolkits.mplot3d import Axes3D
         
-        col_name = f'Peak_{peak_pos:.0f}'
+        fig = plt.figure(figsize=(12, 9))
+        ax = fig.add_subplot(111, projection='3d')
         
         for j, dataset_name in enumerate(dataset_names):
-            mask = peak_df['dataset'] == dataset_name
-            values = peak_df.loc[mask, col_name].values
-            x = np.random.normal(j, 0.04, size=len(values))
+            mask = peak_df_clean['dataset'] == dataset_name
+            x = peak_df_clean.loc[mask, valid_peak_cols[0]].values
+            y = peak_df_clean.loc[mask, valid_peak_cols[1]].values
+            z = peak_df_clean.loc[mask, valid_peak_cols[2]].values
             
-            ax.scatter(x, values, c=[colors[j]], alpha=0.6, s=50, label=dataset_name if i == 0 else "")
+            ax.scatter(x, y, z, c=[colors[j]], s=marker_size, alpha=0.7, 
+                      label=dataset_name, edgecolors='white', linewidth=0.5)
         
-        ax.set_xticks(range(len(dataset_names)))
-        ax.set_xticklabels(dataset_names, rotation=45, ha='right')
-        ax.set_ylabel('Intensity', fontsize=10)
-        ax.set_title(f'{peak_pos:.0f} cm⁻¹', fontsize=11)
-        ax.grid(True, alpha=0.3, axis='y')
-    
-    if n_peaks > 1:
-        axes[0].legend(loc='upper left', fontsize=9)
+        ax.set_xlabel(f'{peak_positions[0]:.0f} cm⁻¹', fontsize=11, labelpad=10)
+        ax.set_ylabel(f'{peak_positions[1]:.0f} cm⁻¹', fontsize=11, labelpad=10)
+        ax.set_zlabel(f'{peak_positions[2]:.0f} cm⁻¹', fontsize=11, labelpad=10)
+        ax.set_title('3D Peak Intensity Scatter Plot', fontsize=14, fontweight='bold', pad=20)
+        
+        if show_legend:
+            ax.legend(loc='upper left', fontsize=9, framealpha=0.9)
+        
+    else:
+        # 2D scatter plot with optional statistics
+        fig, ax = plt.subplots(figsize=(10, 8))
+        
+        for j, dataset_name in enumerate(dataset_names):
+            mask = peak_df_clean['dataset'] == dataset_name
+            x = peak_df_clean.loc[mask, valid_peak_cols[0]].values
+            y = peak_df_clean.loc[mask, valid_peak_cols[1]].values
+            
+            ax.scatter(x, y, c=[colors[j]], s=marker_size, alpha=0.7, 
+                      label=dataset_name, edgecolors='white', linewidth=0.5)
+            
+            # Add mean point with error bars if statistics enabled
+            if show_statistics and len(x) > 1:
+                mean_x, mean_y = np.mean(x), np.mean(y)
+                std_x, std_y = np.std(x), np.std(y)
+                
+                ax.errorbar(mean_x, mean_y, xerr=std_x, yerr=std_y, 
+                           c=colors[j], marker='D', markersize=12, 
+                           capsize=5, capthick=2, elinewidth=2, 
+                           markeredgecolor='black', markeredgewidth=1.5,
+                           zorder=10)
+        
+        ax.set_xlabel(f'Intensity at {peak_positions[0]:.0f} cm⁻¹', fontsize=12)
+        ax.set_ylabel(f'Intensity at {peak_positions[1]:.0f} cm⁻¹', fontsize=12)
+        ax.set_title('Peak Intensity Scatter Plot', fontsize=14, fontweight='bold')
+        ax.grid(True, alpha=0.3, linestyle='--')
+        
+        if show_legend:
+            ax.legend(loc='best', fontsize=10, framealpha=0.9)
     
     plt.tight_layout()
     
     if progress_callback:
+        progress_callback(75)
+    
+    # Calculate comprehensive statistics for each dataset and peak
+    stats_data = []
+    for dataset_name in dataset_names:
+        mask = peak_df_clean['dataset'] == dataset_name
+        dataset_subset = peak_df_clean[mask]
+        n_spectra = len(dataset_subset)
+        
+        for peak_pos in peak_positions:
+            col_name = f'Peak_{peak_pos:.0f}'
+            values = dataset_subset[col_name].values
+            
+            if len(values) > 0:
+                mean_val = np.mean(values)
+                std_val = np.std(values) if len(values) > 1 else 0
+                cv_percent = (std_val / mean_val * 100) if mean_val != 0 else 0
+                
+                stats_data.append({
+                    'Dataset': dataset_name,
+                    'Peak (cm⁻¹)': f'{peak_pos:.0f}',
+                    'N': n_spectra,
+                    'Mean': f'{mean_val:.2f}',
+                    'Std': f'{std_val:.2f}',
+                    'CV (%)': f'{cv_percent:.1f}',
+                    'Min': f'{np.min(values):.2f}',
+                    'Max': f'{np.max(values):.2f}',
+                    'Range': f'{np.max(values) - np.min(values):.2f}'
+                })
+    
+    stats_df = pd.DataFrame(stats_data)
+    
+    if progress_callback:
         progress_callback(90)
     
-    summary = f"Peak scatter plot created for {len(peak_positions)} peaks.\n"
-    summary += f"Peak positions: {', '.join([f'{p:.0f}' for p in peak_positions])} cm⁻¹"
+    # Generate summary text
+    summary_lines = [
+        f"Peak Intensity Scatter Plot ({'3D' if use_3d else '2D'} mode)",
+        f"Peak positions: {', '.join([f'{p:.0f}' for p in peak_positions])} cm⁻¹",
+        f"Tolerance: ±{tolerance} cm⁻¹",
+        f"Total spectra analyzed: {len(peak_df_clean)}",
+        f"Datasets: {len(dataset_names)}"
+    ]
+    
+    if warnings:
+        summary_lines.append(f"\n⚠️ Warnings: {'; '.join(warnings)}")
+    
+    # Detailed summary with statistics interpretation
+    detailed_lines = ["Statistical Summary by Dataset and Peak:\n"]
+    
+    for dataset_name in dataset_names:
+        detailed_lines.append(f"\n📊 {dataset_name}:")
+        dataset_mask = stats_df['Dataset'] == dataset_name
+        dataset_stats = stats_df[dataset_mask]
+        
+        for _, row in dataset_stats.iterrows():
+            cv = float(row['CV (%)'])
+            cv_interpretation = "low variability" if cv < 10 else "moderate variability" if cv < 25 else "high variability"
+            detailed_lines.append(
+                f"  • {row['Peak (cm⁻¹)']} cm⁻¹: Mean={row['Mean']}, CV={row['CV (%)']}% ({cv_interpretation})"
+            )
+    
+    detailed_lines.append("\n💡 Research Note: CV < 10% indicates good reproducibility. "
+                         "The diamond markers (◆) show mean ± std for each dataset.")
     
     return {
         "primary_figure": fig,
         "secondary_figure": None,
-        "data_table": peak_df,
-        "summary_text": summary,
-        "detailed_summary": f"Total spectra: {len(peak_df)}",
-        "raw_results": {"peak_positions": peak_positions}
+        "data_table": stats_df,
+        "summary_text": '\n'.join(summary_lines),
+        "detailed_summary": '\n'.join(detailed_lines),
+        "raw_results": {
+            "peak_positions": peak_positions,
+            "tolerance": tolerance,
+            "full_peak_data": peak_df_clean.to_dict(),
+            "statistics": stats_data,
+            "warnings": warnings
+        }
     }
 
 

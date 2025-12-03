@@ -301,7 +301,7 @@ def perform_peak_analysis(dataset_data: Dict[str, pd.DataFrame],
         
         # Build annotation text: wavenumber on first line, assignment on second line
         if show_assignments and assignment:
-            annotation_text = f'{wavenumber:.0f} cm⁻¹\\n{assignment}'
+            annotation_text = f'{wavenumber:.0f} cm⁻¹\n{assignment}'
         else:
             annotation_text = f'{wavenumber:.0f} cm⁻¹'
         

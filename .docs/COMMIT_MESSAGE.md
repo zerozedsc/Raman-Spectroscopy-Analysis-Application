@@ -1,3 +1,5 @@
+# *UPDATE 2025-12-03*
+
 fix(analysis): enhance PCA visualization, fix memory leaks, and add spectrum preview
 
 ## Major Changes

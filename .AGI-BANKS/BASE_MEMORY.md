@@ -1,7 +1,225 @@
 # Base Memory - AI Agent Knowledge Base
 
 > **Core knowledge and reference system for AI-assisted development**  
-> **Last Updated**: November 19, 2025 - Localization Initialization Pattern (Critical Fix)
+> **Last Updated**: December 4, 2025 - Analysis Page Visualization Fixes & 3D Enhancements
+
+## 📊 ANALYSIS PAGE VISUALIZATION PATTERNS (December 4, 2025) ⭐ CRITICAL
+
+### DataFrame Row Iteration for QTableWidget
+
+**CRITICAL**: When populating `QTableWidget` from `pd.DataFrame`, NEVER use `df.iterrows()` for row indices:
+
+```python
+# ❌ WRONG (causes TypeError when index is non-integer like "Peak_1000")
+for i, row in df.iterrows():  # i could be string!
+    for j, value in enumerate(row):
+        table_widget.setItem(i, j, item)  # TypeError!
+
+# ✅ CORRECT (enumerate always gives integer indices)
+for row_idx, row_data in enumerate(df.values):  # row_idx is always int
+    for col_idx, value in enumerate(row_data):
+        item = QTableWidgetItem(str(value))
+        table_widget.setItem(row_idx, col_idx, item)  # Works correctly
+```
+
+**Location**: `pages/analysis_page_utils/method_view.py` - `create_data_table_tab()`
+
+### ComboBox Dropdown Styling (QAbstractItemView)
+
+**CRITICAL**: ComboBox dropdown popups need explicit `QAbstractItemView` styling:
+
+```python
+QComboBox QAbstractItemView {
+    background-color: white;
+    border: 1px solid #d0d0d0;
+    border-radius: 4px;
+    selection-background-color: #e7f3ff;
+    selection-color: #0078d4;
+    outline: none;
+    padding: 2px;
+}
+
+QComboBox QAbstractItemView::item {
+    padding: 6px 10px;
+    min-height: 24px;
+}
+
+QComboBox QAbstractItemView::item:hover {
+    background-color: #f0f6fc;
+}
+```
+
+### 3D Surface Plots with matplotlib Axes3D
+
+**Pattern for 3D spectral visualization**:
+
+```python
+from mpl_toolkits.mplot3d import Axes3D
+
+fig = plt.figure(figsize=(12, 9))
+ax = fig.add_subplot(111, projection='3d')
+
+# Create meshgrid for surface
+WN, SPEC = np.meshgrid(wavenumbers, range(n_spectra))
+
+# Surface plot
+surf = ax.plot_surface(WN, SPEC, data_matrix,
+                       cmap=colormap, edgecolor='none', alpha=0.85)
+
+# Add colorbar
+fig.colorbar(surf, ax=ax, shrink=0.5, aspect=10, label='Intensity')
+
+# Labels
+ax.set_xlabel('Wavenumber (cm⁻¹)', fontsize=11, labelpad=10)
+ax.set_ylabel('Spectrum Index', fontsize=11, labelpad=10)
+ax.set_zlabel('Intensity', fontsize=11, labelpad=10)
+```
+
+**Implemented in**: Waterfall Plot, Peak Intensity Scatter Plot
+
+### Peak Intensity Statistics for Research
+
+**Comprehensive statistics pattern**:
+
+```python
+# Calculate CV% for reproducibility assessment
+cv_percent = (std_val / mean_val * 100) if mean_val != 0 else 0
+
+# Interpretation for research notes
+cv_interpretation = (
+    "low variability" if cv < 10 else 
+    "moderate variability" if cv < 25 else 
+    "high variability"
+)
+
+# Statistics table columns
+stats_columns = ['Dataset', 'Peak (cm⁻¹)', 'N', 'Mean', 'Std', 'CV (%)', 'Min', 'Max', 'Range']
+```
+
+**Research Value**: CV% < 10% indicates good measurement reproducibility.
+
+---
+
+## 🖼️ MATPLOTLIB WIDGET HEATMAP PATTERN (December 4, 2025) ⭐ CRITICAL
+
+### AxesImage Handling in update_plot()
+
+**CRITICAL**: When copying figures in `matplotlib_widget.py`, you MUST handle `AxesImage` objects (from `imshow()`):
+
+```python
+# matplotlib_widget.py - CORRECT PATTERN
+from matplotlib.image import AxesImage
+
+def update_plot(self, new_figure: Figure):
+    # ... existing line/scatter/patch copying ...
+    
+    # ✅ MUST COPY: AxesImage objects (imshow/heatmaps)
+    images = ax.get_images()
+    if images:
+        for img in images:
+            img_data = img.get_array()
+            extent = img.get_extent()
+            cmap = img.get_cmap()
+            clim = img.get_clim()
+            
+            new_ax.imshow(
+                img_data,
+                extent=extent,
+                cmap=cmap,
+                aspect='auto',
+                vmin=clim[0],
+                vmax=clim[1]
+            )
+        
+        # Add colorbar for heatmaps
+        self.figure.colorbar(new_ax.get_images()[-1], ax=new_ax)
+```
+
+**Common Mistake**:
+```python
+# ❌ WRONG: Only copying lines and collections (heatmaps display blank!)
+for line in ax.get_lines():
+    new_ax.plot(...)
+for collection in ax.collections:
+    # scatter plots, line collections...
+
+# ✅ CORRECT: Also copy images
+images = ax.get_images()  # Don't forget this!
+```
+
+### Position Preservation for Complex Layouts
+
+For GridSpec layouts (e.g., dendrograms + heatmap), preserve original positions:
+
+```python
+# ✅ CORRECT: Preserve axes positions
+pos = ax.get_position()
+new_ax = self.figure.add_axes([pos.x0, pos.y0, pos.width, pos.height])
+
+# ❌ WRONG: Simple sequential subplots (breaks GridSpec layouts)
+new_ax = self.figure.add_subplot(len(axes_list), 1, i+1)
+```
+
+---
+
+## 📊 MULTI-DATASET ANALYSIS PATTERNS (December 4, 2025) ⭐ CRITICAL
+
+### Wavenumber Interpolation for Multi-Dataset Analysis
+
+**CRITICAL**: When combining datasets with different wavenumber ranges, use `interpolate_to_common_wavenumbers()`:
+
+```python
+# exploratory.py - CORRECT PATTERN
+from scipy.interpolate import interp1d
+
+def interpolate_to_common_wavenumbers_with_groups(
+    dataset_data: Dict[str, pd.DataFrame],
+    group_labels_map: Optional[Dict[str, str]] = None,
+    method: str = 'linear'
+) -> Tuple[np.ndarray, np.ndarray, List[str]]:
+    """Interpolate datasets to common wavenumber grid."""
+    # 1. Find common range (intersection)
+    common_min = max(df.index.min() for df in dataset_data.values())
+    common_max = min(df.index.max() for df in dataset_data.values())
+    
+    # 2. Create common grid
+    common_wn = np.linspace(common_min, common_max, n_points)
+    
+    # 3. Interpolate each spectrum
+    for df in dataset_data.values():
+        interp_func = interp1d(df.index, spectrum, kind='linear')
+        interpolated = interp_func(common_wn)
+    
+    return common_wn, X, labels
+```
+
+**Usage in Analysis Methods**:
+```python
+# ✅ CORRECT: Use interpolation
+wavenumbers, X, labels = interpolate_to_common_wavenumbers_with_groups(
+    dataset_data, group_labels_map=group_labels_map
+)
+
+# ❌ WRONG: Direct vstack (fails with different wavenumber ranges)
+X = np.vstack([df.values.T for df in dataset_data.values()])
+```
+
+### High-Contrast Color Palette
+
+Use `get_high_contrast_colors()` for all multi-group visualizations:
+
+```python
+def get_high_contrast_colors(num_groups: int) -> List[str]:
+    if num_groups == 2:
+        return ['#0066cc', '#ff4444']  # Blue, Red
+    elif num_groups == 3:
+        return ['#0066cc', '#ff4444', '#00cc66']  # Blue, Red, Green
+    elif num_groups == 4:
+        return ['#0066cc', '#ff4444', '#00cc66', '#ff9900']
+    # ... etc for larger groups
+```
+
+---
 
 ## 🌐 LOCALIZATION PATTERN (November 19, 2025) ⭐ CRITICAL
 
@@ -1282,7 +1500,144 @@ print(f"[DEBUG] Recreated ellipse at {patch.center} on new axis")
 
 ---
 
-##  QT BUTTON GROUP SIGNAL DEBUGGING (November 20, 2025)  CRITICAL
+## 🎨 PCA VISUALIZATION BEST PRACTICES (December 2025) ⭐ CRITICAL
+
+### Dual-Layer Ellipse Pattern
+
+**CRITICAL RULE**: Confidence ellipses in PCA score plots should use a DUAL-LAYER pattern for optimal visibility.
+
+**The Problem**:
+```python
+# ❌ WRONG (single layer with α=0.6 creates dark overlapping blobs)
+ellipse = Ellipse(xy=(x, y), alpha=0.6, ...)
+```
+
+**The Solution - Dual-Layer Pattern**:
+```python
+# ✅ CORRECT - Two ellipses with different purposes
+# Layer 1: Ultra-light fill (barely visible)
+ellipse_fill = Ellipse(
+    xy=(mean_x, mean_y), 
+    facecolor=color,
+    edgecolor='none',  # No edge on fill layer
+    alpha=0.08,  # 8% opacity - barely visible fill
+    zorder=5
+)
+ax.add_patch(ellipse_fill)
+
+# Layer 2: Bold visible edge (clear boundary)
+ellipse_edge = Ellipse(
+    xy=(mean_x, mean_y), 
+    facecolor='none',  # No fill on edge layer
+    edgecolor=color,
+    linewidth=2.5,  # Thick edge for visibility
+    alpha=0.85,  # Strong edge visibility
+    label=label,  # Only edge gets legend label
+    zorder=15  # Above scatter points
+)
+ax.add_patch(ellipse_edge)
+```
+
+### MatplotlibWidget Ellipse Recreation
+
+**Location**: `components/widgets/matplotlib_widget.py`
+
+**CRITICAL**: When copying ellipses from source figures, must preserve the dual-layer pattern:
+- Detect layer type (fill vs edge) based on alpha and colors
+- Preserve zorder for proper layering
+- Keep original alpha values intact
+
+### Spectrum Preview Best Practices
+
+**Mean-Only Display Pattern**:
+```python
+# ✅ CORRECT - Show only mean spectra with vertical offset
+for idx, (name, df) in enumerate(dataset_data.items()):
+    mean_spectrum = df.mean(axis=1).values
+    mean_with_offset = mean_spectrum + offset
+    
+    ax.plot(wavenumbers, mean_with_offset,
+            linewidth=2.8,
+            label=f'{name} (mean, n={df.shape[1]})')
+    
+    # Ultra-subtle ±0.5σ envelope (optional)
+    ax.fill_between(wavenumbers,
+                    mean_with_offset - std * 0.5,
+                    mean_with_offset + std * 0.5,
+                    alpha=0.08)  # Barely visible
+    
+    offset = max_intensity * 1.15  # 15% spacing (RAMANMETRIX standard)
+```
+
+### Loading Plot Annotations
+
+**Top 5 Peaks Per Component** (increased from 3):
+```python
+# Annotate top 5 peak positions for each PC
+top_indices = np.argsort(np.abs(loadings))[-5:]
+
+for peak_idx in top_indices:
+    ax.annotate(f'{wavenumber:.0f}', 
+               xy=(wavenumber, loading_value),
+               xytext=(0, 10 if loading_value > 0 else -15),
+               textcoords='offset points',
+               fontsize=8, fontweight='bold',
+               bbox=dict(boxstyle='round,pad=0.2', 
+                        facecolor='white', alpha=0.8))
+```
+
+### Scree Plot Layout
+
+**Side-by-Side GridSpec Pattern**:
+```python
+from matplotlib.gridspec import GridSpec
+
+fig = plt.figure(figsize=(14, 5.5))
+gs = GridSpec(1, 2, figure=fig, wspace=0.25)
+
+# LEFT: Individual variance bar chart
+ax_bar = fig.add_subplot(gs[0, 0])
+
+# RIGHT: Cumulative variance line plot
+ax_cum = fig.add_subplot(gs[0, 1])
+```
+
+### tight_layout Best Practices
+
+**CRITICAL**: Call tight_layout AFTER all artists are added:
+```python
+# ✅ CORRECT order
+for ax in axes:
+    # ... add all lines, patches, annotations ...
+    pass
+
+# Then apply layout
+try:
+    fig.tight_layout(pad=1.2, rect=[0, 0.03, 1, 0.95])
+except:
+    fig.set_constrained_layout(True)  # Fallback
+
+canvas.draw()
+plt.close(source_figure)  # Prevent memory leak
+```
+
+### Legend Clarity for Confidence Ellipses
+
+**Use descriptive labels**:
+```python
+# ❌ WRONG (ambiguous)
+label=f'{dataset_label} 95% CI'
+
+# ✅ CORRECT (clear)
+label=f'{dataset_label} (95% Conf. Ellipse)'
+
+# Add footnote for scientific papers
+ax.text(0.02, 0.02,
+        "95% Confidence Ellipses calculated using Hotelling's T² (1.96σ)",
+        transform=ax.transAxes, fontsize=9, style='italic')
+```
+
+---
 
 ### Why Qt Signals Fail Silently
 

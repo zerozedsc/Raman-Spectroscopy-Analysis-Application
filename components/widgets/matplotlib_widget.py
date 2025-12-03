@@ -169,6 +169,21 @@ class MatplotlibWidget(QWidget):
         else:
             # Fallback
             self.layout().addWidget(widget)
+    
+    def resizeEvent(self, event):
+        """
+        Override resize event to reapply tight_layout dynamically.
+        
+        ✅ FIX #4 (P0): Automatic layout recalculation on window resize
+        Implements recommendation from all 6 AI analyses.
+        """
+        from PySide6.QtGui import QResizeEvent
+        super().resizeEvent(event)
+        try:
+            self.figure.tight_layout(pad=1.2)
+            self.canvas.draw_idle()  # Non-blocking draw
+        except:
+            pass
 
     def update_plot(self, new_figure: Figure):
         """
@@ -183,15 +198,25 @@ class MatplotlibWidget(QWidget):
             # No axes to copy
             self.canvas.draw()
             return
-            
+        
+        # ✅ FIX: Preserve complex subplot layouts (GridSpec, dendrograms with heatmaps)
+        # Instead of creating simple 1xN subplots, preserve the original axes positions
         for i, ax in enumerate(axes_list):
-            # Create a new subplot in the same position
-            # For simple cases, we can use add_subplot(111) for single plots
-            if len(axes_list) == 1:
-                new_ax = self.figure.add_subplot(111)
-            else:
-                # For multiple subplots, try to preserve layout
-                new_ax = self.figure.add_subplot(len(axes_list), 1, i+1)
+            # Get the original axes position in figure coordinates
+            try:
+                # Get the position of the original axes (left, bottom, width, height)
+                pos = ax.get_position()
+                
+                # Create new axes at the same position
+                new_ax = self.figure.add_axes([pos.x0, pos.y0, pos.width, pos.height])
+                print(f"[DEBUG] Created axis {i} at position: ({pos.x0:.2f}, {pos.y0:.2f}, {pos.width:.2f}, {pos.height:.2f})")
+            except Exception as e:
+                # Fallback to simple layout
+                print(f"[DEBUG] Failed to preserve position, using fallback: {e}")
+                if len(axes_list) == 1:
+                    new_ax = self.figure.add_subplot(111)
+                else:
+                    new_ax = self.figure.add_subplot(len(axes_list), 1, i+1)
             
             # Copy all line plots from the original axes
             for line in ax.get_lines():
@@ -202,6 +227,42 @@ class MatplotlibWidget(QWidget):
                            linewidth=line.get_linewidth(),
                            marker=line.get_marker(),
                            markersize=line.get_markersize())
+            
+            # ✅ FIX: Copy AxesImage objects (imshow/heatmaps) - CRITICAL FOR HEATMAPS
+            # This was missing and caused blank heatmaps in Correlation Heatmap and Spectral Heatmap
+            from matplotlib.image import AxesImage
+            images = ax.get_images()
+            if images:
+                print(f"[DEBUG] Found {len(images)} AxesImage objects (heatmaps/imshow)")
+                for img in images:
+                    try:
+                        # Get image data and properties
+                        img_data = img.get_array()
+                        extent = img.get_extent()
+                        cmap = img.get_cmap()
+                        alpha = img.get_alpha()
+                        interpolation = img.get_interpolation()
+                        
+                        # Get clim (color limits)
+                        clim = img.get_clim()
+                        
+                        # Recreate imshow on new axis
+                        new_img = new_ax.imshow(
+                            img_data,
+                            extent=extent,
+                            cmap=cmap,
+                            alpha=alpha if alpha is not None else 1.0,
+                            interpolation=interpolation,
+                            aspect='auto',
+                            vmin=clim[0],
+                            vmax=clim[1]
+                        )
+                        
+                        # Copy colorbar if present
+                        # Note: Colorbars are handled separately after all axes are copied
+                        print(f"[DEBUG] Successfully copied AxesImage: shape={img_data.shape}, cmap={cmap.name}, clim={clim}")
+                    except Exception as e:
+                        print(f"[DEBUG] Failed to copy AxesImage: {e}")
             
             # Copy scatter plots (PathCollections) and LineCollections from the original axes
             from matplotlib.collections import LineCollection, PathCollection
@@ -260,21 +321,44 @@ class MatplotlibWidget(QWidget):
                 for patch in ax.patches:
                     # Get patch properties
                     if isinstance(patch, Ellipse):
-                        # Recreate ellipse with same properties
+                        # ✅ FIX #3 (P0): DUAL-LAYER ELLIPSE PATTERN
+                        # Consensus from 6 AI analyses: α=0.08 fill + α=0.85 edge prevents dark overlaps
+                        # This preserves the dual-layer pattern created in add_confidence_ellipse()
+                        
+                        original_alpha = patch.get_alpha()
+                        original_facecolor = patch.get_facecolor()
+                        original_edgecolor = patch.get_edgecolor()
+                        
+                        # Check if this is a fill-only layer (very low alpha, no edge)
+                        is_fill_layer = (original_alpha is not None and original_alpha <= 0.15 and 
+                                        (original_edgecolor is None or 
+                                         (hasattr(original_edgecolor, '__len__') and len(original_edgecolor) == 4 and original_edgecolor[3] == 0) or
+                                         str(original_edgecolor) == 'none'))
+                        
+                        # Check if this is an edge-only layer (high alpha, no fill)
+                        is_edge_layer = (original_alpha is not None and original_alpha >= 0.7 and 
+                                        (original_facecolor is None or 
+                                         (hasattr(original_facecolor, '__len__') and len(original_facecolor) == 4 and original_facecolor[3] == 0) or
+                                         str(original_facecolor) == 'none'))
+                        
+                        # Recreate ellipse preserving dual-layer properties
                         new_ellipse = Ellipse(
                             xy=patch.center,
                             width=patch.width,
                             height=patch.height,
                             angle=patch.angle,
-                            facecolor=patch.get_facecolor(),
-                            edgecolor=patch.get_edgecolor(),
+                            facecolor=original_facecolor,
+                            edgecolor=original_edgecolor,
                             linestyle=patch.get_linestyle(),
-                            linewidth=patch.get_linewidth(),
-                            alpha=patch.get_alpha(),
-                        label=patch.get_label() if not patch.get_label().startswith('_') else None
+                            linewidth=patch.get_linewidth() if patch.get_linewidth() else 2.5,
+                            alpha=original_alpha if original_alpha is not None else 0.08,
+                            label=patch.get_label() if not patch.get_label().startswith('_') else None,
+                            zorder=patch.get_zorder() if hasattr(patch, 'get_zorder') else 10
                         )
                         new_ax.add_patch(new_ellipse)
-                        print(f"[DEBUG] Recreated ellipse at {patch.center} on new axis")
+                        
+                        layer_type = "fill" if is_fill_layer else ("edge" if is_edge_layer else "standard")
+                        print(f"[DEBUG] Recreated ellipse ({layer_type} layer) at {patch.center}, α={original_alpha}")
                     
                     elif isinstance(patch, Rectangle):
                         # Recreate rectangle (for bar plots)
@@ -410,6 +494,21 @@ class MatplotlibWidget(QWidget):
             new_ax.set_xlim(ax.get_xlim())
             new_ax.set_ylim(ax.get_ylim())
             
+            # ✅ FIX: Add colorbar for heatmaps/imshow if images were copied
+            # This ensures correlation heatmaps and spectral heatmaps have proper colorbars
+            if images:
+                # Get the last image to use for colorbar
+                last_img = new_ax.get_images()
+                if last_img:
+                    try:
+                        cbar = self.figure.colorbar(last_img[-1], ax=new_ax)
+                        # Try to copy colorbar label from original
+                        original_cbar_axes = [child for child in new_figure.get_axes() 
+                                              if hasattr(child, '_colorbar')]
+                        print(f"[DEBUG] Added colorbar for heatmap")
+                    except Exception as e:
+                        print(f"[DEBUG] Failed to add colorbar: {e}")
+            
             # Copy legend if it exists and has valid artists
             legend = ax.get_legend()
             if legend and legend.get_texts():
@@ -418,11 +517,26 @@ class MatplotlibWidget(QWidget):
                 if handles and labels:
                     new_ax.legend(handles, labels, loc=legend._loc if hasattr(legend, '_loc') else 'best')
             
-            # Add grid
-            new_ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+            # Add grid (but not for heatmaps - they look bad with grid)
+            if not images:
+                new_ax.grid(True, which='both', linestyle='--', linewidth=0.5)
 
-        self.figure.tight_layout()
+        # ✅ FIX #1 (P0): Apply tight_layout BEFORE draw (not after)
+        # Consensus from 6 AI analyses: tight_layout must be called after ALL artists added
+        try:
+            self.figure.tight_layout(pad=1.2, rect=[0, 0.03, 1, 0.95])
+        except Exception as e:
+            print(f"[DEBUG] tight_layout failed: {e}, using constrained_layout")
+            try:
+                self.figure.set_constrained_layout(True)
+            except:
+                pass
+        
         self.canvas.draw()
+        
+        # ✅ FIX #2 (P0): Close source figure to prevent memory leak
+        # Validated by matplotlib docs: prevents memory growth in repeated analysis
+        plt.close(new_figure)
     
     def update_plot_with_config(self, new_figure: Figure, config: Optional[Dict[str, Any]] = None):
         """
@@ -466,8 +580,8 @@ class MatplotlibWidget(QWidget):
                 n_rows = int(np.ceil(n_plots / n_cols))
                 new_ax = self.figure.add_subplot(n_rows, n_cols, i+1)
             
-            # Copy plot elements (lines, collections, patches)
-            self._copy_plot_elements(ax, new_ax)
+            # Copy plot elements (lines, collections, patches, images)
+            has_images = self._copy_plot_elements(ax, new_ax)
             
             # Copy axes properties
             new_ax.set_title(ax.get_title())
@@ -476,18 +590,29 @@ class MatplotlibWidget(QWidget):
             new_ax.set_xlim(ax.get_xlim())
             new_ax.set_ylim(ax.get_ylim())
             
-            # Apply grid configuration
-            if 'grid' in config:
-                grid_cfg = config['grid']
-                new_ax.grid(
-                    grid_cfg.get('enabled', True),
-                    which='both',
-                    linestyle=grid_cfg.get('linestyle', '--'),
-                    linewidth=grid_cfg.get('linewidth', 0.5),
-                    alpha=grid_cfg.get('alpha', 0.3)
-                )
-            else:
-                new_ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+            # ✅ FIX: Add colorbar for heatmaps if images were copied
+            if has_images:
+                img_list = new_ax.get_images()
+                if img_list:
+                    try:
+                        self.figure.colorbar(img_list[-1], ax=new_ax)
+                        print(f"[DEBUG] Added colorbar in update_plot_with_config")
+                    except Exception as e:
+                        print(f"[DEBUG] Failed to add colorbar: {e}")
+            
+            # Apply grid configuration (skip for heatmaps)
+            if not has_images:
+                if 'grid' in config:
+                    grid_cfg = config['grid']
+                    new_ax.grid(
+                        grid_cfg.get('enabled', True),
+                        which='both',
+                        linestyle=grid_cfg.get('linestyle', '--'),
+                        linewidth=grid_cfg.get('linewidth', 0.5),
+                        alpha=grid_cfg.get('alpha', 0.3)
+                    )
+                else:
+                    new_ax.grid(True, which='both', linestyle='--', linewidth=0.5)
             
             # Apply legend configuration
             legend = ax.get_legend()
@@ -537,17 +662,29 @@ class MatplotlibWidget(QWidget):
             if fig_cfg.get('constrained_layout', False):
                 self.figure.set_constrained_layout(True)
             elif fig_cfg.get('tight_layout', True):
-                self.figure.tight_layout()
+                try:
+                    self.figure.tight_layout(pad=1.2, rect=[0, 0.03, 1, 0.95])
+                except:
+                    self.figure.set_constrained_layout(True)
         else:
-            # Default to tight_layout as requested
-            self.figure.tight_layout()
+            # ✅ DEFAULT: Always apply tight_layout when no config provided
+            try:
+                self.figure.tight_layout(pad=1.2, rect=[0, 0.03, 1, 0.95])
+            except:
+                try:
+                    self.figure.set_constrained_layout(True)
+                except:
+                    pass
         
         self.canvas.draw()
+        
+        # ✅ CRITICAL: Close source figure to prevent memory leak
+        plt.close(new_figure)
     
     def _copy_plot_elements(self, source_ax, target_ax):
         """
         Helper method to copy plot elements from source to target axis.
-        Handles lines, collections (scatter, line collections), and patches.
+        Handles lines, collections (scatter, line collections), patches, and images.
         """
         # Copy lines
         for line in source_ax.get_lines():
@@ -558,6 +695,36 @@ class MatplotlibWidget(QWidget):
                          linewidth=line.get_linewidth(),
                          marker=line.get_marker(),
                          markersize=line.get_markersize())
+        
+        # ✅ FIX: Copy AxesImage objects (imshow/heatmaps) - CRITICAL FOR HEATMAPS
+        from matplotlib.image import AxesImage
+        images = source_ax.get_images()
+        has_images = False
+        if images:
+            has_images = True
+            print(f"[DEBUG] _copy_plot_elements: Found {len(images)} AxesImage objects")
+            for img in images:
+                try:
+                    img_data = img.get_array()
+                    extent = img.get_extent()
+                    cmap = img.get_cmap()
+                    alpha = img.get_alpha()
+                    interpolation = img.get_interpolation()
+                    clim = img.get_clim()
+                    
+                    new_img = target_ax.imshow(
+                        img_data,
+                        extent=extent,
+                        cmap=cmap,
+                        alpha=alpha if alpha is not None else 1.0,
+                        interpolation=interpolation,
+                        aspect='auto',
+                        vmin=clim[0],
+                        vmax=clim[1]
+                    )
+                    print(f"[DEBUG] Copied AxesImage in helper: shape={img_data.shape}")
+                except Exception as e:
+                    print(f"[DEBUG] Failed to copy AxesImage in helper: {e}")
         
         # Copy collections
         from matplotlib.collections import LineCollection, PathCollection
@@ -586,13 +753,22 @@ class MatplotlibWidget(QWidget):
             from matplotlib.patches import Ellipse, Rectangle, FancyArrow, FancyArrowPatch
             for patch in source_ax.patches:
                 if isinstance(patch, Ellipse):
-                    new_patch = Ellipse(xy=patch.center, width=patch.width,
-                                      height=patch.height, angle=patch.angle,
-                                      facecolor=patch.get_facecolor(),
-                                      edgecolor=patch.get_edgecolor(),
-                                      linestyle=patch.get_linestyle(),
-                                      linewidth=patch.get_linewidth(),
-                                      alpha=patch.get_alpha())
+                    # ✅ FIX #3 (P0): DUAL-LAYER ELLIPSE PATTERN in helper method
+                    # Preserve alpha and layer type from source ellipse
+                    original_alpha = patch.get_alpha()
+                    new_patch = Ellipse(
+                        xy=patch.center, 
+                        width=patch.width,
+                        height=patch.height, 
+                        angle=patch.angle,
+                        facecolor=patch.get_facecolor(),
+                        edgecolor=patch.get_edgecolor(),
+                        linestyle=patch.get_linestyle(),
+                        linewidth=patch.get_linewidth() if patch.get_linewidth() else 2.5,
+                        alpha=original_alpha if original_alpha is not None else 0.08,
+                        label=patch.get_label() if hasattr(patch, 'get_label') and not patch.get_label().startswith('_') else None,
+                        zorder=patch.get_zorder() if hasattr(patch, 'get_zorder') else 10
+                    )
                     target_ax.add_patch(new_patch)
                 elif isinstance(patch, Rectangle):
                     new_patch = Rectangle(xy=(patch.get_x(), patch.get_y()),
@@ -625,6 +801,9 @@ class MatplotlibWidget(QWidget):
                                               linewidth=patch.get_linewidth(),
                                               alpha=patch.get_alpha())
                     target_ax.add_patch(new_patch)
+        
+        # Return whether images were copied (for colorbar handling)
+        return has_images
     
     def plot_3d(self, data: Dict[str, np.ndarray], plot_type: str = 'scatter',
                 title: str = "3D Visualization", config: Optional[Dict[str, Any]] = None):

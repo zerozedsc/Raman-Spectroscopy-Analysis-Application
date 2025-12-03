@@ -281,30 +281,69 @@ def _v1_create_method_view(
         # Single dropdown for single-dataset methods
         dataset_combo = QComboBox()
         dataset_combo.setObjectName("datasetComboBox")
-        dataset_combo.setMinimumHeight(36)
+        dataset_combo.setMinimumHeight(40)
         dataset_combo.addItems(dataset_names)
+        # Enhanced QComboBox styling with proper dropdown list background
         dataset_combo.setStyleSheet("""
             QComboBox {
-                border: 1px solid #d0d0d0;
-                border-radius: 4px;
-                padding: 6px 12px;
-                background-color: white;
+                border: 1px solid #ced4da;
+                border-radius: 6px;
+                padding: 8px 12px;
+                background-color: #ffffff;
                 font-size: 13px;
+                color: #2c3e50;
+                min-width: 200px;
             }
             QComboBox:hover {
                 border-color: #0078d4;
+                background-color: #f8f9fa;
+            }
+            QComboBox:focus {
+                border-color: #0078d4;
+                border-width: 2px;
             }
             QComboBox::drop-down {
-                border: none;
-                width: 24px;
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 30px;
+                border-left: 1px solid #e0e0e0;
+                border-top-right-radius: 6px;
+                border-bottom-right-radius: 6px;
+                background-color: #f8f9fa;
             }
             QComboBox::down-arrow {
-                image: url(none);
+                width: 12px;
+                height: 12px;
+                image: none;
                 border-left: 5px solid transparent;
                 border-right: 5px solid transparent;
-                border-top: 5px solid #6c757d;
-                width: 0;
-                height: 0;
+                border-top: 6px solid #495057;
+            }
+            /* CRITICAL FIX: Dropdown list popup styling */
+            QComboBox QAbstractItemView {
+                border: 1px solid #ced4da;
+                border-radius: 6px;
+                background-color: #ffffff;
+                selection-background-color: #e7f3ff;
+                selection-color: #0078d4;
+                outline: none;
+                padding: 4px;
+            }
+            QComboBox QAbstractItemView::item {
+                min-height: 32px;
+                padding: 8px 12px;
+                background-color: #ffffff;
+                color: #2c3e50;
+                border-radius: 4px;
+            }
+            QComboBox QAbstractItemView::item:hover {
+                background-color: #f0f7ff;
+                color: #0078d4;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                background-color: #e7f3ff;
+                color: #0078d4;
+                font-weight: 600;
             }
         """)
         dataset_widget = dataset_combo
@@ -1672,15 +1711,28 @@ def create_data_table_tab(data_table) -> QWidget:
     else:
         df = data_table
     
+    # Reset index to ensure integer-based row access
+    # This fixes TypeError when DataFrame has non-integer index (e.g., string labels)
+    df = df.reset_index(drop=True)
+    
     # Populate table
     table_widget.setRowCount(len(df))
     table_widget.setColumnCount(len(df.columns))
     table_widget.setHorizontalHeaderLabels([str(col) for col in df.columns])
     
-    for i, row in df.iterrows():
-        for j, value in enumerate(row):
-            item = QTableWidgetItem(str(value))
-            table_widget.setItem(i, j, item)
+    # Use enumerate to get integer row indices (fixes setItem TypeError)
+    for row_idx, (_, row) in enumerate(df.iterrows()):
+        for col_idx, value in enumerate(row):
+            # Format numeric values for better readability
+            if isinstance(value, float):
+                if abs(value) < 0.001 or abs(value) > 10000:
+                    formatted_value = f"{value:.3e}"  # Scientific notation for very small/large
+                else:
+                    formatted_value = f"{value:.4f}"  # 4 decimal places for normal floats
+            else:
+                formatted_value = str(value)
+            item = QTableWidgetItem(formatted_value)
+            table_widget.setItem(row_idx, col_idx, item)
     
     table_widget.resizeColumnsToContents()
     return table_widget

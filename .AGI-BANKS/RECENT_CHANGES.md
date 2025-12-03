@@ -461,32 +461,6 @@ Click "Auto-Assign"
 **Dependencies**:
 - PySide6 Signal/Slot mechanism for real-time sync
 - pandas DataFrame for results table
-- matplotlib annotations for peak labels
-- json module for raman_peaks.json loading
-
----
-
-### December 3, 2025 - Analysis Page Visualizations & Fixes 📊🛠️✅
-**Date**: 2025-12-03 | **Status**: COMPLETED | **Quality**: Bug Fixes & UX Improvements ⭐⭐⭐⭐
-
-#### Executive Summary
-Addressed critical visualization issues in PCA, UMAP, t-SNE, and Clustering. Enabled grid layout for PCA distributions (up to 6 components), fixed t-SNE group mode and perplexity errors, and improved dendrogram visualization.
-
-**Key Deliverables**:
-- ✅ **PCA**: Grid layout for distribution plots (max 6 components)
-- ✅ **t-SNE**: Enabled group mode (multi-dataset) and fixed perplexity crash
-- ✅ **Clustering**: Improved dendrogram with color thresholds
-- ✅ **Bug Fixes**: Resolved "loadings_figure" errors for UMAP/t-SNE/K-means
-- ✅ **UX**: Enforced `tight_layout` in MatplotlibWidget
-
-> **Full Details**: [`.docs/updates/RECENT_CHANGES_20251203_analysis_fixes.md`](../.docs/updates/RECENT_CHANGES_20251203_analysis_fixes.md)
-
----
-
-### November 21, 2025 - Startup Performance Optimization: Splash Screen & Lazy Imports 🚀⚡✅
-**Date**: 2025-11-21 | **Status**: COMPLETED | **Quality**: Critical Performance Enhancement ⭐⭐⭐⭐⭐
-
-#### Executive Summary
 Dramatically improved portable executable startup time from **90-120 seconds to 20-40 seconds** (60-75% improvement) through lazy import pattern, splash screen with progress bar, and aggressive module exclusions. Added professional loading experience with visual feedback.
 
 **Key Deliverables**:
