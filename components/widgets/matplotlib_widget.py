@@ -1,12 +1,15 @@
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
+from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
+from mpl_toolkits.mplot3d import Axes3D
+from typing import Optional, Dict, Any, List, Tuple
 
 
 def detect_signal_range(wavenumbers, intensities, noise_threshold_percentile=20, signal_threshold_factor=1.2, focus_padding=None, crop_bounds=None):
@@ -146,6 +149,27 @@ class MatplotlibWidget(QWidget):
         layout.addWidget(self.toolbar)
         layout.addWidget(self.canvas)
 
+    def add_custom_toolbar(self, widget: QWidget):
+        """
+        Add a custom widget to the toolbar area.
+        
+        Args:
+            widget: The QWidget to add to the toolbar layout
+        """
+        # Find the toolbar layout (it's the second item in the main layout, index 1)
+        # Layout structure: [Canvas, Toolbar_Layout]
+        if self.layout().count() >= 2:
+            # The toolbar is usually in a VBox or HBox. 
+            # Based on __init__, we have self.layout() as QVBoxLayout.
+            # It contains self.canvas and self.toolbar.
+            # We want to add the custom widget next to the toolbar or above/below it.
+            
+            # Let's add it to the main layout, right after the toolbar
+            self.layout().addWidget(widget)
+        else:
+            # Fallback
+            self.layout().addWidget(widget)
+
     def update_plot(self, new_figure: Figure):
         """
         Clears the current figure and replaces it with a new one.
@@ -179,32 +203,47 @@ class MatplotlibWidget(QWidget):
                            marker=line.get_marker(),
                            markersize=line.get_markersize())
             
-            # Copy scatter plots (PathCollections) from the original axes
-            from matplotlib.collections import LineCollection
+            # Copy scatter plots (PathCollections) and LineCollections from the original axes
+            from matplotlib.collections import LineCollection, PathCollection
             
             for collection in ax.collections:
-                # Skip LineCollection (used in dendrograms, heatmaps) - they don't have get_sizes()
+                # Handle LineCollection (used in dendrograms, heatmaps, cluster plots)
                 if isinstance(collection, LineCollection):
-                    print(f"[DEBUG] Skipping LineCollection (no get_sizes method)")
+                    print(f"[DEBUG] Copying LineCollection (dendrogram/cluster lines)")
+                    # Copy line segments directly
+                    segments = collection.get_segments()
+                    colors = collection.get_colors()
+                    linewidths = collection.get_linewidths()
+                    linestyles = collection.get_linestyles()
+                    
+                    new_collection = LineCollection(
+                        segments,
+                        colors=colors,
+                        linewidths=linewidths,
+                        linestyles=linestyles
+                    )
+                    new_ax.add_collection(new_collection)
                     continue
                 
-                offsets = collection.get_offsets()
-                if len(offsets) > 0:
-                    # Get collection properties
-                    facecolors = collection.get_facecolors()
-                    edgecolors = collection.get_edgecolors()
-                    sizes = collection.get_sizes() if hasattr(collection, 'get_sizes') else [50]
-                    label = collection.get_label()
-                    
-                    # Create scatter plot
-                    new_ax.scatter(offsets[:, 0], offsets[:, 1],
-                                 c=facecolors if len(facecolors) > 0 else None,
-                                 s=sizes[0] if len(sizes) > 0 else 50,
-                                 edgecolors=edgecolors if len(edgecolors) > 0 else None,
-                                 label=label if label and not label.startswith('_') else None,
-                                 alpha=collection.get_alpha() or 1.0)
+                # Handle PathCollection (scatter plots)
+                if isinstance(collection, PathCollection):
+                    offsets = collection.get_offsets()
+                    if len(offsets) > 0:
+                        # Get collection properties
+                        facecolors = collection.get_facecolors()
+                        edgecolors = collection.get_edgecolors()
+                        sizes = collection.get_sizes() if hasattr(collection, 'get_sizes') else [50]
+                        label = collection.get_label()
+                        
+                        # Create scatter plot
+                        new_ax.scatter(offsets[:, 0], offsets[:, 1],
+                                     c=facecolors if len(facecolors) > 0 else None,
+                                     s=sizes[0] if len(sizes) > 0 else 50,
+                                     edgecolors=edgecolors if len(edgecolors) > 0 else None,
+                                     label=label if label and not label.startswith('_') else None,
+                                     alpha=collection.get_alpha() or 1.0)
             
-            # Recreate patches (ellipses, rectangles) on new axis
+            # Recreate patches (ellipses, rectangles, arrows) on new axis
             # Patches can't be transferred between figures (RuntimeError), so we recreate them
             # Skip if too many patches (likely heatmap/correlation plot with many cells)
             num_patches = len(ax.patches)
@@ -216,7 +255,7 @@ class MatplotlibWidget(QWidget):
             else:
                 print(f"[DEBUG] Recreating {num_patches} patches on new axis")
                 
-                from matplotlib.patches import Ellipse, Rectangle, Polygon
+                from matplotlib.patches import Ellipse, Rectangle, Polygon, FancyArrow, FancyArrowPatch
                 
                 for patch in ax.patches:
                     # Get patch properties
@@ -232,7 +271,7 @@ class MatplotlibWidget(QWidget):
                             linestyle=patch.get_linestyle(),
                             linewidth=patch.get_linewidth(),
                             alpha=patch.get_alpha(),
-                            label=patch.get_label() if not patch.get_label().startswith('_') else None
+                        label=patch.get_label() if not patch.get_label().startswith('_') else None
                         )
                         new_ax.add_patch(new_ellipse)
                         print(f"[DEBUG] Recreated ellipse at {patch.center} on new axis")
@@ -251,9 +290,118 @@ class MatplotlibWidget(QWidget):
                         new_ax.add_patch(new_rect)
                         print(f"[DEBUG] Recreated rectangle at ({patch.get_x()}, {patch.get_y()}) on new axis")
                     
+                    elif isinstance(patch, FancyArrow):
+                        # 
+                        # Recreate FancyArrow (used in Biplots)
+                        print(f"[DEBUG] Recreating FancyArrow on new axis")
+                        
+                        # FancyArrow stores properties as attributes, not via get_ methods
+                        new_arrow = FancyArrow(
+                            x=patch._x,              # Changed from get_x()
+                            y=patch._y,              # Changed from get_y()
+                            dx=patch._dx,            # Changed from get_width()
+                            dy=patch._dy,            # Changed from get_height()
+                            width=getattr(patch, '_width', 0.01), # Keep using internal attribs if getters miss
+                            head_width=getattr(patch, '_head_width', 0.03),
+                            head_length=getattr(patch, '_head_length', 0.05),
+                            length_includes_head=getattr(patch, '_length_includes_head', False),
+                            shape=getattr(patch, '_shape', 'full'),
+                            overhang=getattr(patch, '_overhang', 0),
+                            head_starts_at_zero=getattr(patch, '_head_starts_at_zero', False),
+                            facecolor=patch.get_facecolor(),
+                            edgecolor=patch.get_edgecolor(),
+                            linewidth=patch.get_linewidth(),
+                            alpha=patch.get_alpha()
+                        )
+                        new_ax.add_patch(new_arrow)
+                        print(f"[DEBUG] Successfully recreated FancyArrow")
+                    
+                    elif isinstance(patch, FancyArrowPatch):
+                        # Recreate FancyArrowPatch (more common arrow type)
+                        print(f"[DEBUG] Recreating FancyArrowPatch on new axis")
+                        posA = patch.get_path().vertices[0]
+                        posB = patch.get_path().vertices[-1]
+                        new_arrow_patch = FancyArrowPatch(
+                            posA=posA,
+                            posB=posB,
+                            arrowstyle=patch.get_arrowstyle(),
+                            mutation_scale=patch.get_mutation_scale(),
+                            facecolor=patch.get_facecolor(),
+                            edgecolor=patch.get_edgecolor(),
+                            linewidth=patch.get_linewidth(),
+                            alpha=patch.get_alpha()
+                        )
+                        new_ax.add_patch(new_arrow_patch)
+                        print(f"[DEBUG] Successfully recreated FancyArrowPatch")
+                    
                     else:
                         # For other patch types, log and skip
                         print(f"[DEBUG] Skipping unsupported patch type: {type(patch).__name__}")
+            
+            # Copy annotations (text with arrows) - CRITICAL FOR PEAK LABELS
+            annotations = [artist for artist in ax.get_children() 
+                          if hasattr(artist, 'arrow_patch') or 
+                          (hasattr(artist, '__class__') and 
+                           artist.__class__.__name__ == 'Annotation')]
+            num_annotations = len(annotations)
+            print(f"[DEBUG] Found {num_annotations} annotations on axis")
+            
+            if num_annotations > 0:
+                print(f"[DEBUG] Copying {num_annotations} annotations to new axis")
+                for artist in annotations:
+                    try:
+                        # Get annotation properties
+                        text = artist.get_text()
+                        xy = artist.xy  # Point being annotated
+                        xytext = artist.xyann  # Text position (tuple)
+                            
+                        # Get text properties
+                        fontsize = artist.get_fontsize()
+                        fontweight = artist.get_fontweight()
+                        color = artist.get_color()
+                        ha = artist.get_ha()
+                        va = artist.get_va()
+                        
+                        # Get bbox properties
+                        bbox = artist.get_bbox_patch()
+                        bbox_props = None
+                        if bbox:
+                            bbox_props = dict(
+                                boxstyle=bbox.get_boxstyle(),
+                                facecolor=bbox.get_facecolor(),
+                                edgecolor=bbox.get_edgecolor(),
+                                alpha=bbox.get_alpha()
+                            )
+                        
+                        # Get arrow properties
+                        arrow_patch = artist.arrow_patch
+                        arrowprops = None
+                        if arrow_patch:
+                            arrowprops = dict(
+                                arrowstyle=getattr(arrow_patch, 'arrowstyle', '->'),
+                                connectionstyle=getattr(arrow_patch, 'connectionstyle', 'arc3,rad=0'),
+                                color=arrow_patch.get_edgecolor()[0:3] if hasattr(arrow_patch, 'get_edgecolor') else 'red',
+                                lw=arrow_patch.get_linewidth() if hasattr(arrow_patch, 'get_linewidth') else 1
+                            )
+                        
+                        # Create new annotation on new axis
+                        new_ax.annotate(
+                            text,
+                            xy=xy,
+                            xytext=xytext,
+                            textcoords='offset points',
+                            fontsize=fontsize,
+                            fontweight=fontweight,
+                            color=color,
+                            ha=ha,
+                            va=va,
+                            bbox=bbox_props,
+                            arrowprops=arrowprops,
+                            zorder=10
+                        )
+                        print(f"[DEBUG] Copied annotation: '{text[:20]}...' at {xy}")
+                    except Exception as e:
+                        print(f"[DEBUG] Failed to copy annotation: {e}")
             
             # Copy axes properties
             new_ax.set_title(ax.get_title())
@@ -273,6 +421,363 @@ class MatplotlibWidget(QWidget):
             # Add grid
             new_ax.grid(True, which='both', linestyle='--', linewidth=0.5)
 
+        self.figure.tight_layout()
+        self.canvas.draw()
+    
+    def update_plot_with_config(self, new_figure: Figure, config: Optional[Dict[str, Any]] = None):
+        """
+        Enhanced update_plot with robust configuration options.
+        
+        Args:
+            new_figure: Matplotlib Figure to display
+            config: Optional configuration dictionary with keys:
+                - subplot_spacing: tuple (hspace, wspace) for spacing between subplots
+                - grid: dict with {enabled: bool, alpha: float, linestyle: str, linewidth: float}
+                - legend: dict with {loc: str, fontsize: int, framealpha: float}
+                - title: dict with {fontsize: int, fontweight: str, pad: float}
+                - axes: dict with {xlabel_fontsize: int, ylabel_fontsize: int, tick_labelsize: int}
+                - figure: dict with {tight_layout: bool, constrained_layout: bool}
+        """
+        if config is None:
+            config = {}
+        
+        # Clear and copy figure (same as update_plot)
+        self.figure.clear()
+        axes_list = new_figure.get_axes()
+        
+        if not axes_list:
+            self.canvas.draw()
+            return
+        
+        # Apply subplot spacing if specified
+        if 'subplot_spacing' in config:
+            hspace, wspace = config['subplot_spacing']
+            self.figure.subplots_adjust(hspace=hspace, wspace=wspace)
+        
+        # Copy axes with enhanced configuration
+        for i, ax in enumerate(axes_list):
+            # Determine subplot layout
+            if len(axes_list) == 1:
+                new_ax = self.figure.add_subplot(111)
+            else:
+                # Calculate grid layout (prefer square-ish layouts)
+                n_plots = len(axes_list)
+                n_cols = int(np.ceil(np.sqrt(n_plots)))
+                n_rows = int(np.ceil(n_plots / n_cols))
+                new_ax = self.figure.add_subplot(n_rows, n_cols, i+1)
+            
+            # Copy plot elements (lines, collections, patches)
+            self._copy_plot_elements(ax, new_ax)
+            
+            # Copy axes properties
+            new_ax.set_title(ax.get_title())
+            new_ax.set_xlabel(ax.get_xlabel())
+            new_ax.set_ylabel(ax.get_ylabel())
+            new_ax.set_xlim(ax.get_xlim())
+            new_ax.set_ylim(ax.get_ylim())
+            
+            # Apply grid configuration
+            if 'grid' in config:
+                grid_cfg = config['grid']
+                new_ax.grid(
+                    grid_cfg.get('enabled', True),
+                    which='both',
+                    linestyle=grid_cfg.get('linestyle', '--'),
+                    linewidth=grid_cfg.get('linewidth', 0.5),
+                    alpha=grid_cfg.get('alpha', 0.3)
+                )
+            else:
+                new_ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+            
+            # Apply legend configuration
+            legend = ax.get_legend()
+            if legend and legend.get_texts():
+                handles, labels = ax.get_legend_handles_labels()
+                if handles and labels:
+                    if 'legend' in config:
+                        leg_cfg = config['legend']
+                        new_ax.legend(
+                            handles, labels,
+                            loc=leg_cfg.get('loc', 'best'),
+                            fontsize=leg_cfg.get('fontsize', 9),
+                            framealpha=leg_cfg.get('framealpha', 0.8)
+                        )
+                    else:
+                        new_ax.legend(handles, labels, loc='best')
+            
+            # Apply title configuration
+            if 'title' in config and ax.get_title():
+                title_cfg = config['title']
+                new_ax.set_title(
+                    ax.get_title(),
+                    fontsize=title_cfg.get('fontsize', 12),
+                    fontweight=title_cfg.get('fontweight', 'bold'),
+                    pad=title_cfg.get('pad', 10)
+                )
+            
+            # Apply axes configuration
+            if 'axes' in config:
+                axes_cfg = config['axes']
+                new_ax.set_xlabel(
+                    ax.get_xlabel(),
+                    fontsize=axes_cfg.get('xlabel_fontsize', 11)
+                )
+                new_ax.set_ylabel(
+                    ax.get_ylabel(),
+                    fontsize=axes_cfg.get('ylabel_fontsize', 11)
+                )
+                new_ax.tick_params(
+                    axis='both',
+                    labelsize=axes_cfg.get('tick_labelsize', 9)
+                )
+        
+        # Apply figure-level configuration
+        if 'figure' in config:
+            fig_cfg = config['figure']
+            if fig_cfg.get('constrained_layout', False):
+                self.figure.set_constrained_layout(True)
+            elif fig_cfg.get('tight_layout', True):
+                self.figure.tight_layout()
+        else:
+            # Default to tight_layout as requested
+            self.figure.tight_layout()
+        
+        self.canvas.draw()
+    
+    def _copy_plot_elements(self, source_ax, target_ax):
+        """
+        Helper method to copy plot elements from source to target axis.
+        Handles lines, collections (scatter, line collections), and patches.
+        """
+        # Copy lines
+        for line in source_ax.get_lines():
+            target_ax.plot(line.get_xdata(), line.get_ydata(),
+                         label=line.get_label(),
+                         color=line.get_color(),
+                         linestyle=line.get_linestyle(),
+                         linewidth=line.get_linewidth(),
+                         marker=line.get_marker(),
+                         markersize=line.get_markersize())
+        
+        # Copy collections
+        from matplotlib.collections import LineCollection, PathCollection
+        for collection in source_ax.collections:
+            if isinstance(collection, LineCollection):
+                segments = collection.get_segments()
+                colors = collection.get_colors()
+                linewidths = collection.get_linewidths()
+                linestyles = collection.get_linestyles()
+                new_collection = LineCollection(segments, colors=colors,
+                                              linewidths=linewidths,
+                                              linestyles=linestyles)
+                target_ax.add_collection(new_collection)
+            elif isinstance(collection, PathCollection):
+                offsets = collection.get_offsets()
+                if len(offsets) > 0:
+                    target_ax.scatter(offsets[:, 0], offsets[:, 1],
+                                    c=collection.get_facecolors(),
+                                    s=collection.get_sizes()[0] if hasattr(collection, 'get_sizes') and len(collection.get_sizes()) > 0 else 50,
+                                    edgecolors=collection.get_edgecolors(),
+                                    label=collection.get_label() if not collection.get_label().startswith('_') else None,
+                                    alpha=collection.get_alpha() or 1.0)
+        
+        # Copy patches (if not too many)
+        if len(source_ax.patches) <= 100:
+            from matplotlib.patches import Ellipse, Rectangle, FancyArrow, FancyArrowPatch
+            for patch in source_ax.patches:
+                if isinstance(patch, Ellipse):
+                    new_patch = Ellipse(xy=patch.center, width=patch.width,
+                                      height=patch.height, angle=patch.angle,
+                                      facecolor=patch.get_facecolor(),
+                                      edgecolor=patch.get_edgecolor(),
+                                      linestyle=patch.get_linestyle(),
+                                      linewidth=patch.get_linewidth(),
+                                      alpha=patch.get_alpha())
+                    target_ax.add_patch(new_patch)
+                elif isinstance(patch, Rectangle):
+                    new_patch = Rectangle(xy=(patch.get_x(), patch.get_y()),
+                                        width=patch.get_width(),
+                                        height=patch.get_height(),
+                                        facecolor=patch.get_facecolor(),
+                                        edgecolor=patch.get_edgecolor(),
+                                        linewidth=patch.get_linewidth(),
+                                        alpha=patch.get_alpha())
+                    target_ax.add_patch(new_patch)
+                elif isinstance(patch, FancyArrow):
+                    new_patch = FancyArrow(x=patch.get_x(), y=patch.get_y(),
+                                         dx=patch.get_width(), dy=patch.get_height(),
+                                         width=getattr(patch, '_width', 0.01),
+                                         head_width=getattr(patch, '_head_width', 0.03),
+                                         head_length=getattr(patch, '_head_length', 0.05),
+                                         facecolor=patch.get_facecolor(),
+                                         edgecolor=patch.get_edgecolor(),
+                                         linewidth=patch.get_linewidth(),
+                                         alpha=patch.get_alpha())
+                    target_ax.add_patch(new_patch)
+                elif isinstance(patch, FancyArrowPatch):
+                    posA = patch.get_path().vertices[0]
+                    posB = patch.get_path().vertices[-1]
+                    new_patch = FancyArrowPatch(posA=posA, posB=posB,
+                                              arrowstyle=patch.get_arrowstyle(),
+                                              mutation_scale=patch.get_mutation_scale(),
+                                              facecolor=patch.get_facecolor(),
+                                              edgecolor=patch.get_edgecolor(),
+                                              linewidth=patch.get_linewidth(),
+                                              alpha=patch.get_alpha())
+                    target_ax.add_patch(new_patch)
+    
+    def plot_3d(self, data: Dict[str, np.ndarray], plot_type: str = 'scatter',
+                title: str = "3D Visualization", config: Optional[Dict[str, Any]] = None):
+        """
+        Create 3D plot for dimensionality reduction or other 3D data.
+        
+        Args:
+            data: Dictionary with keys:
+                - 'x', 'y', 'z': Coordinate arrays
+                - 'labels' (optional): Labels for coloring
+                - 'colors' (optional): Color array
+            plot_type: Type of 3D plot ('scatter', 'surface', 'wireframe')
+            title: Plot title
+            config: Optional configuration for axes, grid, etc.
+        """
+        if config is None:
+            config = {}
+        
+        self.figure.clear()
+        ax = self.figure.add_subplot(111, projection='3d')
+        
+        x = data.get('x', np.array([]))
+        y = data.get('y', np.array([]))
+        z = data.get('z', np.array([]))
+        
+        if len(x) == 0 or len(y) == 0 or len(z) == 0:
+            ax.text2D(0.5, 0.5, "No 3D data to display", ha='center', va='center',
+                     fontsize=14, color='gray', transform=ax.transAxes)
+            self.canvas.draw()
+            return
+        
+        if plot_type == 'scatter':
+            # Scatter plot
+            colors = data.get('colors', None)
+            labels = data.get('labels', None)
+            
+            if colors is not None:
+                scatter = ax.scatter(x, y, z, c=colors, cmap='viridis',
+                                   s=config.get('marker_size', 50),
+                                   alpha=config.get('alpha', 0.6))
+                self.figure.colorbar(scatter, ax=ax, label='Value')
+            elif labels is not None:
+                # Color by labels
+                unique_labels = np.unique(labels)
+                colors_map = plt.cm.tab10(np.linspace(0, 1, len(unique_labels)))
+                for i, label in enumerate(unique_labels):
+                    mask = labels == label
+                    ax.scatter(x[mask], y[mask], z[mask],
+                             c=[colors_map[i]],
+                             label=f'Class {label}',
+                             s=config.get('marker_size', 50),
+                             alpha=config.get('alpha', 0.6))
+                ax.legend()
+            else:
+                ax.scatter(x, y, z, c='blue',
+                         s=config.get('marker_size', 50),
+                         alpha=config.get('alpha', 0.6))
+        
+        elif plot_type == 'surface':
+            # Surface plot (requires gridded data)
+            if len(x.shape) == 1:
+                # Create meshgrid if 1D arrays provided
+                X, Y = np.meshgrid(x, y)
+                Z = z.reshape(len(y), len(x))
+            else:
+                X, Y, Z = x, y, z
+            
+            ax.plot_surface(X, Y, Z, cmap='viridis',
+                          alpha=config.get('alpha', 0.8),
+                          antialiased=True)
+        
+        elif plot_type == 'wireframe':
+            # Wireframe plot
+            if len(x.shape) == 1:
+                X, Y = np.meshgrid(x, y)
+                Z = z.reshape(len(y), len(x))
+            else:
+                X, Y, Z = x, y, z
+            
+            ax.plot_wireframe(X, Y, Z,
+                            color=config.get('color', 'blue'),
+                            alpha=config.get('alpha', 0.6))
+        
+        # Set labels and title
+        ax.set_xlabel(config.get('xlabel', 'X'), fontsize=11)
+        ax.set_ylabel(config.get('ylabel', 'Y'), fontsize=11)
+        ax.set_zlabel(config.get('zlabel', 'Z'), fontsize=11)
+        ax.set_title(title, fontsize=13, fontweight='bold')
+        
+        # Set viewing angle
+        ax.view_init(elev=config.get('elev', 20), azim=config.get('azim', 45))
+        
+        # Grid
+        ax.grid(config.get('grid', True), alpha=0.3)
+        
+        self.figure.tight_layout()
+        self.canvas.draw()
+    
+    def plot_dendrogram(self, dendrogram_data: Dict[str, Any],
+                       title: str = "Hierarchical Clustering Dendrogram",
+                       config: Optional[Dict[str, Any]] = None):
+        """
+        Create dendrogram plot for hierarchical clustering.
+        
+        Args:
+            dendrogram_data: Dictionary returned by scipy.cluster.hierarchy.dendrogram
+                            or linkage matrix to compute dendrogram from
+            title: Plot title
+            config: Optional configuration
+        """
+        if config is None:
+            config = {}
+        
+        self.figure.clear()
+        ax = self.figure.add_subplot(111)
+        
+        # Check if we have linkage matrix or dendrogram data
+        from scipy.cluster.hierarchy import dendrogram, linkage
+        
+        if isinstance(dendrogram_data, dict) and 'icoord' in dendrogram_data:
+            # Already computed dendrogram data - plot directly
+            # Manually recreate dendrogram from data
+            icoord = dendrogram_data['icoord']
+            dcoord = dendrogram_data['dcoord']
+            colors = dendrogram_data.get('color_list', ['C0'] * len(icoord))
+            
+            for i, (xi, yi) in enumerate(zip(icoord, dcoord)):
+                ax.plot(xi, yi, color=colors[i],
+                       linewidth=config.get('linewidth', 1.5))
+        
+        elif isinstance(dendrogram_data, np.ndarray):
+            # Linkage matrix - compute and plot dendrogram
+            dend = dendrogram(
+                dendrogram_data,
+                ax=ax,
+                orientation=config.get('orientation', 'top'),
+                color_threshold=config.get('color_threshold', None),
+                above_threshold_color=config.get('above_threshold_color', 'grey'),
+                leaf_font_size=config.get('leaf_font_size', 8)
+            )
+        
+        else:
+            ax.text(0.5, 0.5, "Invalid dendrogram data", ha='center', va='center',
+                   fontsize=14, color='gray', transform=ax.transAxes)
+            self.canvas.draw()
+            return
+        
+        # Set labels and title
+        ax.set_title(title, fontsize=13, fontweight='bold')
+        ax.set_xlabel(config.get('xlabel', 'Sample Index'), fontsize=11)
+        ax.set_ylabel(config.get('ylabel', 'Distance'), fontsize=11)
+        ax.grid(config.get('grid', True), axis='y', alpha=0.3)
+        
         self.figure.tight_layout()
         self.canvas.draw()
 

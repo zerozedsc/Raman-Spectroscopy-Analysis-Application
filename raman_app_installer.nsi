@@ -1,5 +1,5 @@
 ; NSIS Installer Script for Raman Spectroscopy Analysis Application
-; Generated: 2025-10-22 12:36:40
+; Generated: 2025-11-21 13:40:32
 ; Platform: Windows
 ; Python: 3.12.11
 ;

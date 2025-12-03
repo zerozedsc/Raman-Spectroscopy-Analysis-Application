@@ -1,3 +1,18 @@
+# *QUESTION BASE*
+Please load all items within the .AGI-BANKS related to the and .docs folder to refresh and update your context, base memory, guidelines, instructions, and relevant information.
+
+Then, make the necessary code updates as specified below.
+
+---
+
+
+
+---
+
+Please ensure that you do not cut your response and that you continue writing the code until you reach the token limit.
+
+Once the code updates are completed, update all relevant items in .AGI-BANKS and document any changes inside the .docs folder (documentation should never be saved in the root folder).
+
 # *2025-11-18*
 
 Please load all items within the .AGI-BANKS related to the and .docs folder to refresh and update your context, base memory, guidelines, instructions, and relevant information.
@@ -57,3 +72,8 @@ You still not doing this
 Please ensure that you do not cut your response and that you continue writing the code until you reach the token limit.
 
 Once the code updates are completed, update all relevant items in .AGI-BANKS and document any changes inside the .docs folder (documentation should never be saved in the root folder).
+
+# *2025-12-03* (Ai analysis)
+I already do AI analysis on current situation of our strategy by parsing result, complex data and codebase of this strategy. You can refer to -> 
+
+It contain analysis from many AI (check header # $ ), from those analysis you need to do deep cross check and try take benefits info that can improve and optimize our strategy well. create one summary analysis based on those AI analysis .md file inside

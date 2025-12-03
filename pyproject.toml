@@ -25,6 +25,7 @@ dependencies = [
     "networkx",
     "numba",
     "numpy",
+    "onnxruntime>=1.23.2",
     "packaging",
     "pandas",
     "pillow",
@@ -63,4 +64,11 @@ dependencies = [
     "umap-learn>=0.5.9.post2",
     "wget",
     "zipp",
+]
+
+[project.optional-dependencies]
+dev = [
+    "watchdog",
+    "pytest",
+    "black"
 ]

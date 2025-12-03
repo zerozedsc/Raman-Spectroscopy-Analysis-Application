@@ -11,7 +11,8 @@ parser = argparse.ArgumentParser(description="Raman Spectroscopy Data Analysis A
 parser.add_argument('--lang', type=str, choices=['en', 'ja'], default='ja',
                     help='Set the application language (default: ja)')
 
-args = parser.parse_args()
+# Use parse_known_args() to safely handle PyInstaller's import scanning
+args, unknown = parser.parse_known_args()
 # --- Global In-Memory Data Store ---
 # This dictionary will hold the currently loaded DataFrames for the active project.
 # The keys are the user-defined dataset names.
@@ -159,7 +160,11 @@ class ProjectManager:
                         create_logs("ProjectManager", "projects", f"Failed to load data package '{name}' from {pickle_path}: {e}", status='warning')
                 else:
                     create_logs("ProjectManager", "projects", f"Data file for '{name}' not found at {pickle_path}", status='warning')
-
+            
+            # Initialize analysisGroups if not present (for backward compatibility)
+            if "analysisGroups" not in self.current_project_data:
+                self.current_project_data["analysisGroups"] = {}
+            
             create_logs("ProjectManager", "projects", f"Successfully loaded project: {self.current_project_data.get('projectName')}", status='info')
             return True
         except (FileNotFoundError, json.JSONDecodeError) as e:
@@ -214,6 +219,27 @@ class ProjectManager:
         for name, package_info in self.current_project_data["dataPackages"].items():
             metadata_dict[name] = package_info.get("metadata", {})
         return metadata_dict
+    
+    def get_analysis_groups(self) -> Dict[str, List[str]]:
+        """
+        Get saved group assignments for analysis methods.
+        
+        Returns:
+            Dictionary mapping group names to lists of dataset names
+            Example: {"MM": ["dataset1", "dataset2"], "MGUS": ["dataset3"]}
+        """
+        return self.current_project_data.get("analysisGroups", {})
+    
+    def set_analysis_groups(self, groups: Dict[str, List[str]]):
+        """
+        Save group assignments for analysis methods.
+        
+        Args:
+            groups: Dictionary mapping group names to dataset lists
+        """
+        self.current_project_data["analysisGroups"] = groups
+        self.save_current_project()
+        create_logs("ProjectManager", "projects", f"Saved {len(groups)} analysis groups", status='info')
 
 arg_lang = args.lang  # Command-line argument (default: 'ja')
 CONFIGS = load_config()

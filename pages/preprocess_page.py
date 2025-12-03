@@ -9,6 +9,7 @@ from .preprocess_page_utils import *
 class PreprocessPage(QWidget):
     """Enhanced preprocessing page with dynamic pipeline building and comprehensive parameter controls."""
     showNotification = Signal(str, str)
+    datasets_changed = Signal()  # Emitted when preprocessing creates new datasets
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -3076,6 +3077,7 @@ class PreprocessPage(QWidget):
                 
                 self.showNotification.emit(message, notification_type)
                 self.load_project_data()
+                self.datasets_changed.emit()  # Notify workspace of new dataset
                 
                 # Select the new dataset
                 for i in range(self.dataset_list.count()):

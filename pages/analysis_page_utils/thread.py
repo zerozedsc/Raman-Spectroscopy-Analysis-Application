@@ -118,6 +118,20 @@ class AnalysisThread(QThread):
             execution_time = time.time() - start_time
             
             # Create AnalysisResult object
+            raw_results = result.get("raw_results", {})
+            
+            # Store additional figures in raw_results for PCA multi-tab visualization
+            if "scree_figure" in result:
+                raw_results["scree_figure"] = result["scree_figure"]
+            if "loadings_figure" in result:
+                raw_results["loadings_figure"] = result["loadings_figure"]
+            if "biplot_figure" in result:
+                raw_results["biplot_figure"] = result["biplot_figure"]
+            if "cumulative_variance_figure" in result:
+                raw_results["cumulative_variance_figure"] = result["cumulative_variance_figure"]
+            if "distributions_figure" in result:
+                raw_results["distributions_figure"] = result["distributions_figure"]
+            
             analysis_result = AnalysisResult(
                 category=self.category,
                 method_key=self.method_key,
@@ -131,7 +145,8 @@ class AnalysisThread(QThread):
                 primary_figure=result.get("primary_figure"),
                 secondary_figure=result.get("secondary_figure"),
                 data_table=result.get("data_table"),
-                raw_results=result.get("raw_results", {})
+                raw_results=raw_results,
+                dataset_data=self.dataset_data
             )
             
             self.progress.emit(100)

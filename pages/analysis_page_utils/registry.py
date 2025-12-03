@@ -24,7 +24,7 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                 "n_components": {
                     "type": "spinbox",
                     "default": 3,
-                    "range": (2, 10),
+                    "range": (2, 100),  # Removed arbitrary limit - users should be free to choose based on their data
                     "label": "Number of Components"
                 },
                 "scaling": {
@@ -35,23 +35,35 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                 },
                 "show_ellipses": {
                     "type": "checkbox",
-                    "default": True,
+                    "default": False,
                     "label": "Show 95% Confidence Ellipses"
                 },
                 "show_loadings": {
                     "type": "checkbox",
-                    "default": True,
+                    "default": False,
                     "label": "Show Loading Plot"
+                },
+                "max_loadings_components": {
+                    "type": "spinbox",
+                    "default": 3,
+                    "range": (1, 5),
+                    "label": "Loading Components to Plot (max 5)"
                 },
                 "show_scree": {
                     "type": "checkbox",
-                    "default": True,
+                    "default": False,
                     "label": "Show Scree Plot"
                 },
                 "show_distributions": {
                     "type": "checkbox",
                     "default": True,
                     "label": "Show Score Distributions"
+                },
+                "n_distribution_components": {
+                    "type": "spinbox",
+                    "default": 3,
+                    "range": (1, 6),
+                    "label": "Distribution Components (max 6)"
                 }
             },
             "function": "perform_pca_analysis"
@@ -95,8 +107,8 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
             "name": "t-SNE (t-Distributed Stochastic Neighbor Embedding)",
             "description": "Non-linear dimensionality reduction for cluster visualization",
             "min_datasets": 1,
-            "max_datasets": 1,
-            "dataset_selection_mode": "single",
+            "max_datasets": None,
+            "dataset_selection_mode": "multi",
             "params": {
                 "perplexity": {
                     "type": "spinbox",
@@ -383,8 +395,8 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
             "function": "create_mean_spectra_overlay"
         },
         "waterfall_plot": {
-            "name": "3D Waterfall Plot",
-            "description": "3D visualization of multiple spectra",
+            "name": "Waterfall Plot",
+            "description": "visualization of multiple spectra",
             "min_datasets": 1,
             "max_datasets": 1,
             "dataset_selection_mode": "single",

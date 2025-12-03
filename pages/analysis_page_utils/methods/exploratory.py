@@ -246,30 +246,202 @@ def perform_pca_analysis(dataset_data: Dict[str, pd.DataFrame],
     
     print("[DEBUG] PCA scores plot created successfully")
     
+    # === FIGURE 3: Scree Plot (Variance Explained) ===
+    fig_scree = None
+    if show_scree:
+        print("[DEBUG] Creating scree plot...")
+        fig_scree, ax_scree = plt.subplots(figsize=(10, 6))
+        
+        # Plot cumulative and individual variance
+        pc_indices = np.arange(1, n_components + 1)
+        explained_variance = pca.explained_variance_ratio_ * 100
+        cumulative_variance = np.cumsum(explained_variance)
+        
+        # Bar plot for individual variance
+        ax_scree.bar(pc_indices, explained_variance, alpha=0.7, color='#0078d4', 
+                    edgecolor='#005a9e', linewidth=1.5, label='Individual Variance')
+        
+        # Line plot for cumulative variance
+        ax2 = ax_scree.twinx()
+        ax2.plot(pc_indices, cumulative_variance, color='#d13438', marker='o', 
+                linewidth=2.5, markersize=8, label='Cumulative Variance')
+        
+        # Add value labels
+        for i, (var, cum) in enumerate(zip(explained_variance, cumulative_variance)):
+            ax_scree.text(i+1, var + 1, f'{var:.1f}%', ha='center', va='bottom', 
+                         fontsize=10, fontweight='bold')
+            if i < 5:  # Only label first 5 components
+                ax2.text(i+1, cum - 3, f'{cum:.1f}%', ha='center', va='top',
+                        fontsize=9, color='#d13438', fontweight='bold')
+        
+        ax_scree.set_xlabel('Principal Component', fontsize=12, fontweight='bold')
+        ax_scree.set_ylabel('Variance Explained (%)', fontsize=12, fontweight='bold', color='#0078d4')
+        ax2.set_ylabel('Cumulative Variance (%)', fontsize=12, fontweight='bold', color='#d13438')
+        ax_scree.set_title('Scree Plot: Variance Explained by Each PC', fontsize=14, fontweight='bold')
+        ax_scree.set_xticks(pc_indices)
+        ax_scree.set_ylim(0, max(explained_variance) * 1.15)
+        ax2.set_ylim(0, 105)
+        ax_scree.grid(True, alpha=0.3, axis='y')
+        ax_scree.legend(loc='upper left', fontsize=11)
+        ax2.legend(loc='upper right', fontsize=11)
+        ax_scree.tick_params(axis='y', labelcolor='#0078d4')
+        ax2.tick_params(axis='y', labelcolor='#d13438')
+        fig_scree.tight_layout()
+        print("[DEBUG] Scree plot created successfully")
+    
+    # === FIGURE 4: Biplot (Scores + Loadings Overlay) ===
+    fig_biplot = None
+    if show_loadings and n_components >= 2:
+        print("[DEBUG] Creating biplot...")
+        fig_biplot, ax_biplot = plt.subplots(figsize=(12, 10))
+        
+        # Plot scores (same as primary figure but without ellipses for clarity)
+        for i, dataset_label in enumerate(unique_labels):
+            mask = np.array([l == dataset_label for l in labels])
+            ax_biplot.scatter(scores[mask, 0], scores[mask, 1],
+                            c=[colors[i]], label=dataset_label, s=60, alpha=0.6,
+                            edgecolors='white', linewidths=0.5)
+        
+        # Overlay loadings as arrows (scaled for visibility)
+        loading_scale = np.max(np.abs(scores[:, :2])) * 0.8
+        
+        # Select top contributing wavenumbers (peaks in loadings)
+        pc1_loadings = pca.components_[0]
+        pc2_loadings = pca.components_[1]
+        loading_magnitude = np.sqrt(pc1_loadings**2 + pc2_loadings**2)
+        
+        # Show top 15 most influential wavenumbers
+        top_indices = np.argsort(loading_magnitude)[-15:]
+        
+        for idx in top_indices:
+            ax_biplot.arrow(0, 0,
+                           pc1_loadings[idx] * loading_scale,
+                           pc2_loadings[idx] * loading_scale,
+                           head_width=loading_scale*0.02, head_length=loading_scale*0.03,
+                           fc='#d13438', ec='#8b0000', alpha=0.8, linewidth=0.8)
+            
+            # Label with wavenumber - thinner text, no box to be cleaner
+            ax_biplot.text(pc1_loadings[idx] * loading_scale * 1.15,
+                          pc2_loadings[idx] * loading_scale * 1.15,
+                          f'{int(wavenumbers[idx])}',
+                          fontsize=8, ha='center', va='center', color='#8b0000', fontweight='bold')
+        
+        ax_biplot.set_xlabel(f'PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%)', 
+                           fontsize=12, fontweight='bold')
+        ax_biplot.set_ylabel(f'PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)', 
+                           fontsize=12, fontweight='bold')
+        ax_biplot.set_title('PCA Biplot: Scores + Influential Wavenumbers', 
+                          fontsize=14, fontweight='bold')
+        ax_biplot.legend(loc='best', fontsize=11, framealpha=0.9)
+        ax_biplot.grid(True, alpha=0.3)
+        ax_biplot.axhline(y=0, color='k', linestyle='--', linewidth=0.5, alpha=0.3)
+        ax_biplot.axvline(x=0, color='k', linestyle='--', linewidth=0.5, alpha=0.3)
+        fig_biplot.tight_layout()
+        print("[DEBUG] Biplot created successfully")
+    
+    # === FIGURE 5: Cumulative Variance Explained ===
+    fig_cumvar = None
+    if show_scree:
+        print("[DEBUG] Creating cumulative variance plot...")
+        fig_cumvar, ax_cumvar = plt.subplots(figsize=(10, 6))
+        
+        pc_indices = np.arange(1, n_components + 1)
+        cumulative_variance = np.cumsum(pca.explained_variance_ratio_ * 100)
+        
+        # Area plot
+        ax_cumvar.fill_between(pc_indices, cumulative_variance, alpha=0.4, color='#28a745')
+        ax_cumvar.plot(pc_indices, cumulative_variance, color='#28a745', marker='o',
+                      linewidth=3, markersize=10, markerfacecolor='white',
+                      markeredgewidth=2, markeredgecolor='#28a745')
+        
+        # Add threshold lines
+        ax_cumvar.axhline(y=80, color='#ffc107', linestyle='--', linewidth=2, 
+                         label='80% Threshold', alpha=0.7)
+        ax_cumvar.axhline(y=95, color='#dc3545', linestyle='--', linewidth=2,
+                         label='95% Threshold', alpha=0.7)
+        
+        # Annotate values
+        for i, cum_var in enumerate(cumulative_variance):
+            ax_cumvar.text(i+1, cum_var + 2, f'{cum_var:.1f}%',
+                          ha='center', va='bottom', fontsize=10, fontweight='bold')
+        
+        ax_cumvar.set_xlabel('Number of Principal Components', fontsize=12, fontweight='bold')
+        ax_cumvar.set_ylabel('Cumulative Variance Explained (%)', fontsize=12, fontweight='bold')
+        ax_cumvar.set_title('Cumulative Variance Explained', fontsize=14, fontweight='bold')
+        ax_cumvar.set_xticks(pc_indices)
+        ax_cumvar.set_ylim(0, 105)
+        ax_cumvar.grid(True, alpha=0.3)
+        ax_cumvar.legend(loc='lower right', fontsize=11)
+        fig_cumvar.tight_layout()
+        print("[DEBUG] Cumulative variance plot created successfully")
+    
     if progress_callback:
         progress_callback(75)
     
-    # === FIGURE 2: Loadings Plot (Spectral interpretation) ===
+    # === FIGURE 2: Loadings Plot (Spectral interpretation) - ENHANCED WITH SUBPLOTS ===
     print(f"[DEBUG] show_loadings parameter: {show_loadings}")
     fig_loadings = None
     if show_loadings:
-        print("[DEBUG] Creating loadings figure...")
-        fig_loadings, ax_loadings = plt.subplots(figsize=(12, 6))
+        print("[DEBUG] Creating loadings figure with subplots...")
         
-        ax_loadings.plot(wavenumbers, pca.components_[0], label='PC1', linewidth=2, color='#1f77b4')
-        ax_loadings.plot(wavenumbers, pca.components_[1], label='PC2', linewidth=2, color='#ff7f0e')
-        if n_components >= 3:
-            ax_loadings.plot(wavenumbers, pca.components_[2], label='PC3', linewidth=2, color='#2ca02c')
+        # Get max_loadings_components parameter (default 3, max 5)
+        max_loadings = params.get("max_loadings_components", 3)
+        max_loadings = min(max_loadings, n_components, 5)  # Ensure within bounds
         
-        ax_loadings.set_xlabel('Wavenumber (cm⁻¹)', fontsize=12, fontweight='bold')
-        ax_loadings.set_ylabel('Loading Value', fontsize=12, fontweight='bold')
-        ax_loadings.set_title('PCA Loadings (Spectral Features)', fontsize=14, fontweight='bold')
-        ax_loadings.legend(loc='best', fontsize=11)
-        ax_loadings.grid(True, alpha=0.3)
-        ax_loadings.invert_xaxis()  # Raman convention: high to low wavenumber
-        ax_loadings.axhline(y=0, color='k', linestyle='--', linewidth=0.5, alpha=0.5)
+        print(f"[DEBUG] Creating {max_loadings} loading subplot(s)")
+        
+        # Create subplot grid (vertical stack for better readability)
+        fig_loadings, axes = plt.subplots(max_loadings, 1, figsize=(12, 4 * max_loadings))
+        
+        # Handle single subplot case (axes won't be array)
+        if max_loadings == 1:
+            axes = [axes]
+        
+        # Color palette for components
+        colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+        
+        # Plot each component in its own subplot
+        for pc_idx in range(max_loadings):
+            ax = axes[pc_idx]
+            
+            # Plot loadings for this component
+            ax.plot(wavenumbers, pca.components_[pc_idx], 
+                   linewidth=2, color=colors[pc_idx], label=f'PC{pc_idx+1}')
+            
+            # Explained variance for this component
+            explained_var = pca.explained_variance_ratio_[pc_idx] * 100
+            
+            # Styling
+            ax.set_xlabel('Wavenumber (cm⁻¹)', fontsize=11, fontweight='bold')
+            ax.set_ylabel('Loading Value', fontsize=11, fontweight='bold')
+            ax.set_title(f'PC{pc_idx+1} Loadings (Explained Variance: {explained_var:.2f}%)', 
+                        fontsize=12, fontweight='bold')
+            ax.legend(loc='upper right', fontsize=10)
+            ax.grid(True, alpha=0.3)
+            ax.invert_xaxis()  # Raman convention: high to low wavenumber
+            # Remove x-axis tick labels (wavenumbers) as requested
+            ax.set_xticklabels([])
+            
+            # Annotate top 3 peak positions for this component
+            loadings = pca.components_[pc_idx]
+            abs_loadings = np.abs(loadings)
+            top_indices = np.argsort(abs_loadings)[-3:]  # Top 3 peaks
+            
+            for peak_idx in top_indices:
+                peak_wn = wavenumbers[peak_idx]
+                peak_val = loadings[peak_idx]
+                ax.plot(peak_wn, peak_val, 'o', color=colors[pc_idx], markersize=6, 
+                       markeredgecolor='black', markeredgewidth=0.5)
+                ax.annotate(f'{peak_wn:.0f}', 
+                           xy=(peak_wn, peak_val), 
+                           xytext=(0, 10 if peak_val > 0 else -15),
+                           textcoords='offset points',
+                           fontsize=8, fontweight='bold',
+                           ha='center',
+                           bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.8, edgecolor='#cccccc'))
+        
         fig_loadings.tight_layout()
-        print("[DEBUG] Loadings figure created successfully")
+        print(f"[DEBUG] Loadings figure created successfully with {max_loadings} subplots")
     else:
         print("[DEBUG] Loadings figure skipped (show_loadings=False)")
     
@@ -279,17 +451,29 @@ def perform_pca_analysis(dataset_data: Dict[str, pd.DataFrame],
     # === FIGURE 3: Score Distributions (CRITICAL for Raman classification) ===
     fig_distributions = None
     if show_distributions and len(unique_labels) > 1:
-        # Create grid for PC1, PC2, PC3 distributions
-        n_pcs_to_plot = min(3, n_components)
-        fig_distributions, axes = plt.subplots(1, n_pcs_to_plot, figsize=(6*n_pcs_to_plot, 5))
-        if n_pcs_to_plot == 1:
-            axes = [axes]  # Make it iterable
+        # Get number of components to show (default 3, max 6)
+        n_dist_comps = params.get("n_distribution_components", 3)
+        n_pcs_to_plot = min(n_dist_comps, n_components)
         
+        # Calculate grid dimensions (max 2 columns)
+        n_cols = 2 if n_pcs_to_plot > 1 else 1
+        n_rows = int(np.ceil(n_pcs_to_plot / n_cols))
+        
+        # Create figure with appropriate size
+        fig_distributions, axes = plt.subplots(n_rows, n_cols, figsize=(6*n_cols, 4*n_rows))
+        
+        # Flatten axes for easy iteration if multiple
+        if n_pcs_to_plot > 1:
+            axes_flat = axes.flatten()
+        else:
+            axes_flat = [axes]
+            
         fig_distributions.suptitle('PC Score Distributions', fontsize=16, fontweight='bold')
         
-        # Plot distributions for PC1, PC2, PC3
-        for pc_idx in range(n_pcs_to_plot):
-            ax = axes[pc_idx]
+        # Plot distributions for each PC
+        for idx in range(n_pcs_to_plot):
+            ax = axes_flat[idx]
+            pc_idx = idx  # 0-based index
             
             # Plot histogram/KDE for each dataset
             for i, dataset_label in enumerate(unique_labels):
@@ -297,16 +481,20 @@ def perform_pca_analysis(dataset_data: Dict[str, pd.DataFrame],
                 pc_scores = scores[mask, pc_idx]
                 
                 # Calculate KDE (Kernel Density Estimation)
-                kde = stats.gaussian_kde(pc_scores)
-                x_range = np.linspace(pc_scores.min() - 1, pc_scores.max() + 1, 200)
-                kde_values = kde(x_range)
-                
-                # Plot KDE curve
-                ax.plot(x_range, kde_values, color=colors[i], linewidth=2.5,
-                       label=dataset_label, alpha=0.9)
-                
-                # Fill under curve for visibility
-                ax.fill_between(x_range, kde_values, alpha=0.25, color=colors[i])
+                try:
+                    kde = stats.gaussian_kde(pc_scores)
+                    x_range = np.linspace(pc_scores.min() - 1, pc_scores.max() + 1, 200)
+                    kde_values = kde(x_range)
+                    
+                    # Plot KDE curve
+                    ax.plot(x_range, kde_values, color=colors[i], linewidth=2.5,
+                           label=dataset_label, alpha=0.9)
+                    
+                    # Fill under curve for visibility
+                    ax.fill_between(x_range, kde_values, alpha=0.25, color=colors[i])
+                except Exception:
+                    # Fallback if KDE fails (e.g. singular matrix due to too few points)
+                    pass
                 
                 # Add histogram for reference
                 ax.hist(pc_scores, bins=20, density=True, alpha=0.15,
@@ -319,29 +507,43 @@ def perform_pca_analysis(dataset_data: Dict[str, pd.DataFrame],
                 pc1_scores = scores[mask1, pc_idx]
                 pc2_scores = scores[mask2, pc_idx]
                 
-                # Mann-Whitney U test
-                statistic, p_value = stats.mannwhitneyu(pc1_scores, pc2_scores)
-                
-                # Calculate effect size (Cohen's d)
-                mean_diff = np.mean(pc1_scores) - np.mean(pc2_scores)
-                pooled_std = np.sqrt((np.std(pc1_scores)**2 + np.std(pc2_scores)**2) / 2)
-                cohens_d = mean_diff / pooled_std if pooled_std > 0 else 0
-                
-                # Add statistical annotation
-                ax.text(0.05, 0.95, 
-                       f'Mann–Whitney U\np={p_value:.2e}\nδ={cohens_d:.2f}',
-                       transform=ax.transAxes, fontsize=10,
-                       verticalalignment='top',
-                       bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.7))
+                try:
+                    # Mann-Whitney U test
+                    statistic, p_value = stats.mannwhitneyu(pc1_scores, pc2_scores)
+                    
+                    # Calculate effect size (Cohen's d)
+                    mean_diff = np.mean(pc1_scores) - np.mean(pc2_scores)
+                    pooled_std = np.sqrt((np.std(pc1_scores)**2 + np.std(pc2_scores)**2) / 2)
+                    cohens_d = mean_diff / pooled_std if pooled_std > 0 else 0
+                    
+                    # Add statistical annotation
+                    ax.text(0.05, 0.95, 
+                           f'Mann–Whitney U\np={p_value:.2e}\nδ={cohens_d:.2f}',
+                           transform=ax.transAxes, fontsize=10,
+                           verticalalignment='top',
+                           bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.7))
+                except Exception:
+                    pass
             
             # Formatting
             ax.set_xlabel(f'PC{pc_idx+1} Score', fontsize=12, fontweight='bold')
             ax.set_ylabel('Density', fontsize=12, fontweight='bold')
             ax.set_title(f'PC{pc_idx+1} ({pca.explained_variance_ratio_[pc_idx]*100:.1f}%)',
                         fontsize=13, fontweight='bold')
-            ax.legend(loc='upper right', fontsize=10, framealpha=0.9)
+            if idx == 0:  # Only show legend on first plot to save space
+                ax.legend(loc='upper right', fontsize=10, framealpha=0.9)
             ax.grid(True, alpha=0.3, axis='y')
             ax.axvline(x=0, color='k', linestyle='--', linewidth=0.5, alpha=0.5)
+            
+        # Hide empty subplots if any
+        # Ensure axes_flat is always a list/array even if single subplot
+        if not isinstance(axes_flat, (list, np.ndarray)):
+            axes_flat = [axes_flat]
+            
+        if n_pcs_to_plot < len(axes_flat):
+            for idx in range(n_pcs_to_plot, len(axes_flat)):
+                axes_flat[idx].axis('off')
+                axes_flat[idx].set_visible(False) # Explicitly hide
         
         plt.tight_layout()
     
@@ -353,19 +555,119 @@ def perform_pca_analysis(dataset_data: Dict[str, pd.DataFrame],
     scores_df = pd.DataFrame(scores, columns=pc_columns)
     scores_df['Dataset'] = labels
     
-    # Summary text
+    # === ENHANCED SUMMARY TEXT ===
     n_datasets = len(unique_labels)
     total_spectra = X.shape[0]
-    total_variance = np.sum(pca.explained_variance_ratio_[:3]) * 100
+    total_variance = np.sum(pca.explained_variance_ratio_[:min(3, n_components)]) * 100
     
-    summary = f"PCA completed with {n_components} components on {n_datasets} dataset(s) ({total_spectra} spectra).\n"
-    summary += f"First 3 PCs explain {total_variance:.1f}% of variance.\n"
-    summary += f"PC1: {pca.explained_variance_ratio_[0]*100:.1f}%, "
-    summary += f"PC2: {pca.explained_variance_ratio_[1]*100:.1f}%"
-    if n_components >= 3:
-        summary += f", PC3: {pca.explained_variance_ratio_[2]*100:.1f}%"
-    summary += f"\n\nDatasets: {', '.join(unique_labels)}"
+    # Header
+    summary = f"╔═══════════════════════════════════════════════════════╗\n"
+    summary += f"║       PCA ANALYSIS RESULTS - COMPREHENSIVE SUMMARY    ║\n"
+    summary += f"╚═══════════════════════════════════════════════════════╝\n\n"
     
+    # Basic Information
+    summary += f"📊 ANALYSIS OVERVIEW\n"
+    summary += f"{'─' * 55}\n"
+    summary += f"  Total Datasets:    {n_datasets}\n"
+    summary += f"  Total Spectra:     {total_spectra}\n"
+    summary += f"  Components:        {n_components}\n"
+    summary += f"  Scaling Method:    {scaling_type}\n"
+    summary += f"  Datasets:          {', '.join(unique_labels)}\n\n"
+    
+    # Variance Explained
+    summary += f"📈 VARIANCE EXPLAINED\n"
+    summary += f"{'─' * 55}\n"
+    
+    # Show variance for each component (up to 10)
+    max_components_summary = min(10, n_components)
+    for i in range(max_components_summary):
+        var_pct = pca.explained_variance_ratio_[i] * 100
+        cumvar_pct = np.sum(pca.explained_variance_ratio_[:i+1]) * 100
+        
+        # Visual bar for variance
+        bar_length = int(var_pct / 2)  # Scale to 50 chars max
+        bar = '█' * bar_length + '░' * (50 - bar_length)
+        
+        summary += f"  PC{i+1:2d}:  {var_pct:5.2f}% │{bar}│ Cumulative: {cumvar_pct:5.2f}%\n"
+    
+    if n_components > 10:
+        remaining_var = np.sum(pca.explained_variance_ratio_[10:]) * 100
+        summary += f"  ...   {remaining_var:5.2f}% (remaining {n_components-10} components)\n"
+    
+    summary += f"\n  First 3 PCs:       {total_variance:.2f}% of total variance\n"
+    cumvar_all = np.sum(pca.explained_variance_ratio_) * 100
+    summary += f"  All {n_components} PCs:        {cumvar_all:.2f}% of total variance\n\n"
+    
+    # Top Spectral Features per Component
+    summary += f"🔬 TOP SPECTRAL FEATURES (Peak Wavenumbers)\n"
+    summary += f"{'─' * 55}\n"
+    
+    max_components_features = min(5, n_components)  # Show top 5 components
+    for pc_idx in range(max_components_features):
+        loadings = pca.components_[pc_idx]
+        abs_loadings = np.abs(loadings)
+        top_3_indices = np.argsort(abs_loadings)[-3:][::-1]  # Top 3 peaks, descending
+        
+        top_features = [f"{wavenumbers[idx]:.0f} cm⁻¹" for idx in top_3_indices]
+        summary += f"  PC{pc_idx+1}:  {', '.join(top_features)}\n"
+    
+    summary += f"\n"
+    
+    # Group Separation Analysis (for binary comparison)
+    if len(unique_labels) == 2:
+        summary += f"📉 GROUP SEPARATION ANALYSIS\n"
+        summary += f"{'─' * 55}\n"
+        
+        mask1 = np.array([l == unique_labels[0] for l in labels])
+        mask2 = np.array([l == unique_labels[1] for l in labels])
+        
+        # PC1 separation
+        pc1_mean1 = np.mean(scores[mask1, 0])
+        pc1_mean2 = np.mean(scores[mask2, 0])
+        pc1_separation = abs(pc1_mean1 - pc1_mean2)
+        
+        pc1_std1 = np.std(scores[mask1, 0])
+        pc1_std2 = np.std(scores[mask2, 0])
+        pc1_pooled_std = np.sqrt((pc1_std1**2 + pc1_std2**2) / 2)
+        
+        cohens_d = pc1_separation / pc1_pooled_std if pc1_pooled_std > 0 else 0
+        
+        summary += f"  Groups:            {unique_labels[0]} vs {unique_labels[1]}\n"
+        summary += f"  PC1 Mean Diff:     {pc1_separation:.3f}\n"
+        summary += f"  Cohen's d:         {cohens_d:.3f}\n"
+        
+        if cohens_d > 0.8:
+            effect = "LARGE (Excellent separation)"
+            indicator = "✓✓✓"
+        elif cohens_d > 0.5:
+            effect = "MEDIUM (Moderate separation)"
+            indicator = "✓✓"
+        elif cohens_d > 0.2:
+            effect = "SMALL (Weak separation)"
+            indicator = "✓"
+        else:
+            effect = "NEGLIGIBLE (Poor separation)"
+            indicator = "✗"
+        
+        summary += f"  Effect Size:       {indicator} {effect}\n\n"
+    
+    # Interpretation Guide
+    summary += f"💡 INTERPRETATION GUIDE\n"
+    summary += f"{'─' * 55}\n"
+    summary += f"  • Scores Plot:     Shows sample clustering in PC space\n"
+    summary += f"  • Loadings Plot:   Shows spectral features driving each PC\n"
+    summary += f"  • High loading:    Strong contribution to that component\n"
+    summary += f"  • Clusters:        Biochemically similar samples group together\n"
+    summary += f"  • Outliers:        Samples far from origin may be anomalous\n\n"
+    
+    if show_loadings:
+        max_loadings = params.get("max_loadings_components", 3)
+        max_loadings = min(max_loadings, n_components, 5)
+        summary += f"  Loading plots generated for first {max_loadings} component(s)\n"
+    
+    summary += f"\n{'═' * 55}\n"
+    
+    print(f"[DEBUG] Enhanced summary generated ({len(summary)} characters)")
     # Statistical summary for multi-dataset comparison
     detailed_summary = f"Scaling: {scaling_type}\nTotal spectra: {X.shape[0]}\n"
     detailed_summary += f"Datasets: {n_datasets} groups\n"
@@ -400,9 +702,20 @@ def perform_pca_analysis(dataset_data: Dict[str, pd.DataFrame],
     if fig_loadings is None:
         print(f"[DEBUG] WARNING: loadings_figure is None! show_loadings={show_loadings}")
     
+    print(f"[DEBUG] PCA return values:")
+    print(f"[DEBUG]   primary_figure (scores): {fig1 is not None}")
+    print(f"[DEBUG]   scree_figure: {fig_scree is not None}")
+    print(f"[DEBUG]   loadings_figure: {fig_loadings is not None}")
+    print(f"[DEBUG]   biplot_figure: {fig_biplot is not None}")
+    print(f"[DEBUG]   cumulative_variance_figure: {fig_cumvar is not None}")
+    print(f"[DEBUG]   distributions_figure: {fig_distributions is not None}")
+    
     return {
-        "primary_figure": fig1,  # Scores plot with confidence ellipses
-        "loadings_figure": fig_loadings,  # Loadings plot (separate tab)
+        "primary_figure": fig1,  # Scores plot with confidence ellipses (PC1 vs PC2)
+        "scree_figure": fig_scree,  # Scree plot (variance explained per PC)
+        "loadings_figure": fig_loadings,  # Loadings plot (spectral features)
+        "biplot_figure": fig_biplot,  # Biplot (scores + loading arrows)
+        "cumulative_variance_figure": fig_cumvar,  # Cumulative variance plot
         "distributions_figure": fig_distributions,  # Score distributions (separate tab)
         "secondary_figure": None,  # Deprecated - kept for compatibility
         "data_table": scores_df,
@@ -543,7 +856,8 @@ def perform_umap_analysis(dataset_data: Dict[str, pd.DataFrame],
         "data_table": embedding_df,
         "summary_text": summary,
         "detailed_summary": f"Total spectra: {X.shape[0]}",
-        "raw_results": {"embedding": embedding, "reducer": reducer}
+        "raw_results": {"embedding": embedding, "reducer": reducer},
+        "loadings_figure": None  # UMAP does not produce loadings
     }
 
 
@@ -571,6 +885,7 @@ def perform_tsne_analysis(dataset_data: Dict[str, pd.DataFrame],
     perplexity = params.get("perplexity", 30)
     learning_rate = params.get("learning_rate", 200)
     n_iter = params.get("n_iter", 1000)
+    group_labels_map = params.get("_group_labels", None)  # {dataset_name: group_label}
     
     print(f"[DEBUG] t-SNE parameters: perplexity={perplexity}, learning_rate={learning_rate}")
     print(f"[DEBUG] t-SNE n_iter={n_iter} (will use as max_iter for sklearn)")
@@ -582,9 +897,23 @@ def perform_tsne_analysis(dataset_data: Dict[str, pd.DataFrame],
     for dataset_name, df in dataset_data.items():
         spectra_matrix = df.values.T
         all_spectra.append(spectra_matrix)
-        labels.extend([dataset_name] * spectra_matrix.shape[0])
+        
+        # Use group label if available, otherwise use dataset name
+        if group_labels_map and dataset_name in group_labels_map:
+            label = group_labels_map[dataset_name]
+        else:
+            label = dataset_name
+            
+        labels.extend([label] * spectra_matrix.shape[0])
     
     X = np.vstack(all_spectra)
+    n_samples = X.shape[0]
+    
+    # CRITICAL FIX: Perplexity must be less than n_samples
+    if perplexity >= n_samples:
+        new_perplexity = max(1, n_samples - 1)
+        print(f"[DEBUG] Adjusting perplexity from {perplexity} to {new_perplexity} (n_samples={n_samples})")
+        perplexity = new_perplexity
     
     if progress_callback:
         progress_callback(30)
@@ -634,7 +963,9 @@ def perform_tsne_analysis(dataset_data: Dict[str, pd.DataFrame],
         "data_table": embedding_df,
         "summary_text": summary,
         "detailed_summary": f"Total spectra: {X.shape[0]}",
-        "raw_results": {"embedding": embedding}
+        "detailed_summary": f"Total spectra: {X.shape[0]}",
+        "raw_results": {"embedding": embedding},
+        "loadings_figure": None  # t-SNE does not produce loadings
     }
 
 
@@ -690,10 +1021,32 @@ def perform_hierarchical_clustering(dataset_data: Dict[str, pd.DataFrame],
     # Create dendrogram
     fig, ax = plt.subplots(figsize=(12, 8))
     
-    dendrogram(Z, ax=ax, labels=labels, leaf_font_size=8)
-    ax.set_xlabel('Sample Index', fontsize=12)
-    ax.set_ylabel('Distance', fontsize=12)
+    # Calculate color threshold (70% of max distance)
+    max_d = np.max(Z[:, 2])
+    color_threshold = 0.7 * max_d
+    
+    # Plot dendrogram with improved visualization
+    dend = dendrogram(
+        Z, 
+        ax=ax, 
+        labels=labels if params.get("show_labels", False) else None,
+        leaf_font_size=8,
+        color_threshold=color_threshold,
+        above_threshold_color='#bcbcbc'  # Light gray for upper links
+    )
+    
+    # Add threshold line
+    ax.axhline(y=color_threshold, c='r', lw=1, linestyle='--', alpha=0.5, label='Color Threshold')
+    
+    ax.set_xlabel('Sample Index', fontsize=12, fontweight='bold')
+    ax.set_ylabel('Distance', fontsize=12, fontweight='bold')
     ax.set_title('Hierarchical Clustering Dendrogram', fontsize=14, fontweight='bold')
+    ax.grid(True, axis='y', alpha=0.3)
+    
+    if params.get("show_labels", False):
+        plt.setp(ax.get_xticklabels(), rotation=90)
+    
+    plt.tight_layout()
     
     summary = f"Hierarchical clustering completed.\n"
     summary += f"Linkage: {linkage_method}, Distance metric: {distance_metric}\n"
@@ -705,7 +1058,8 @@ def perform_hierarchical_clustering(dataset_data: Dict[str, pd.DataFrame],
         "data_table": None,
         "summary_text": summary,
         "detailed_summary": f"Linkage matrix shape: {Z.shape}",
-        "raw_results": {"linkage_matrix": Z, "labels": labels}
+        "raw_results": {"linkage_matrix": Z, "labels": labels},
+        "loadings_figure": None  # Clustering does not produce loadings
     }
 
 
@@ -830,5 +1184,43 @@ def perform_kmeans_clustering(dataset_data: Dict[str, pd.DataFrame],
             "kmeans_model": kmeans,
             "cluster_labels": cluster_labels,
             "cluster_centers": kmeans.cluster_centers_
-        }
+        },
+        "loadings_figure": None  # Clustering does not produce loadings
     }
+
+
+def create_spectrum_preview_figure(dataset_data: Dict[str, pd.DataFrame]) -> Figure:
+    """
+    Create a preview figure of the spectra from all datasets.
+    
+    Args:
+        dataset_data: Dictionary of {dataset_name: DataFrame}
+    
+    Returns:
+        Matplotlib Figure object
+    """
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    # Use high-contrast colors
+    colors = plt.cm.tab10(np.linspace(0, 1, max(1, len(dataset_data))))
+    
+    for i, (name, df) in enumerate(dataset_data.items()):
+        wavenumbers = df.index.values
+        # Plot mean spectrum
+        mean_spectrum = df.mean(axis=1).values
+        std_spectrum = df.std(axis=1).values
+        
+        color = colors[i]
+        ax.plot(wavenumbers, mean_spectrum, label=name, color=color, linewidth=1.5)
+        ax.fill_between(wavenumbers, mean_spectrum - std_spectrum, mean_spectrum + std_spectrum,
+                       color=color, alpha=0.2)
+    
+    ax.set_xlabel('Wavenumber (cm⁻¹)', fontsize=12)
+    ax.set_ylabel('Intensity', fontsize=12)
+    ax.set_title('Spectral Data Preview (Mean ± SD)', fontsize=14, fontweight='bold')
+    ax.legend(loc='best')
+    ax.grid(True, alpha=0.3)
+    ax.invert_xaxis()  # Raman convention
+    
+    fig.tight_layout()
+    return fig

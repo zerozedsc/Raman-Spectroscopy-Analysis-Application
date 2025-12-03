@@ -188,6 +188,9 @@ def perform_peak_analysis(dataset_data: Dict[str, pd.DataFrame],
     Returns:
         Dictionary with peak analysis plots and table
     """
+    import json
+    import os
+    
     if progress_callback:
         progress_callback(10)
     
@@ -196,6 +199,19 @@ def perform_peak_analysis(dataset_data: Dict[str, pd.DataFrame],
     width_min = params.get("width_min", 5)
     top_n_peaks = params.get("top_n_peaks", 20)
     show_assignments = params.get("show_assignments", True)
+    
+    # Load Raman peak assignments from JSON
+    raman_peaks_data = {}
+    try:
+        peaks_json_path = os.path.join("assets", "data", "raman_peaks.json")
+        if os.path.exists(peaks_json_path):
+            with open(peaks_json_path, 'r', encoding='utf-8') as f:
+                raman_peaks_data = json.load(f)
+            print(f"[DEBUG] Loaded {len(raman_peaks_data)} peak assignments from raman_peaks.json")
+        else:
+            print(f"[DEBUG] WARNING: raman_peaks.json not found at {peaks_json_path}")
+    except Exception as e:
+        print(f"[DEBUG] ERROR loading raman_peaks.json: {e}")
     
     # Use first dataset for mean spectrum
     dataset_name = list(dataset_data.keys())[0]
@@ -230,6 +246,43 @@ def perform_peak_analysis(dataset_data: Dict[str, pd.DataFrame],
     print(f"[DEBUG] top_n_peaks parameter: {top_n_peaks}")
     print(f"[DEBUG] Actual peaks shown: {len(top_peaks)}")
     
+    # Helper function to find closest peak assignment
+    def find_peak_assignment(wavenumber: float, tolerance: float = 10.0) -> str:
+        """
+        Find the closest peak assignment from raman_peaks.json.
+        
+        Args:
+            wavenumber: Detected peak wavenumber
+            tolerance: Maximum distance to consider a match (default 10 cm⁻¹)
+        
+        Returns:
+            Component assignment string or empty string if no match
+        """
+        if not raman_peaks_data:
+            return ""
+        
+        closest_match = None
+        closest_distance = float('inf')
+        
+        for peak_wn_str, peak_info in raman_peaks_data.items():
+            try:
+                ref_wavenumber = float(peak_wn_str)
+                distance = abs(wavenumber - ref_wavenumber)
+                
+                if distance < closest_distance and distance <= tolerance:
+                    closest_distance = distance
+                    closest_match = peak_info.get("assignment", "")
+            except (ValueError, TypeError):
+                continue
+        
+        if closest_match:
+            # Truncate long assignments
+            if len(closest_match) > 40:
+                closest_match = closest_match[:37] + "..."
+            return closest_match
+        
+        return ""
+    
     # Create primary figure: Spectrum with peaks
     fig1, ax1 = plt.subplots(figsize=(14, 7))
     
@@ -237,30 +290,47 @@ def perform_peak_analysis(dataset_data: Dict[str, pd.DataFrame],
     ax1.plot(wavenumbers[top_peaks], mean_spectrum[top_peaks],
             'ro', markersize=10, label=f'Top {len(top_peaks)} peaks', zorder=5)
     
-    # Annotate ALL peaks with wavenumber labels (CRITICAL for Raman analysis)
-    print(f"[DEBUG] Adding wavenumber annotations for {len(top_peaks)} peaks")
+    # Annotate ALL peaks with wavenumber AND component assignment labels
+    print(f"[DEBUG] Adding wavenumber + component annotations for {len(top_peaks)} peaks")
     for i, peak_idx in enumerate(top_peaks):
         wavenumber = wavenumbers[peak_idx]
         intensity = mean_spectrum[peak_idx]
         
-        # Alternate label positions to avoid overlap
-        y_offset = 15 if i % 2 == 0 else 25
+        # Find component assignment
+        assignment = find_peak_assignment(wavenumber)
         
-        ax1.annotate(f'{wavenumber:.0f}',
+        # Build annotation text: wavenumber on first line, assignment on second line
+        if show_assignments and assignment:
+            annotation_text = f'{wavenumber:.0f} cm⁻¹\\n{assignment}'
+        else:
+            annotation_text = f'{wavenumber:.0f} cm⁻¹'
+        
+        # Alternate label positions to avoid overlap
+        y_offset = 15 if i % 2 == 0 else 30
+        
+        # Use different colors for peaks with vs without assignments
+        box_color = 'lightyellow' if assignment else 'lightgray'
+        edge_color = 'orange' if assignment else 'gray'
+        
+        ax1.annotate(annotation_text,
                     xy=(wavenumber, intensity),
                     xytext=(0, y_offset), 
                     textcoords='offset points',
                     ha='center', 
-                    fontsize=8,
+                    fontsize=7 if assignment else 8,
                     fontweight='bold',
-                    bbox=dict(boxstyle='round,pad=0.4', facecolor='yellow', alpha=0.7, edgecolor='orange'),
+                    bbox=dict(boxstyle='round,pad=0.4', facecolor=box_color, alpha=0.8, edgecolor=edge_color),
                     arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0', color='red', lw=1),
                     zorder=10)
-        print(f"[DEBUG] Peak {i+1}/{len(top_peaks)}: {wavenumber:.0f} cm⁻¹")
+        
+        if assignment:
+            print(f"[DEBUG] Peak {i+1}/{len(top_peaks)}: {wavenumber:.0f} cm⁻¹ → {assignment[:30]}")
+        else:
+            print(f"[DEBUG] Peak {i+1}/{len(top_peaks)}: {wavenumber:.0f} cm⁻¹ (no assignment found)")
     
     ax1.set_xlabel('Wavenumber (cm⁻¹)', fontsize=12)
     ax1.set_ylabel('Intensity', fontsize=12)
-    ax1.set_title('Peak Analysis', fontsize=14, fontweight='bold')
+    ax1.set_title('Peak Analysis with Component Assignments', fontsize=14, fontweight='bold')
     ax1.legend(loc='best')
     ax1.grid(True, alpha=0.3)
     ax1.invert_xaxis()
@@ -282,10 +352,13 @@ def perform_peak_analysis(dataset_data: Dict[str, pd.DataFrame],
     if progress_callback:
         progress_callback(90)
     
-    # Create data table
+    # Create data table with component assignments
+    peak_assignments = [find_peak_assignment(wn) for wn in wavenumbers[top_peaks]]
+    
     results_df = pd.DataFrame({
         'Peak_Position': wavenumbers[top_peaks],
         'Intensity': mean_spectrum[top_peaks],
+        'Component_Assignment': peak_assignments,
         'Prominence': top_prominences,
         'Width': properties['widths'][sorted_indices]
     })
@@ -293,7 +366,10 @@ def perform_peak_analysis(dataset_data: Dict[str, pd.DataFrame],
     
     summary = f"Peak analysis completed on {dataset_name}.\n"
     summary += f"Found {len(peaks)} peaks total, showing top {len(top_peaks)}.\n"
-    summary += f"Peak detection threshold: prominence = {prominence_threshold:.3f}"
+    summary += f"Peak detection threshold: prominence = {prominence_threshold:.3f}\n"
+    if show_assignments:
+        assigned_count = sum(1 for a in peak_assignments if a)
+        summary += f"Component assignments: {assigned_count}/{len(top_peaks)} peaks matched\n"
     
     return {
         "primary_figure": fig1,

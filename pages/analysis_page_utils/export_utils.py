@@ -251,12 +251,16 @@ class ExportManager(QObject):
         Returns:
             True if save succeeded
         """
-        if not self.project_manager or not self.project_manager.current_project:
+        if not self.project_manager or not self.project_manager.current_project_data:
             self._show_error(self.localize("ANALYSIS_PAGE.no_project_open"))
             return False
         
         try:
-            project_path = Path(self.project_manager.current_project.path)
+            # Get project path from current_project_data dict
+            project_path = Path(self.project_manager.current_project_data.get("projectPath", ""))
+            if not project_path or not project_path.exists():
+                self._show_error(self.localize("ANALYSIS_PAGE.invalid_project_path"))
+                return False
             analysis_folder = project_path / "analyses"
             analysis_folder.mkdir(exist_ok=True)
             
@@ -308,13 +312,17 @@ class ExportManager(QObject):
         Returns:
             Full path string
         """
-        if self.project_manager and self.project_manager.current_project:
-            project_path = Path(self.project_manager.current_project.path)
-            export_folder = project_path / "exports"
-            export_folder.mkdir(exist_ok=True)
-            return str(export_folder / filename)
-        else:
-            return str(Path.home() / filename)
+        if self.project_manager and self.project_manager.current_project_data:
+            # Get project path from current_project_data dict
+            project_path_str = self.project_manager.current_project_data.get("projectPath", "")
+            if project_path_str:
+                project_path = Path(project_path_str)
+                export_folder = project_path / "exports"
+                export_folder.mkdir(exist_ok=True)
+                return str(export_folder / filename)
+        
+        # Fallback to home directory
+        return str(Path.home() / filename)
     
     def _show_success(self, message: str):
         """Show success message box."""

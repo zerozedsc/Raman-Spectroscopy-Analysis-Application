@@ -29,7 +29,9 @@ class AnalysisResult:
         primary_figure: Main visualization figure
         secondary_figure: Secondary visualization figure (optional)
         data_table: Numerical results as DataFrame (optional)
+        data_table: Numerical results as DataFrame (optional)
         raw_results: Raw analysis output for further processing
+        dataset_data: Original dataset data for spectrum visualization (optional)
     """
     
     category: str
@@ -45,6 +47,7 @@ class AnalysisResult:
     secondary_figure: Optional[Figure] = None
     data_table: Optional[pd.DataFrame] = None
     raw_results: Dict[str, Any] = field(default_factory=dict)
+    dataset_data: Optional[Dict[str, pd.DataFrame]] = None
     
     def __post_init__(self):
         """Validate result data after initialization."""

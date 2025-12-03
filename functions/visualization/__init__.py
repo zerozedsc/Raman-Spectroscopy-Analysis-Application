@@ -88,6 +88,15 @@ from .lime_analysis import (
     lime_explain,
 )
 
+# Import analysis plot functions (November 2025 refactoring)
+from .analysis_plots import (
+    create_spectral_heatmap,
+    create_mean_spectra_overlay,
+    create_waterfall_plot,
+    create_correlation_heatmap,
+    create_peak_scatter,
+)
+
 # Define public API
 __all__ = [
     # Main class
@@ -128,6 +137,13 @@ __all__ = [
     
     # LIME explainability functions (Phase 5)
     'lime_explain',
+    
+    # Analysis plot functions (November 2025 refactoring)
+    'create_spectral_heatmap',
+    'create_mean_spectra_overlay',
+    'create_waterfall_plot',
+    'create_correlation_heatmap',
+    'create_peak_scatter',
 ]
 
 # Version info

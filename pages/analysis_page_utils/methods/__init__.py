@@ -20,7 +20,8 @@ from .statistical import (
     perform_anova_test
 )
 
-from .visualization import (
+# Import visualization functions from functions.visualization package
+from functions.visualization import (
     create_spectral_heatmap,
     create_mean_spectra_overlay,
     create_waterfall_plot,

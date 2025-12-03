@@ -62,7 +62,7 @@ from .analysis_page_utils.views import (
     create_top_bar
 )
 from .analysis_page_utils.method_view import (
-    create_method_view,
+    MethodView,
     populate_results_tabs
 )
 from .analysis_page_utils.export_utils import ExportManager
@@ -206,7 +206,7 @@ class AnalysisPage(QWidget):
             self.method_view.deleteLater()
         
         # Create new method view
-        self.method_view = create_method_view(
+        self.method_view = MethodView(
             category, method_key, dataset_names,
             self.localize,
             self._run_analysis,
@@ -215,7 +215,7 @@ class AnalysisPage(QWidget):
         
         # Connect export buttons (plot export via matplotlib toolbar)
         results_panel = self.method_view.results_panel
-        results_panel.export_data_btn.clicked.connect(self._export_csv)
+        results_panel.export_data_btn.clicked.connect(self.method_view._handle_export_csv)
         
         self.view_stack.addWidget(self.method_view)
         self.view_stack.setCurrentWidget(self.method_view)

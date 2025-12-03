@@ -138,6 +138,8 @@ class DatasetItemWidget(QWidget):
 
 class DataPackagePage(QWidget):
     showNotification = Signal(str, str)
+    datasets_changed = Signal()  # Emitted when datasets are added or removed
+    
     def __init__(self, parent=None):
         super().__init__(parent)
         self.preview_dataframe = None
@@ -1000,6 +1002,7 @@ class DataPackagePage(QWidget):
             )
             self.load_project_data()
             self.clear_importer_fields()
+            self.datasets_changed.emit()  # Notify workspace of dataset changes
         else:
             self.showNotification.emit(
                 LOCALIZE("NOTIFICATIONS.dataset_add_error"),
@@ -1052,13 +1055,17 @@ class DataPackagePage(QWidget):
             self.showNotification.emit(LOCALIZE("NOTIFICATIONS.dataset_add_success", name=dataset_name), "success")
             self.load_project_data()
             self.clear_importer_fields()
+            self.datasets_changed.emit()  # Notify workspace of dataset change
         else:
             self.showNotification.emit(LOCALIZE("NOTIFICATIONS.dataset_add_error"), "error")
 
     def handle_remove_dataset(self, name: str):
         reply = QMessageBox.question(self, LOCALIZE("DATA_PACKAGE_PAGE.remove_dataset_confirm_title"), LOCALIZE("DATA_PACKAGE_PAGE.remove_dataset_confirm_text", name=name), QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes:
-            if PROJECT_MANAGER.remove_dataframe_from_project(name): self.showNotification.emit(LOCALIZE("NOTIFICATIONS.dataset_remove_success", name=name), "success"); self.load_project_data()
+            if PROJECT_MANAGER.remove_dataframe_from_project(name): 
+                self.showNotification.emit(LOCALIZE("NOTIFICATIONS.dataset_remove_success", name=name), "success")
+                self.load_project_data()
+                self.datasets_changed.emit()  # Notify workspace of dataset change
             else: self.showNotification.emit(LOCALIZE("NOTIFICATIONS.dataset_remove_error", name=name), "error")
 
     def _handle_delete_all_datasets(self):
@@ -1162,6 +1169,7 @@ class DataPackagePage(QWidget):
                     "success"
                 )
                 self.load_project_data()
+                self.datasets_changed.emit()  # Notify workspace of dataset changes
             else:
                 self.showNotification.emit(
                     LOCALIZE("DATA_PACKAGE_PAGE.delete_all_error"),

@@ -1,53 +1,119 @@
+"""
+Optimized main.py with lazy imports and splash screen
+Dramatically improves startup time for packaged executable
+"""
 import sys
 import os
-from PySide6.QtWidgets import QApplication, QMainWindow, QStackedWidget
+
+# Early imports - only absolute essentials
+from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QFontDatabase
 
-# --- Import project modules ---
-from utils import *
-from configs.style.stylesheets import get_main_stylesheet
-from pages.home_page import HomePage
-from pages.workspace_page import WorkspacePage
-from components.toast import Toast
+# Import splash screen (lightweight)
+from splash_screen import create_splash
 
-class MainWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle(LOCALIZE("MAIN_WINDOW.title"))
-        self.resize(1440, 900)
-        self.setMinimumHeight(600)  # Minimum height for non-maximized windows
-        self.setMinimumWidth(1000)   # Minimum width to maintain layout
 
-        # --- Central stacked widget to manage main views (Home vs Workspace) ---
+def lazy_import_modules(splash):
+    """Lazy import heavy modules with progress updates."""
+    
+    # Stage 1: Core utilities (10%)
+    splash.show_progress(10, "Loading core utilities...")
+    QApplication.processEvents()
+    from utils import LOCALIZE, PROJECT_MANAGER, load_application_fonts
+    
+    # Stage 2: Stylesheets (20%)
+    splash.show_progress(20, "Loading stylesheets...")
+    QApplication.processEvents()
+    from configs.style.stylesheets import get_main_stylesheet
+    
+    # Stage 3: Components (40%)
+    splash.show_progress(40, "Loading UI components...")
+    QApplication.processEvents()
+    from components.toast import Toast
+    
+    # Stage 4: Pages (60%)
+    splash.show_progress(60, "Loading application pages...")
+    QApplication.processEvents()
+    from pages.home_page import HomePage
+    
+    # Stage 5: Workspace (80%)
+    splash.show_progress(80, "Loading workspace...")
+    QApplication.processEvents()
+    from pages.workspace_page import WorkspacePage
+    
+    # Stage 6: Final setup (90%)
+    splash.show_progress(90, "Initializing application...")
+    QApplication.processEvents()
+    
+    from PySide6.QtWidgets import QMainWindow, QStackedWidget
+    
+    return {
+        'LOCALIZE': LOCALIZE,
+        'PROJECT_MANAGER': PROJECT_MANAGER,
+        'load_application_fonts': load_application_fonts,
+        'get_main_stylesheet': get_main_stylesheet,
+        'Toast': Toast,
+        'HomePage': HomePage,
+        'WorkspacePage': WorkspacePage,
+        'QMainWindow': QMainWindow,
+        'QStackedWidget': QStackedWidget
+    }
+
+
+class MainWindow:
+    """Main window class - constructed after all imports."""
+    
+    def __init__(self, modules):
+        """Initialize with pre-imported modules."""
+        QMainWindow = modules['QMainWindow']
+        QStackedWidget = modules['QStackedWidget']
+        LOCALIZE = modules['LOCALIZE']
+        PROJECT_MANAGER = modules['PROJECT_MANAGER']
+        HomePage = modules['HomePage']
+        WorkspacePage = modules['WorkspacePage']
+        Toast = modules['Toast']
+        
+        # Create actual window instance
+        self.window = QMainWindow()
+        self.window.setWindowTitle(LOCALIZE("MAIN_WINDOW.title"))
+        self.window.resize(1440, 900)
+        self.window.setMinimumHeight(600)
+        self.window.setMinimumWidth(1000)
+        
+        # Central stacked widget
         self.central_stack = QStackedWidget()
-        self.setCentralWidget(self.central_stack)
-
-        # --- Create Pages ---
+        self.window.setCentralWidget(self.central_stack)
+        
+        # Create Pages
         self.home_page = HomePage()
         self.workspace_page = WorkspacePage()
-
+        
         self.central_stack.addWidget(self.home_page)
         self.central_stack.addWidget(self.workspace_page)
-
-        # --- Create Toast Notification Widget, parented to the main window ---
-        self.toast = Toast(self)
-
-        # --- Connect signals ---
-        self.home_page.projectOpened.connect(self.open_project_workspace)
-        self.home_page.newProjectCreated.connect(self.open_project_workspace)
-        # Connect the notification signal from the data page to the toast's slot
+        
+        # Create Toast
+        self.toast = Toast(self.window)
+        
+        # Connect signals
+        self.home_page.projectOpened.connect(lambda path: self.open_project_workspace(path, LOCALIZE, PROJECT_MANAGER))
+        self.home_page.newProjectCreated.connect(lambda path: self.open_project_workspace(path, LOCALIZE, PROJECT_MANAGER))
         self.workspace_page.data_page.showNotification.connect(self.toast.show_message)
-        # Connect the notification signal from the analysis page to the toast's slot
         self.workspace_page.analysis_page.showNotification.connect(self.toast.show_message)
-
-        # Start on the home page
+        
+        # Start on home page
         self.central_stack.setCurrentWidget(self.home_page)
-
-    def open_project_workspace(self, project_path: str):
-        """
-        Loads the project data using the ProjectManager and switches
-        to the main workspace view.
-        """
+        
+        # Override resize event
+        original_resize = self.window.resizeEvent
+        def custom_resize(event):
+            original_resize(event)
+            if self.toast.isVisible():
+                self.toast.hide()
+        self.window.resizeEvent = custom_resize
+    
+    def open_project_workspace(self, project_path: str, LOCALIZE, PROJECT_MANAGER):
+        """Load project and switch to workspace."""
         if PROJECT_MANAGER.load_project(project_path):
             self.workspace_page.load_project(project_path)
             self.central_stack.setCurrentWidget(self.workspace_page)
@@ -55,32 +121,53 @@ class MainWindow(QMainWindow):
             self.toast.show_message(LOCALIZE("NOTIFICATIONS.project_loaded_success", name=project_name), "success")
         else:
             self.toast.show_message(LOCALIZE("NOTIFICATIONS.project_loaded_error"), "error")
+    
+    def show(self):
+        """Show the main window."""
+        self.window.show()
 
-    def resizeEvent(self, event):
-        # Ensure toast repositions correctly on window resize
-        super().resizeEvent(event)
-        if self.toast.isVisible():
-            self.toast.hide() # Hide to prevent visual artifacts, will show again on next message
+
+def main():
+    """Main application entry point with optimized loading."""
+    
+    # Create QApplication first (required for splash)
+    app = QApplication(sys.argv)
+    
+    # Show splash screen immediately
+    splash = create_splash()
+    splash.show_progress(5, "Starting application...")
+    app.processEvents()
+    
+    # Lazy load all modules with progress updates
+    modules = lazy_import_modules(splash)
+    
+    # Load fonts
+    splash.show_progress(92, "Loading fonts...")
+    app.processEvents()
+    modules['load_application_fonts']()
+    
+    # Apply stylesheet
+    splash.show_progress(95, "Applying styles...")
+    app.processEvents()
+    font_family = modules['LOCALIZE']("APP_CONFIG.font_family")
+    dynamic_stylesheet = modules['get_main_stylesheet'](font_family)
+    app.setStyleSheet(dynamic_stylesheet)
+    
+    # Create main window
+    splash.show_progress(98, "Creating main window...")
+    app.processEvents()
+    window = MainWindow(modules)
+    
+    # Show window and close splash
+    splash.show_progress(100, "Ready!")
+    app.processEvents()
+    
+    # Delay splash close slightly for smooth transition
+    QTimer.singleShot(500, splash.close)
+    QTimer.singleShot(300, window.show)
+    
+    return app.exec()
 
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    
-    # Load bundled fonts into the application database
-    load_application_fonts()
-    
-    # Language is already set from command-line args in utils.py
-    # Only use config language if no command-line arg was provided
-    # Note: args.lang is parsed in utils.py and used to initialize LOCALIZEMANAGER
-    # The language is already active, so we don't need to call set_language() again
-    
-    # Generate and apply the dynamic, language-aware stylesheet
-    font_family = LOCALIZE("APP_CONFIG.font_family")
-    dynamic_stylesheet = get_main_stylesheet(font_family)
-    app.setStyleSheet(dynamic_stylesheet)
-    
-    # Create and show the main window
-    window = MainWindow()
-    window.show()
-    
-    sys.exit(app.exec())
+    sys.exit(main())

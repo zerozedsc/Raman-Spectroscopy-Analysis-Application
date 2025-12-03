@@ -24,8 +24,10 @@ from .parameter_widgets import (
     CustomDoubleSpinBox,
     RangeParameterWidget,
     ParameterWidget,
-    ParameterGroupWidget
+    ParameterGroupWidget,
+    DynamicParameterWidget
 )
+from .views_widget import GroupTreeManager
 
 from .matplotlib_widget import MatplotlibWidget, plot_spectra
 from .icons import (
@@ -43,6 +45,7 @@ __all__ = [
     'RangeParameterWidget',
     'ParameterWidget',
     'ParameterGroupWidget',
+    'DynamicParameterWidget',
     'MatplotlibWidget',
     'plot_spectra',
     'load_icon',
@@ -50,5 +53,6 @@ __all__ = [
     'create_toolbar_icon',
     'get_icon_path',
     'list_available_icons',
+    'GroupTreeManager',
     'ICON_PATHS'  # Add ICON_PATHS to exports
 ]

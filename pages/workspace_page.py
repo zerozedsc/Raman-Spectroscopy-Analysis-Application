@@ -2,7 +2,7 @@ import sys
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QStackedWidget, QLabel
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 
 from components.app_tabs import AppTabBar
 from pages.data_package_page import DataPackagePage
@@ -17,6 +17,9 @@ class WorkspacePage(QWidget):
     The main workspace container that holds the AppTabBar and the
     stacked widget for different application pages.
     """
+    # Signal emitted when dataset list changes (for auto-refresh)
+    datasets_changed = Signal()
+    
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("workspacePage")
@@ -75,6 +78,15 @@ class WorkspacePage(QWidget):
         # Home page project signals
         self.home_page.newProjectCreated.connect(self.load_project)
         self.home_page.projectOpened.connect(self.load_project)
+        
+        # Connect dataset change signals for auto-refresh
+        # When datasets are added/removed in data_package_page, refresh other pages
+        if hasattr(self.data_page, 'datasets_changed'):
+            self.data_page.datasets_changed.connect(self._on_datasets_changed)
+        
+        # When preprocessing creates new datasets, refresh analysis page
+        if hasattr(self.preprocessing_page, 'datasets_changed'):
+            self.preprocessing_page.datasets_changed.connect(self._on_datasets_changed)
 
     def _on_tab_changed(self, index):
         """Handle tab changes and trigger data loading for all pages."""
@@ -89,6 +101,32 @@ class WorkspacePage(QWidget):
         
         # Automatically refresh data for the current page
         self._refresh_current_page_data()
+    
+    def _on_datasets_changed(self):
+        """Handle dataset changes and refresh all relevant pages."""
+        create_logs("WorkspacePage", "datasets_changed", 
+                   "Dataset list changed, refreshing all pages", status='info')
+        
+        # Refresh all pages that display dataset lists (skip home page and data page itself)
+        for i in range(1, self.page_stack.count()):
+            widget = self.page_stack.widget(i)
+            
+            # Skip the data package page (it's already updated) and home page
+            if i == 0 or i == 1:
+                continue
+                
+            # Refresh pages with load_project_data method
+            if hasattr(widget, 'load_project_data'):
+                try:
+                    widget.load_project_data()
+                    create_logs("WorkspacePage", "auto_refresh_on_change", 
+                               f"Auto-refreshed page {i} after dataset change", status='info')
+                except Exception as e:
+                    create_logs("WorkspacePage", "auto_refresh_error", 
+                               f"Error auto-refreshing page {i}: {e}", status='error')
+        
+        # Emit signal so other components can respond
+        self.datasets_changed.emit()
     
     def show_home_page(self):
         """Show the home page, hide tab bar, and reset workspace state."""

@@ -81,52 +81,55 @@ class GroupAssignmentTable(QWidget):
         """)
         main_layout.addWidget(instructions)
         
-        # Action buttons
-        button_layout = QHBoxLayout()
+        # Action toolbar - modern toolbar design
+        from PySide6.QtWidgets import QToolBar, QWidget as QW
         
-        auto_assign_btn = QPushButton("🔍 Auto-Assign by Pattern")
-        auto_assign_btn.setToolTip("Automatically assign groups based on dataset names")
-        auto_assign_btn.clicked.connect(self._auto_assign_groups)
-        auto_assign_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #28a745;
-                color: white;
-                border: none;
+        toolbar = QToolBar()
+        toolbar.setMovable(False)
+        toolbar.setStyleSheet("""
+            QToolBar {
+                background-color: #f8f9fa;
+                border: 1px solid #dee2e6;
                 border-radius: 4px;
-                padding: 8px 16px;
+                padding: 4px 8px;
+                spacing: 8px;
+            }
+            QToolButton {
+                background-color: transparent;
+                border: 1px solid transparent;
+                border-radius: 4px;
+                padding: 6px 12px;
                 font-weight: 600;
-                font-size: 13px;
+                font-size: 12px;
+                color: #495057;
             }
-            QPushButton:hover {
-                background-color: #218838;
+            QToolButton:hover {
+                background-color: #e9ecef;
+                border-color: #dee2e6;
             }
-            QPushButton:pressed {
-                background-color: #1e7e34;
+            QToolButton:pressed {
+                background-color: #dee2e6;
             }
         """)
-        button_layout.addWidget(auto_assign_btn)
         
-        reset_btn = QPushButton("↺ Reset All")
-        reset_btn.setToolTip("Clear all group assignments")
-        reset_btn.clicked.connect(self._reset_all)
-        reset_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #6c757d;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 8px 16px;
-                font-weight: 600;
-                font-size: 13px;
-            }
-            QPushButton:hover {
-                background-color: #5a6268;
-            }
-        """)
-        button_layout.addWidget(reset_btn)
+        # Auto-assign action
+        auto_assign_action = toolbar.addAction("🔍 Auto-Assign")
+        auto_assign_action.setToolTip("Automatically assign groups based on filename patterns")
+        auto_assign_action.triggered.connect(self._auto_assign_groups)
         
-        button_layout.addStretch()
-        main_layout.addLayout(button_layout)
+        # Reset action
+        reset_action = toolbar.addAction("↺ Reset All")
+        reset_action.setToolTip("Clear all group assignments")
+        reset_action.triggered.connect(self._reset_all)
+        
+        toolbar.addSeparator()
+        
+        # Add custom group action
+        custom_group_action = toolbar.addAction("➕ Create Group")
+        custom_group_action.setToolTip("Create a custom group label")
+        custom_group_action.triggered.connect(self._add_custom_group)
+        
+        main_layout.addWidget(toolbar)
         
         # Table widget
         self.table = QTableWidget()
@@ -134,24 +137,36 @@ class GroupAssignmentTable(QWidget):
         self.table.setHorizontalHeaderLabels(["Dataset Name", "Group Label"])
         self.table.setRowCount(len(self.dataset_names))
         
-        # Styling
+        # Professional table styling with comfortable spacing and minimal gridlines
         self.table.setStyleSheet("""
             QTableWidget {
-                border: 1px solid #d0d0d0;
-                border-radius: 4px;
+                border: 1px solid #dee2e6;
+                border-radius: 6px;
                 background-color: white;
-                gridline-color: #e0e0e0;
+                gridline-color: transparent;
+                font-size: 13px;
             }
             QTableWidget::item {
-                padding: 8px;
+                padding: 16px 12px;
+                border-bottom: 1px solid #f1f3f5;
+            }
+            QTableWidget::item:hover {
+                background-color: #f8f9fa;
+            }
+            QTableWidget::item:selected {
+                background-color: #e7f3ff;
+                color: #212529;
             }
             QHeaderView::section {
-                background-color: #f5f5f5;
-                padding: 10px;
+                background-color: #f8f9fa;
+                padding: 14px 12px;
                 border: none;
-                border-bottom: 2px solid #0078d4;
-                font-weight: 600;
-                font-size: 13px;
+                border-bottom: 2px solid #dee2e6;
+                font-weight: 700;
+                font-size: 12px;
+                color: #495057;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
             }
         """)
         
@@ -310,42 +325,111 @@ class GroupAssignmentTable(QWidget):
         """
         Automatically assign groups based on dataset name patterns.
         
-        Algorithm:
-        1. Extract common prefixes/keywords from dataset names
-        2. Suggest groups based on patterns
-        3. Assign automatically if confidence is high
+        Enhanced Algorithm:
+        1. Try date prefix pattern (YYYYMMDD_*)
+        2. Try keyword pattern (MM, MGUS, Control, etc.)
+        3. Try underscore/hyphen prefix pattern (Prefix_*)
+        4. Try mixed patterns with multiple segments
         """
-        print("[DEBUG] Auto-assign groups called")
+        print("[DEBUG] Auto-assign groups called (enhanced version)")
         print(f"[DEBUG] Analyzing {len(self.dataset_names)} dataset names")
         
-        # Pattern extraction
+        # Pattern extraction with multiple strategies
         patterns = {}
+        
         for idx, dataset_name in enumerate(self.dataset_names):
             print(f"[DEBUG] Analyzing pattern for: {dataset_name}")
-            # Try common patterns
-            # Pattern 1: "Control_01", "Control_02" → "Control"
-            # Pattern 2: "2023_MM_Sample1" → "MM"
-            # Pattern 3: "MGUS-Patient-1" → "MGUS"
+            group_assigned = False
             
-            # Extract alphanumeric words
-            words = re.findall(r'[A-Za-z]+', dataset_name)
-            print(f"[DEBUG] Extracted words: {words}")
-            
-            # Look for common group keywords
-            for word in words:
-                word_lower = word.lower()
-                if word_lower in ['control', 'disease', 'treatment', 'mm', 'mgus', 'normal', 'healthy', 'cancer']:
-                    # Capitalize first letter
-                    group_name = word.capitalize()
-                    if word_lower in ['mm', 'mgus']:
-                        group_name = word.upper()
+            # === Strategy 1: Date prefix pattern (YYYYMMDD_*) ===
+            # Example: "20220314_MgusO1_B" → extract "Mgus" or "MgusO1"
+            date_match = re.match(r'^\d{8}_(.+)', dataset_name)
+            if date_match:
+                remainder = date_match.group(1)
+                print(f"[DEBUG] Date prefix detected, remainder: {remainder}")
+                
+                # Extract alphanumeric prefix before next separator
+                parts = re.split(r'[_\-\s]', remainder)
+                if parts:
+                    # Try to find keyword in first part
+                    first_part = parts[0]
+                    print(f"[DEBUG] First part after date: {first_part}")
                     
-                    print(f"[DEBUG] Match found: '{word}' → Group '{group_name}'")
+                    # Check for known keywords in first part
+                    for keyword in ['MM', 'MGUS', 'Control', 'Disease', 'Treatment', 'Normal', 'Healthy', 'Cancer']:
+                        if keyword.lower() in first_part.lower():
+                            group_name = keyword.upper() if len(keyword) <= 4 else keyword.capitalize()
+                            print(f"[DEBUG] Keyword '{keyword}' found in '{first_part}' → Group '{group_name}'")
+                            
+                            if group_name not in patterns:
+                                patterns[group_name] = []
+                            patterns[group_name].append(idx)
+                            group_assigned = True
+                            break
+                    
+                    # If no keyword found, use first part as group (e.g., "MgusO1" → "Mgus")
+                    if not group_assigned:
+                        # Extract alpha prefix from alphanumeric string
+                        alpha_prefix = re.match(r'^([A-Za-z]+)', first_part)
+                        if alpha_prefix:
+                            group_name = alpha_prefix.group(1).capitalize()
+                            print(f"[DEBUG] Using alpha prefix '{group_name}' from '{first_part}'")
+                            
+                            if group_name not in patterns:
+                                patterns[group_name] = []
+                            patterns[group_name].append(idx)
+                            group_assigned = True
+            
+            # === Strategy 2: Direct keyword pattern (no date prefix) ===
+            if not group_assigned:
+                # Extract alphanumeric words
+                words = re.findall(r'[A-Za-z]+', dataset_name)
+                print(f"[DEBUG] Extracted words: {words}")
+                
+                # Look for common group keywords
+                for word in words:
+                    word_lower = word.lower()
+                    if word_lower in ['control', 'disease', 'treatment', 'mm', 'mgus', 'normal', 'healthy', 'cancer']:
+                        # Capitalize first letter
+                        group_name = word.capitalize()
+                        if word_lower in ['mm', 'mgus']:
+                            group_name = word.upper()
+                        
+                        print(f"[DEBUG] Keyword match: '{word}' → Group '{group_name}'")
+                        
+                        if group_name not in patterns:
+                            patterns[group_name] = []
+                        patterns[group_name].append(idx)
+                        group_assigned = True
+                        break
+            
+            # === Strategy 3: Prefix pattern (Prefix_* or Prefix-*) ===
+            if not group_assigned:
+                # Split by underscore or hyphen and use first segment
+                prefix_match = re.match(r'^([A-Za-z]+)[\-_]', dataset_name)
+                if prefix_match:
+                    group_name = prefix_match.group(1).capitalize()
+                    print(f"[DEBUG] Prefix pattern: '{dataset_name}' → Group '{group_name}'")
                     
                     if group_name not in patterns:
                         patterns[group_name] = []
                     patterns[group_name].append(idx)
-                    break
+                    group_assigned = True
+            
+            # === Strategy 4: Fallback - use first alpha sequence ===
+            if not group_assigned:
+                alpha_match = re.match(r'^([A-Za-z]+)', dataset_name)
+                if alpha_match:
+                    group_name = alpha_match.group(1).capitalize()
+                    print(f"[DEBUG] Fallback alpha pattern: '{dataset_name}' → Group '{group_name}'")
+                    
+                    if group_name not in patterns:
+                        patterns[group_name] = []
+                    patterns[group_name].append(idx)
+                    group_assigned = True
+            
+            if not group_assigned:
+                print(f"[DEBUG] No pattern detected for '{dataset_name}'")
         
         # Apply assignments
         print(f"[DEBUG] Patterns found: {patterns}")
@@ -369,18 +453,25 @@ class GroupAssignmentTable(QWidget):
                     combo.setCurrentText(group_name)
                     assigned_count += 1
             
+            # Show detailed result message
+            pattern_summary = "\n".join([f"• {name}: {len(indices)} dataset(s)" for name, indices in patterns.items()])
             QMessageBox.information(
                 self,
                 "Auto-Assign Complete",
                 f"Successfully assigned {assigned_count} dataset(s) to {len(patterns)} group(s).\n\n"
-                f"Groups detected: {', '.join(patterns.keys())}"
+                f"Groups detected:\n{pattern_summary}"
             )
         else:
             QMessageBox.warning(
                 self,
                 "No Patterns Found",
                 "Could not detect common patterns in dataset names.\n\n"
-                "Tip: Name your datasets with clear prefixes like 'Control_01', 'MM_Sample1', etc."
+                "Supported patterns:\n"
+                "• Date prefix: '20220314_MgusO1_B' → 'Mgus'\n"
+                "• Keywords: 'MM_Sample1' → 'MM'\n"
+                "• Prefix: 'Control_01' → 'Control'\n"
+                "• Alpha prefix: 'Treatment-A-1' → 'Treatment'\n\n"
+                "Tip: Use clear naming conventions for automatic grouping."
             )
         
         self._update_summary()
@@ -402,6 +493,34 @@ class GroupAssignmentTable(QWidget):
             
             self._update_summary()
             self.groups_changed.emit(self.get_groups())
+    
+    def _add_custom_group(self):
+        """Add a custom group label to all dropdowns."""
+        from PySide6.QtWidgets import QInputDialog
+        
+        text, ok = QInputDialog.getText(
+            self,
+            "Create Custom Group",
+            "Enter new group label:",
+            text="Group"
+        )
+        
+        if ok and text.strip():
+            new_group = text.strip()
+            
+            # Add to all combo boxes if not already present
+            for row in range(self.table.rowCount()):
+                combo = self.table.cellWidget(row, 1)
+                # Check if already exists
+                existing_items = [combo.itemText(i) for i in range(combo.count())]
+                if new_group not in existing_items:
+                    combo.addItem(new_group)
+            
+            QMessageBox.information(
+                self,
+                "Group Created",
+                f"Custom group '{new_group}' has been added to all dropdowns."
+            )
     
     def _update_summary(self):
         """Update the summary label."""
