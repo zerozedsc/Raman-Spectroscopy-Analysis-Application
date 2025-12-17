@@ -1022,13 +1022,15 @@ def perform_umap_analysis(dataset_data: Dict[str, pd.DataFrame],
         progress_callback(30)
     
     # Perform UMAP
-    print(f"[DEBUG] Running UMAP with n_neighbors={n_neighbors}, min_dist={min_dist}")
+    # P1-2: Use configurable random seed for reproducibility
+    random_seed = params.get("random_seed", 42)
+    print(f"[DEBUG] Running UMAP with n_neighbors={n_neighbors}, min_dist={min_dist}, random_seed={random_seed}")
     reducer = umap.UMAP(
         n_neighbors=n_neighbors,
         min_dist=min_dist,
         n_components=n_components,
         metric=metric,
-        random_state=42
+        random_state=random_seed
     )
     embedding = reducer.fit_transform(X)
     
@@ -1133,13 +1135,15 @@ def perform_tsne_analysis(dataset_data: Dict[str, pd.DataFrame],
         progress_callback(30)
     
     # Perform t-SNE (sklearn uses max_iter, not n_iter)
-    print(f"[DEBUG] Creating TSNE with max_iter={n_iter}")
+    # P1-2: Use configurable random seed for reproducibility
+    random_seed = params.get("random_seed", 42)
+    print(f"[DEBUG] Creating TSNE with max_iter={n_iter}, random_seed={random_seed}")
     tsne = TSNE(
         n_components=2,
         perplexity=perplexity,
         learning_rate=learning_rate,
         max_iter=n_iter,  # CRITICAL FIX: sklearn uses max_iter not n_iter
-        random_state=42
+        random_state=random_seed
     )
     embedding = tsne.fit_transform(X)
     
@@ -1329,9 +1333,11 @@ def perform_kmeans_clustering(dataset_data: Dict[str, pd.DataFrame],
         progress_callback(30)
     
     # Perform K-means clustering
-    print(f"[DEBUG] Creating KMeans with n_clusters={n_clusters}, n_init={n_init}, max_iter={max_iter}")
+    # P1-2: Use configurable random seed for reproducibility
+    random_seed = params.get("random_seed", 42)
+    print(f"[DEBUG] Creating KMeans with n_clusters={n_clusters}, n_init={n_init}, max_iter={max_iter}, random_seed={random_seed}")
     kmeans = KMeans(n_clusters=n_clusters, max_iter=max_iter,
-                   n_init=n_init, random_state=42)
+                   n_init=n_init, random_state=random_seed)
     print(f"[DEBUG] Fitting KMeans model...")
     cluster_labels = kmeans.fit_predict(X)
     print(f"[DEBUG] KMeans completed. Inertia: {kmeans.inertia_:.2f}")

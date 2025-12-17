@@ -27,6 +27,7 @@ from .baseline import (
 from .derivatives import Derivative
 from .pipeline import RamanPipeline, EnhancedRamanPipeline
 from .registry import PreprocessingStepRegistry
+from .smoothing import SavitzkyGolaySmoothing, MeanCentering
 
 # Import advanced methods
 from .advanced_normalization import (
@@ -52,6 +53,9 @@ __all__ = [
     
     # Calibration
     'WavenumberCalibration', 'IntensityCalibration',
+    
+    # Smoothing
+    'SavitzkyGolaySmoothing', 'MeanCentering',
     
     # Normalization (basic)
     'SNV', 'MSC', 'MovingAverage',

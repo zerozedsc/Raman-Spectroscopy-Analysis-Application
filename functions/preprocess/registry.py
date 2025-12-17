@@ -30,6 +30,7 @@ from .advanced_baseline import ButterworthHighPass
 from .kernel_denoise import Kernel
 from .fabc_fixed import FABCFixed  # Custom FABC to bypass ramanspy bug
 from .background_subtraction import BackgroundSubtractor
+from .smoothing import SavitzkyGolaySmoothing, MeanCentering
 
 # Try to import deep learning module (requires PyTorch)
 try:
@@ -76,9 +77,9 @@ class PreprocessingStepRegistry:
             "miscellaneous": {
                 "Cropper": {
                     "class": rp.preprocessing.misc.Cropper,
-                    "default_params": {"region": (800, 1800)},
+                    "default_params": {"region": (400, 2000)},
                     "param_info": {
-                        "region": {"type": "tuple", "range": [(400, 4000)], "description": "Wavenumber range to extract (start, end)"}
+                        "region": {"type": "tuple", "range": [(0, 4500)], "description": "Wavenumber range to extract (start, end, in cm⁻¹)"}
                     },
                     "description": "Crop the intensity values and wavenumber axis to the specified range"
                 },
@@ -226,12 +227,12 @@ class PreprocessingStepRegistry:
             },
             "ARPLS": {
                 "class": rp.preprocessing.baseline.ARPLS,
-                "default_params": {"lam": 1e5, "diff_order": 2, "max_iter": 50, "tol": 1e-6},
+                "default_params": {"lam": 1e5, "diff_order": 2, "max_iter": 50, "tol": 1e-3},
                 "param_info": {
-                    "lam": {"type": "scientific", "range": [1e2, 1e12], "description": "Smoothing parameter"},
+                    "lam": {"type": "scientific", "range": [1e2, 1e12], "description": "Smoothing parameter (λ, typical: 1e4-1e7)"},
                     "diff_order": {"type": "int", "range": [1, 3], "description": "Difference order"},
                     "max_iter": {"type": "int", "range": [1, 1000], "description": "Maximum iterations"},
-                    "tol": {"type": "scientific", "range": [1e-9, 1e-3], "description": "Convergence tolerance"}
+                    "tol": {"type": "scientific", "range": [1e-9, 1e-1], "description": "Convergence tolerance (ratio)"}
                 },
                 "description": "Baseline correction based on Asymmetrically Reweighted Penalized Least Squares (arPLS)"
             },
@@ -371,23 +372,15 @@ class PreprocessingStepRegistry:
         """Build registry entries for custom methods."""
         return {
             "cosmic_ray_removal": {
-                "Gaussian": {
-                    "class": Gaussian,
-                    "default_params": {"kernel": 5, "threshold": 3.0},
-                    "param_info": {
-                        "kernel": {"type": "int", "range": [3, 15], "step": 2, "description": "Gaussian kernel size (standard deviation)"},
-                        "threshold": {"type": "float", "range": [1.0, 10.0], "step": 0.1, "description": "MAD-based threshold for spike detection"}
-                    },
-                    "description": "Cosmic ray removal using Gaussian filter and MAD-based detection"
-                },
                 "MedianDespike": {
                     "class": MedianDespike,
-                    "default_params": {"kernel_size": 5, "threshold": 3.0},
+                    "default_params": {"kernel_size": 7, "threshold": 3.5, "max_iter": 3},
                     "param_info": {
-                        "kernel_size": {"type": "int", "range": [3, 15], "step": 2, "description": "Median filter kernel size"},
-                        "threshold": {"type": "float", "range": [1.0, 10.0], "step": 0.1, "description": "MAD-based threshold for spike detection"}
+                        "kernel_size": {"type": "int", "range": [3, 21], "step": 2, "description": "Median filter kernel size (must be odd)"},
+                        "threshold": {"type": "float", "range": [1.0, 15.0], "step": 0.1, "description": "MAD-based threshold for spike detection"},
+                        "max_iter": {"type": "int", "range": [1, 10], "description": "Iterations for removing clustered spikes"}
                     },
-                    "description": "Cosmic ray removal using median filtering"
+                    "description": "Iterative cosmic ray removal using median filtering (best for clustered spikes)"
                 }
             },
             
@@ -438,13 +431,13 @@ class PreprocessingStepRegistry:
             "derivatives": {
                 "Derivative": {
                     "class": Derivative,
-                    "default_params": {"order": 1, "window_length": 5, "polyorder": 2},
+                    "default_params": {"order": 1, "window_length": 11, "polyorder": 3},
                     "param_info": {
                         "order": {"type": "choice", "choices": [1, 2], "default": 1, "description": "Derivative order (1st or 2nd)"},
-                        "window_length": {"type": "int", "range": [3, 21], "step": 2, "description": "Savitzky-Golay window length"},
-                        "polyorder": {"type": "int", "range": [1, 6], "description": "Polynomial order for fitting"}
+                        "window_length": {"type": "int", "range": [3, 51], "step": 2, "description": "Savitzky-Golay window length (odd, larger = smoother)"},
+                        "polyorder": {"type": "int", "range": [1, 10], "description": "Polynomial order (must be < window_length)"}
                     },
-                    "description": "Spectral derivatives using Savitzky-Golay method"
+                    "description": "Spectral derivatives using Savitzky-Golay method for peak enhancement"
                 }
             },
             
@@ -453,9 +446,35 @@ class PreprocessingStepRegistry:
                     "class": MovingAverage,
                     "default_params": {"window_length": 15},
                     "param_info": {
-                        "window_length": {"type": "int", "range": [3, 51], "step": 2, "description": "Window length for moving average"}
+                        "window_length": {"type": "int", "range": [3, 101], "step": 2, "description": "Window length for moving average"}
                     },
                     "description": "Simple moving average smoothing"
+                },
+                "GaussianSmoothing": {
+                    "class": Gaussian,
+                    "default_params": {"kernel": 5, "threshold": 10.0},
+                    "param_info": {
+                        "kernel": {"type": "int", "range": [1, 21], "step": 2, "description": "Gaussian kernel sigma (larger = more smoothing)"},
+                        "threshold": {"type": "float", "range": [5.0, 20.0], "step": 0.5, "description": "Detection threshold (set high for pure smoothing)"}
+                    },
+                    "description": "Gaussian smoothing for noise reduction (not for spike removal)"
+                },
+                "SavGolSmoothing": {
+                    "class": SavitzkyGolaySmoothing,
+                    "default_params": {"window_length": 7, "polyorder": 3},
+                    "param_info": {
+                        "window_length": {"type": "int", "range": [3, 51], "step": 2, "description": "Window length (must be odd, larger = more smoothing)"},
+                        "polyorder": {"type": "int", "range": [1, 10], "description": "Polynomial order (must be < window_length)"}
+                    },
+                    "description": "Savitzky-Golay smoothing filter (preserves peak shapes)"
+                },
+                "MeanCentering": {
+                    "class": MeanCentering,
+                    "default_params": {"per_feature": False},
+                    "param_info": {
+                        "per_feature": {"type": "bool", "description": "If True, center by mean across samples per wavenumber. If False, center each spectrum by its own mean."}
+                    },
+                    "description": "Mean centering for statistical preprocessing (useful before PCA)"
                 }
             },
             

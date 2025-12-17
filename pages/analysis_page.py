@@ -35,8 +35,10 @@ Version: 2.0
 import sys
 import os
 from typing import List, Dict, Any, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
+
+import matplotlib.pyplot as plt
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget,
@@ -68,16 +70,33 @@ from .analysis_page_utils.method_view import (
 from .analysis_page_utils.export_utils import ExportManager
 
 
+# Maximum number of history items to prevent memory leaks from figure storage
+MAX_HISTORY = 20
+
+
 @dataclass
 class AnalysisHistoryItem:
-    """Represents a single analysis in the session history."""
+    """
+    Represents a single analysis in the session history.
+    
+    Stores full dataset list and group labels for accurate history restoration
+    (P0-3 fix: previously only stored display string which broke reproducibility).
+    """
     timestamp: datetime
     category: str
     method_key: str
     method_name: str
-    dataset_name: str
+    dataset_names: List[str]  # Full list of dataset names (P0-3 fix)
     parameters: Dict[str, Any]
+    group_labels: Optional[Dict[str, str]] = None  # {dataset: group} for group mode (P0-3 fix)
     result: Optional[AnalysisResult] = None
+    
+    @property
+    def display_name(self) -> str:
+        """Generate display name for UI from dataset_names."""
+        if len(self.dataset_names) == 1:
+            return self.dataset_names[0]
+        return f"{len(self.dataset_names)} datasets"
 
 
 class AnalysisPage(QWidget):
@@ -132,7 +151,7 @@ class AnalysisPage(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
         
-        # Top bar with reduced height
+        # Top bar with navigation (DISABLED: User requested to keep disabled for now)
         # self.top_bar = create_top_bar(self.localize, self._show_startup_view)
         # main_layout.addWidget(self.top_bar)
         
@@ -377,16 +396,24 @@ class AnalysisPage(QWidget):
             MatplotlibWidget
         )
         
-        # Add to history (use first dataset name for display, full list in result)
+        # P0-2: Limit history size to prevent memory leaks from figure storage
+        if len(self.analysis_history) >= MAX_HISTORY:
+            old_item = self.analysis_history.pop(0)
+            self._cleanup_history_item(old_item)
+        
+        # Add to history (P0-3 fix: store full dataset list and group labels)
         method_info = ANALYSIS_METHODS[category][method_key]
-        display_name = dataset_names[0] if len(dataset_names) == 1 else f"{len(dataset_names)} datasets"
+        # Extract group labels if present in parameters
+        group_labels = parameters.pop('_group_labels', None) if '_group_labels' in parameters else None
+        
         history_item = AnalysisHistoryItem(
             timestamp=datetime.now(),
             category=category,
             method_key=method_key,
             method_name=method_info["name"],
-            dataset_name=display_name,
+            dataset_names=dataset_names,  # P0-3 fix: store full list
             parameters=parameters,
+            group_labels=group_labels,  # P0-3 fix: store group labels for restoration
             result=result
         )
         self.analysis_history.append(history_item)
@@ -439,7 +466,7 @@ class AnalysisPage(QWidget):
             
             # Format: "🕐 14:35 | PCA | Dataset 1"
             time_str = item.timestamp.strftime("%H:%M")
-            text = f"🕐 {time_str}\n{item.method_name}\n📁 {item.dataset_name}"
+            text = f"🕐 {time_str}\n{item.method_name}\n📁 {item.display_name}"  # P0-3: use display_name property
             
             list_item.setText(text)
             list_item.setData(Qt.UserRole, len(self.analysis_history) - 1 - idx)  # Store index
@@ -463,17 +490,23 @@ class AnalysisPage(QWidget):
         # Restore parameters (if possible)
         if self.method_view and hasattr(self.method_view, 'param_widget'):
             # Set dataset - handle both simple and group modes
+            # P0-3: Use dataset_names list instead of display string
             dataset_widget = self.method_view.dataset_widget
-            if dataset_widget and isinstance(history_item.dataset_name, str):
+            if dataset_widget and history_item.dataset_names:
                 # Handle both QComboBox (single mode) and QListWidget (multi mode)
-                if hasattr(dataset_widget, 'findText'):  # QComboBox
-                    dataset_idx = dataset_widget.findText(history_item.dataset_name)
-                    if dataset_idx >= 0:
-                        dataset_widget.setCurrentIndex(dataset_idx)
-                elif hasattr(dataset_widget, 'findItems'):  # QListWidget
-                    items = dataset_widget.findItems(history_item.dataset_name, Qt.MatchExactly)
-                    if items:
-                        items[0].setSelected(True)
+                if hasattr(dataset_widget, 'findText'):  # QComboBox (single dataset)
+                    if len(history_item.dataset_names) == 1:
+                        dataset_idx = dataset_widget.findText(history_item.dataset_names[0])
+                        if dataset_idx >= 0:
+                            dataset_widget.setCurrentIndex(dataset_idx)
+                elif hasattr(dataset_widget, 'findItems'):  # QListWidget (multi dataset)
+                    # Clear selection first
+                    dataset_widget.clearSelection()
+                    # Restore all selections
+                    for ds_name in history_item.dataset_names:
+                        items = dataset_widget.findItems(ds_name, Qt.MatchExactly)
+                        for item in items:
+                            item.setSelected(True)
             
             # Restore parameters by recreating the widget with saved params
             # The DynamicParameterWidget constructor accepts saved_params
@@ -489,6 +522,43 @@ class AnalysisPage(QWidget):
                 )
                 self.current_result = history_item.result
     
+    def _cleanup_history_item(self, item: AnalysisHistoryItem):
+        """
+        P0-2: Clean up matplotlib figures from a history item to free memory.
+        
+        This prevents memory leaks by closing figures when history items
+        are removed. Called when history exceeds MAX_HISTORY limit.
+        
+        Args:
+            item: History item to clean up
+        """
+        if item.result:
+            # Close primary and secondary figures
+            if item.result.primary_figure:
+                try:
+                    plt.close(item.result.primary_figure)
+                except Exception:
+                    pass  # Ignore errors if figure already closed
+            
+            if item.result.secondary_figure:
+                try:
+                    plt.close(item.result.secondary_figure)
+                except Exception:
+                    pass
+            
+            # Close extra PCA figures stored in raw_results
+            if item.result.raw_results:
+                extra_figure_keys = [
+                    'scree_figure', 'loadings_figure', 'biplot_figure',
+                    'cumulative_variance_figure', 'distributions_figure'
+                ]
+                for key in extra_figure_keys:
+                    if key in item.result.raw_results:
+                        try:
+                            plt.close(item.result.raw_results[key])
+                        except Exception:
+                            pass
+    
     def _clear_history(self):
         """Clear analysis history."""
         reply = QMessageBox.question(
@@ -500,6 +570,9 @@ class AnalysisPage(QWidget):
         )
         
         if reply == QMessageBox.Yes:
+            # P0-2: Clean up all figures before clearing
+            for item in self.analysis_history:
+                self._cleanup_history_item(item)
             self.analysis_history.clear()
             self._update_history_list()
     

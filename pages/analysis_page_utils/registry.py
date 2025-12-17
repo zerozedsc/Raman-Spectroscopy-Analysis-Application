@@ -99,6 +99,12 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                     "options": ["euclidean", "cosine", "manhattan", "correlation"],
                     "default": "euclidean",
                     "label": "Distance Metric"
+                },
+                "random_seed": {
+                    "type": "spinbox",
+                    "default": 42,
+                    "range": (0, 2147483647),
+                    "label": "Random Seed (for reproducibility)"
                 }
             },
             "function": "perform_umap_analysis"
@@ -128,6 +134,12 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                     "default": 1000,
                     "range": (250, 5000),
                     "label": "Max Iterations"
+                },
+                "random_seed": {
+                    "type": "spinbox",
+                    "default": 42,
+                    "range": (0, 2147483647),
+                    "label": "Random Seed (for reproducibility)"
                 }
             },
             "function": "perform_tsne_analysis"
@@ -194,6 +206,12 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                     "type": "checkbox",
                     "default": True,
                     "label": "Show Elbow Plot"
+                },
+                "random_seed": {
+                    "type": "spinbox",
+                    "default": 42,
+                    "range": (0, 2147483647),
+                    "label": "Random Seed (for reproducibility)"
                 }
             },
             "function": "perform_kmeans_clustering"

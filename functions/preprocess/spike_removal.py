@@ -179,25 +179,33 @@ class MedianDespike:
     characteristic of cosmic ray events.
     
     Attributes:
-        kernel_size (int): Size of median filter kernel
+        kernel_size (int): Size of median filter kernel (must be odd)
         threshold (float): Threshold for spike detection (in MAD units)
+        max_iter (int): Maximum iterations for iterative spike removal
     """
     
-    def __init__(self, kernel_size: int = 5, threshold: float = 3.0):
+    def __init__(self, kernel_size: int = 7, threshold: float = 3.5, max_iter: int = 3):
         """
         Initialize MedianDespike processor.
         
         Args:
-            kernel_size (int): Size of median filter kernel (default: 5)
-            threshold (float): Threshold for spike detection in MAD units (default: 3.0)
+            kernel_size (int): Size of median filter kernel (default: 7, must be odd)
+            threshold (float): Threshold for spike detection in MAD units (default: 3.5)
+            max_iter (int): Number of iterations for spike removal (default: 3).
+                           Multiple iterations help remove clustered cosmic rays.
         """
-        if not isinstance(kernel_size, int) or kernel_size <= 0 or kernel_size % 2 == 0:
-            raise ValueError("Kernel size must be a positive odd integer")
+        if not isinstance(kernel_size, int) or kernel_size <= 0:
+            raise ValueError("Kernel size must be a positive integer")
+        if kernel_size % 2 == 0:
+            raise ValueError("Kernel size must be odd")
         if not isinstance(threshold, (float, int)) or threshold <= 0:
             raise ValueError("Threshold must be a positive number")
+        if not isinstance(max_iter, int) or max_iter < 1:
+            raise ValueError("max_iter must be a positive integer")
             
         self.kernel_size = kernel_size
         self.threshold = threshold
+        self.max_iter = max_iter
     
     def __call__(self, data):
         """
@@ -239,7 +247,7 @@ class MedianDespike:
     
     def _despike_spectrum(self, spectrum: np.ndarray) -> np.ndarray:
         """
-        Remove spikes from a single spectrum using median filtering.
+        Remove spikes from a single spectrum using iterative median filtering.
         
         Args:
             spectrum (np.ndarray): 1D spectrum to despike
@@ -257,23 +265,28 @@ class MedianDespike:
         # Create a copy to avoid modifying the original
         despiked = spectrum.copy()
         
-        # Apply median filter
-        filtered = median_filter(despiked, size=self.kernel_size)
-        
-        # Calculate residual
-        residual = despiked - filtered
-        
-        # Calculate MAD-based threshold
-        mad = np.median(np.abs(residual - np.median(residual)))
-        if mad < 1e-9:
-            return despiked
+        # Iterative spike removal for clustered cosmic rays
+        for iteration in range(self.max_iter):
+            # Apply median filter
+            filtered = median_filter(despiked, size=self.kernel_size)
             
-        # Identify spikes
-        modified_z_score = 0.6745 * residual / mad
-        spike_indices = np.where(np.abs(modified_z_score) > self.threshold)[0]
-        
-        # Replace spikes with filtered values
-        despiked[spike_indices] = filtered[spike_indices]
+            # Calculate residual
+            residual = despiked - filtered
+            
+            # Calculate MAD-based threshold
+            mad = np.median(np.abs(residual - np.median(residual)))
+            if mad < 1e-9:
+                break  # No more spikes to remove
+                
+            # Identify spikes
+            modified_z_score = 0.6745 * residual / mad
+            spike_indices = np.where(np.abs(modified_z_score) > self.threshold)[0]
+            
+            if len(spike_indices) == 0:
+                break  # No more spikes found
+            
+            # Replace spikes with filtered values
+            despiked[spike_indices] = filtered[spike_indices]
         
         return despiked
     

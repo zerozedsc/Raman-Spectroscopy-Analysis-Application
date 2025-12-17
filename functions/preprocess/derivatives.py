@@ -30,14 +30,16 @@ class Derivative:
         polyorder (int): Order of polynomial for fitting
     """
     
-    def __init__(self, order: int = 1, window_length: int = 5, polyorder: int = 2):
+    def __init__(self, order: int = 1, window_length: int = 11, polyorder: int = 3):
         """
         Initialize derivative processor.
         
         Args:
             order (int): Derivative order (1 or 2)
             window_length (int): Filter window length (must be odd, >= polyorder + 1)
-            polyorder (int): Polynomial order for Savitzky-Golay filter
+                                 Default 11 provides good noise reduction for Raman spectra.
+            polyorder (int): Polynomial order for Savitzky-Golay filter.
+                            Default 3 balances noise reduction and peak preservation.
         """
         if order not in [1, 2]:
             raise ValueError("Derivative order must be 1 or 2")

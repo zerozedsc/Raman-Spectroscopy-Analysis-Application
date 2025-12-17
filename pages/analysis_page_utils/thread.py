@@ -174,6 +174,28 @@ class AnalysisThread(QThread):
         self.progress.emit(thread_progress)
     
     def cancel(self):
-        """Cancel the running analysis."""
+        """
+        Cancel the running analysis using cooperative interruption.
+        
+        This method replaces the unsafe terminate() approach with Qt's
+        recommended cooperative interruption pattern to prevent:
+        - Data corruption during NumPy/SciPy operations
+        - Memory leaks from interrupted Matplotlib rendering
+        - Crashes from inconsistent thread state
+        """
         self._is_cancelled = True
-        self.terminate()
+        self.requestInterruption()  # Set Qt interruption flag
+        self.quit()  # Exit event loop
+        self.wait(5000)  # Wait max 5 seconds for clean termination
+    
+    def is_interruption_requested(self) -> bool:
+        """
+        Check if cancellation was requested.
+        
+        Analysis methods should call this periodically and abort cleanly
+        if True is returned.
+        
+        Returns:
+            True if cancellation was requested, False otherwise
+        """
+        return self._is_cancelled or self.isInterruptionRequested()

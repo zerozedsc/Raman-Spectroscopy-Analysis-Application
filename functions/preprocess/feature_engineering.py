@@ -308,3 +308,28 @@ class PeakRatioFeatures:
             return self.fit_transform(spectra, wavenumbers)
         else:
             return self.transform(spectra, wavenumbers)
+    
+    def apply(self, data) -> np.ndarray:
+        """
+        Apply peak ratio feature extraction to RamanSPy SpectralContainer.
+        
+        Args:
+            data: SpectralContainer with spectral_data and spectral_axis
+            
+        Returns:
+            np.ndarray: Peak ratio features (n_samples, n_features)
+        """
+        # Detect input type
+        is_container = hasattr(data, 'spectral_data')
+        
+        if is_container:
+            spectra = data.spectral_data
+            wavenumbers = data.spectral_axis
+        else:
+            # Assume numpy array with wavenumber axis stored
+            spectra = data
+            wavenumbers = self.wavenumbers
+            if wavenumbers is None:
+                raise ValueError("Wavenumber axis not provided. Use fit() first or pass SpectralContainer.")
+        
+        return self.__call__(spectra, wavenumbers)

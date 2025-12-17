@@ -68,9 +68,13 @@ def create_spectral_heatmap(dataset_data: Dict[str, pd.DataFrame],
     
     # Normalize if requested
     if normalize:
+        # P0-4 FIX: Add epsilon guard to prevent division by zero for flat spectra
         # Row-wise normalization (each spectrum)
-        data_matrix = (data_matrix - data_matrix.min(axis=1, keepdims=True)) / \
-                     (data_matrix.max(axis=1, keepdims=True) - data_matrix.min(axis=1, keepdims=True))
+        min_vals = data_matrix.min(axis=1, keepdims=True)
+        max_vals = data_matrix.max(axis=1, keepdims=True)
+        denom = max_vals - min_vals
+        denom[denom < 1e-12] = 1.0  # Guard against division by zero
+        data_matrix = (data_matrix - min_vals) / denom
     
     if progress_callback:
         progress_callback(50)
@@ -226,8 +230,12 @@ def create_mean_spectra_overlay(dataset_data: Dict[str, pd.DataFrame],
         
         # Normalize if requested
         if normalize:
-            data = (data - data.min(axis=0, keepdims=True)) / \
-                  (data.max(axis=0, keepdims=True) - data.min(axis=0, keepdims=True))
+            # P0-4 FIX: Add epsilon guard to prevent division by zero for flat spectra
+            min_vals = data.min(axis=0, keepdims=True)
+            max_vals = data.max(axis=0, keepdims=True)
+            denom = max_vals - min_vals
+            denom[denom < 1e-12] = 1.0  # Guard against division by zero
+            data = (data - min_vals) / denom
         
         # Calculate mean and std
         mean_spectrum = data.mean(axis=1)
@@ -467,9 +475,20 @@ def create_correlation_heatmap(dataset_data: Dict[str, pd.DataFrame],
     colormap = params.get("colormap", "RdBu_r")
     cluster = params.get("cluster", True)
     
-    # Use first dataset
-    dataset_name = list(dataset_data.keys())[0]
-    df = dataset_data[dataset_name]
+    # P1-4 FIX: Handle multi-dataset input properly
+    multi_dataset_warning = ""
+    if len(dataset_data) > 1:
+        # Concatenate all datasets for correlation analysis
+        all_dfs = []
+        for ds_name, ds_df in dataset_data.items():
+            all_dfs.append(ds_df)
+        # Concatenate along columns (spectra)
+        df = pd.concat(all_dfs, axis=1)
+        dataset_name = f"{len(dataset_data)} datasets (concatenated)"
+        multi_dataset_warning = f"\n⚠️ Note: {len(dataset_data)} datasets were concatenated for correlation analysis."
+    else:
+        dataset_name = list(dataset_data.keys())[0]
+        df = dataset_data[dataset_name]
     
     if progress_callback:
         progress_callback(30)
@@ -510,6 +529,7 @@ def create_correlation_heatmap(dataset_data: Dict[str, pd.DataFrame],
     summary = f"Correlation heatmap created using {method} method.\n"
     summary += f"Dataset: {dataset_name}\n"
     summary += f"Wavenumber range: {df.shape[0]} points"
+    summary += multi_dataset_warning
     
     return {
         "primary_figure": fig,
