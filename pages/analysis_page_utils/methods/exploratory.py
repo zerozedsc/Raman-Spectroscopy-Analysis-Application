@@ -24,7 +24,7 @@ from scipy import stats
 from scipy.interpolate import interp1d
 
 try:
-    import umap
+    import umap.umap_ as umap
     UMAP_AVAILABLE = True
 except ImportError:
     UMAP_AVAILABLE = False
@@ -275,7 +275,7 @@ def add_confidence_ellipse(ax, x, y, n_std=1.96, facecolor='none', edgecolor='re
         angle=angle,
         facecolor=color_to_use,
         edgecolor='none',  # No edge on fill layer
-        alpha=0.08,  # ✅ Ultra-light fill (8% opacity)
+        alpha=0.04,  # ✅ Ultra-light fill (4% opacity) - reduced for less dark overlay
         zorder=5
     )
     ax.add_patch(ellipse_fill)
@@ -290,13 +290,13 @@ def add_confidence_ellipse(ax, x, y, n_std=1.96, facecolor='none', edgecolor='re
         edgecolor=edgecolor,
         linestyle=linestyle,
         linewidth=linewidth if linewidth else 2.5,  # ✅ Thicker edge
-        alpha=0.85,  # ✅ Strong edge visibility
+        alpha=0.04,  
         label=label,  # Only the edge gets the label for legend
         zorder=15  # Above scatter points
     )
     ax.add_patch(ellipse_edge)
     
-    print(f"[DEBUG] Dual-layer ellipse added: center=({mean_x:.2f}, {mean_y:.2f}), size={width:.2f}x{height:.2f}, fill α=0.08, edge α=0.85")
+    print(f"[DEBUG] Dual-layer ellipse added: center=({mean_x:.2f}, {mean_y:.2f}), size={width:.2f}x{height:.2f}, fill α=0.04, edge α=0.85")
     return ellipse_edge  # Return edge ellipse for legend
 
 
@@ -1413,16 +1413,13 @@ def perform_kmeans_clustering(dataset_data: Dict[str, pd.DataFrame],
     }
 
 
-def create_spectrum_preview_figure(dataset_data: Dict[str, pd.DataFrame]) -> Figure:
+def create_spectrum_preview_figure(dataset_data: Dict[str, pd.DataFrame], show_all: bool = False) -> Figure:
     """
-    Create a preview figure showing MEAN SPECTRA ONLY with vertical offset stacking.
-    
-    ✅ FIX #5 (P1): Mean-only display reduces visual clutter
-    Consensus from 6 AI analyses: Show only mean, not all 74 individual spectra
-    Implements RAMANMETRIX (2018) spectral stacking standard: 15% offset
+    Create a preview figure showing spectra with vertical offset stacking.
     
     Args:
         dataset_data: Dictionary of {dataset_name: DataFrame}
+        show_all: If True, show all individual spectra; if False, show only mean spectra
     
     Returns:
         Matplotlib Figure object
@@ -1437,45 +1434,68 @@ def create_spectrum_preview_figure(dataset_data: Dict[str, pd.DataFrame]) -> Fig
     max_intensity_overall = 0
     
     for idx, (dataset_name, df) in enumerate(dataset_data.items()):
-        # Calculate statistics
-        mean_spectrum = df.mean(axis=1).values  # Mean across columns (spectra)
-        std_spectrum = df.std(axis=1).values
         wavenumbers = df.index.values
         n_spectra = df.shape[1]
+        color = colors[idx % len(colors)]
         
-        # Apply vertical offset for stacking
-        mean_with_offset = mean_spectrum + offset
-        
-        # Plot MEAN line only (bold, prominent)
-        ax.plot(
-            wavenumbers, mean_with_offset,
-            color=colors[idx % len(colors)],
-            linewidth=2.8,  # Thick for visibility
-            label=f'{dataset_name} (mean, n={n_spectra})',
-            alpha=0.95,
-            zorder=10 + idx
-        )
-        
-        # Optional: Add VERY subtle ±0.5σ envelope (barely visible)
-        ax.fill_between(
-            wavenumbers,
-            mean_with_offset - std_spectrum * 0.5,
-            mean_with_offset + std_spectrum * 0.5,
-            color=colors[idx % len(colors)],
-            alpha=0.08,  # Barely visible (8% opacity)
-            edgecolor='none',
-            zorder=5 + idx
-        )
-        
-        # Calculate next offset (15% above max intensity)
-        max_intensity = (mean_with_offset + std_spectrum).max()
-        offset = max_intensity * 1.15  # 15% spacing (RAMANMETRIX standard)
-        max_intensity_overall = max(max_intensity_overall, max_intensity)
+        if show_all:
+            # Show ALL individual spectra with low alpha
+            max_val = 0
+            for col_idx, col in enumerate(df.columns):
+                spectrum = df[col].values + offset
+                alpha = 0.3 if n_spectra > 10 else 0.5
+                ax.plot(
+                    wavenumbers, spectrum,
+                    color=color,
+                    linewidth=0.8,
+                    alpha=alpha,
+                    label=f'{dataset_name}' if col_idx == 0 else None,
+                    zorder=5 + idx
+                )
+                max_val = max(max_val, spectrum.max())
+            
+            # Calculate next offset
+            offset = max_val * 1.15
+            max_intensity_overall = max(max_intensity_overall, max_val)
+        else:
+            # Show MEAN only (default behavior)
+            mean_spectrum = df.mean(axis=1).values
+            std_spectrum = df.std(axis=1).values
+            
+            # Apply vertical offset for stacking
+            mean_with_offset = mean_spectrum + offset
+            
+            # Plot MEAN line only (bold, prominent)
+            ax.plot(
+                wavenumbers, mean_with_offset,
+                color=color,
+                linewidth=2.8,
+                label=f'{dataset_name} (mean, n={n_spectra})',
+                alpha=0.95,
+                zorder=10 + idx
+            )
+            
+            # Add VERY subtle ±0.5σ envelope (barely visible)
+            ax.fill_between(
+                wavenumbers,
+                mean_with_offset - std_spectrum * 0.5,
+                mean_with_offset + std_spectrum * 0.5,
+                color=color,
+                alpha=0.08,
+                edgecolor='none',
+                zorder=5 + idx
+            )
+            
+            # Calculate next offset (15% above max intensity)
+            max_intensity = (mean_with_offset + std_spectrum).max()
+            offset = max_intensity * 1.15
+            max_intensity_overall = max(max_intensity_overall, max_intensity)
     
     # Styling
     ax.set_xlabel('Wavenumber (cm⁻¹)', fontsize=12, fontweight='bold')
     ax.set_ylabel('Intensity (offset for clarity)', fontsize=12, fontweight='bold')
-    ax.set_title('Mean Spectra (Vertically Stacked)', fontsize=14, fontweight='bold')
+    title = 'All Spectra (Vertically Stacked)' if show_all else 'Mean Spectra (Vertically Stacked)'
+    ax.set_title(title, fontsize=14, fontweight='bold')
     ax.legend(loc='upper right', fontsize=10, framealpha=0.9)
     ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
     ax.invert_xaxis()  # Raman convention: high → low wavenumber

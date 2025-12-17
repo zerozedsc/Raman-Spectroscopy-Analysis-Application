@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QAbstractItemView, QStackedWidget, QButtonGroup, QRadioButton, QCheckBox, QMessageBox
 )
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QStandardItemModel, QStandardItem
 
 from components.widgets import load_icon, GroupTreeManager, DynamicParameterWidget
 
@@ -28,6 +28,93 @@ from .methods.exploratory import create_spectrum_preview_figure
 import matplotlib.pyplot as plt
 import numpy as np
 
+
+# =============================================================================
+# CHECKABLE COMBOBOX - Multi-select dropdown with checkboxes (max 4 components)
+# =============================================================================
+class CheckableComboBox(QComboBox):
+    """
+    A ComboBox with checkable items for multi-component selection.
+    Used for selecting multiple PCA components (max 4).
+    """
+    def __init__(self, parent=None, max_items=4):
+        super().__init__(parent)
+        self.max_items = max_items
+        self._model = QStandardItemModel(self)
+        self.setModel(self._model)
+        self.view().pressed.connect(self._on_item_pressed)
+        
+        # Prevent popup from closing on item selection
+        self.view().viewport().installEventFilter(self)
+        
+        # Style
+        self.setStyleSheet("""
+            QComboBox {
+                padding: 6px 12px;
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                background-color: white;
+                font-size: 12px;
+                min-width: 140px;
+            }
+            QComboBox:hover { border-color: #0078d4; }
+            QComboBox::drop-down { border: none; width: 24px; }
+            QComboBox QAbstractItemView {
+                border: 1px solid #ced4da;
+                selection-background-color: transparent;
+            }
+        """)
+    
+    def eventFilter(self, obj, event):
+        """Keep popup open when clicking items."""
+        if event.type() == event.Type.MouseButtonRelease:
+            return True  # Block the release event to keep popup open
+        return super().eventFilter(obj, event)
+    
+    def addCheckableItem(self, text, checked=False):
+        """Add a checkable item to the combo box."""
+        item = QStandardItem(text)
+        item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsUserCheckable)
+        item.setData(Qt.Checked if checked else Qt.Unchecked, Qt.CheckStateRole)
+        self._model.appendRow(item)
+    
+    def _on_item_pressed(self, index):
+        """Toggle check state when item is pressed."""
+        item = self._model.itemFromIndex(index)
+        if item.checkState() == Qt.Checked:
+            item.setCheckState(Qt.Unchecked)
+        else:
+            # Check max selection limit
+            if len(self.getCheckedItems()) >= self.max_items:
+                return  # Don't allow more than max_items
+            item.setCheckState(Qt.Checked)
+        self._update_display_text()
+    
+    def _update_display_text(self):
+        """Update the display text to show selected items."""
+        checked = self.getCheckedItems()
+        if not checked:
+            self.setCurrentText("Select Components...")
+        else:
+            self.setCurrentText(", ".join(checked))
+    
+    def getCheckedItems(self):
+        """Return list of checked item texts."""
+        checked = []
+        for i in range(self._model.rowCount()):
+            item = self._model.item(i)
+            if item.checkState() == Qt.Checked:
+                checked.append(item.text())
+        return checked
+    
+    def getCheckedIndices(self):
+        """Return list of checked item indices (0-based)."""
+        indices = []
+        for i in range(self._model.rowCount()):
+            item = self._model.item(i)
+            if item.checkState() == Qt.Checked:
+                indices.append(i)
+        return indices
 
 def _v1_create_method_view(
     category: str,
@@ -1459,14 +1546,122 @@ def populate_results_tabs(
     # Show CSV export button (plot export via matplotlib toolbar)
     results_panel.export_data_btn.setVisible(True)
     
-    # === Tab 0: Spectrum Preview (New Feature) ===
+    # === Tab 0: Spectrum Preview with Controls (Horizontal Layout) ===
     if result.dataset_data:
         try:
-            spectrum_fig = create_spectrum_preview_figure(result.dataset_data)
+            # Create container with HORIZONTAL layout (controls LEFT, plot RIGHT)
+            spectrum_container = QWidget()
+            spectrum_main_layout = QHBoxLayout(spectrum_container)
+            spectrum_main_layout.setContentsMargins(8, 8, 8, 8)
+            spectrum_main_layout.setSpacing(12)
+            
+            # LEFT SIDE: Controls panel
+            spectrum_controls = QFrame()
+            spectrum_controls.setFixedWidth(180)
+            spectrum_controls.setStyleSheet("""
+                QFrame {
+                    background-color: #f8f9fa;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 6px;
+                }
+            """)
+            controls_layout = QVBoxLayout(spectrum_controls)
+            controls_layout.setContentsMargins(12, 12, 12, 12)
+            controls_layout.setSpacing(8)
+            
+            # Title
+            title_label = QLabel("📊 Display Options")
+            title_label.setStyleSheet("font-weight: bold; font-size: 12px; color: #2c3e50; border: none;")
+            controls_layout.addWidget(title_label)
+            
+            # Display mode combo
+            mode_label = QLabel("Show:")
+            mode_label.setStyleSheet("font-size: 11px; color: #495057; border: none;")
+            controls_layout.addWidget(mode_label)
+            
+            mode_combo = QComboBox()
+            mode_combo.addItems(["Mean Spectra", "All Spectra"])
+            mode_combo.setStyleSheet("""
+                QComboBox {
+                    padding: 6px 10px;
+                    border: 1px solid #ced4da;
+                    border-radius: 4px;
+                    background-color: white;
+                    font-size: 11px;
+                }
+                QComboBox:hover { border-color: #0078d4; }
+            """)
+            controls_layout.addWidget(mode_combo)
+            
+            # Separator
+            sep = QFrame()
+            sep.setFrameShape(QFrame.HLine)
+            sep.setStyleSheet("border: none; background-color: #e0e0e0; max-height: 1px;")
+            controls_layout.addWidget(sep)
+            
+            # Individual spectrum selector
+            single_label = QLabel("Or select single:")
+            single_label.setStyleSheet("font-size: 11px; color: #495057; border: none;")
+            controls_layout.addWidget(single_label)
+            
+            spectrum_list = QListWidget()
+            spectrum_list.setMaximumHeight(150)
+            spectrum_list.setStyleSheet("""
+                QListWidget {
+                    border: 1px solid #ced4da;
+                    border-radius: 4px;
+                    background-color: white;
+                    font-size: 10px;
+                }
+                QListWidget::item { padding: 4px; }
+                QListWidget::item:selected { background-color: #e3f2fd; color: #0078d4; }
+            """)
+            
+            # Populate with dataset names and spectrum count
+            for ds_name, df in result.dataset_data.items():
+                n_spectra = df.shape[1]
+                spectrum_list.addItem(f"📁 {ds_name} ({n_spectra} spectra)")
+            
+            controls_layout.addWidget(spectrum_list)
+            controls_layout.addStretch()
+            
+            spectrum_main_layout.addWidget(spectrum_controls)
+            
+            # RIGHT SIDE: Plot
             spectrum_tab = matplotlib_widget_class()
+            spectrum_fig = create_spectrum_preview_figure(result.dataset_data)
             spectrum_tab.update_plot(spectrum_fig)
-            spectrum_tab.setMinimumHeight(400)
-            tab_widget.addTab(spectrum_tab, "📈 Spectrum Preview")
+            spectrum_main_layout.addWidget(spectrum_tab, 1)
+            
+            # Update logic for display mode changes
+            def update_spectrum_display():
+                try:
+                    mode = mode_combo.currentText()
+                    selected_items = spectrum_list.selectedItems()
+                    
+                    if selected_items:
+                        # Single dataset selected
+                        selected_text = selected_items[0].text()
+                        # Extract dataset name from "📁 name (N spectra)"
+                        ds_name = selected_text.split(" (")[0].replace("📁 ", "")
+                        if ds_name in result.dataset_data:
+                            single_data = {ds_name: result.dataset_data[ds_name]}
+                            fig = create_spectrum_preview_figure(single_data, show_all=(mode == "All Spectra"))
+                            spectrum_tab.update_plot(fig)
+                            plt.close(fig)
+                    else:
+                        # All datasets
+                        fig = create_spectrum_preview_figure(result.dataset_data, show_all=(mode == "All Spectra"))
+                        spectrum_tab.update_plot(fig)
+                        plt.close(fig)
+                        
+                except Exception as e:
+                    print(f"[ERROR] Failed to update spectrum preview: {e}")
+            
+            mode_combo.currentIndexChanged.connect(update_spectrum_display)
+            spectrum_list.itemSelectionChanged.connect(update_spectrum_display)
+            
+            tab_widget.addTab(spectrum_container, "📈 Spectrum Preview")
         except Exception as e:
             print(f"[ERROR] Failed to create spectrum preview: {e}")
     
@@ -1504,90 +1699,112 @@ def populate_results_tabs(
             scree_tab.setMinimumHeight(400)
             tab_widget.addTab(scree_tab, "📊 Scree Plot")
         
-        # Tab 3: Loading Plot with Component Selection
+        # Tab 3: Loading Plot with Component Selection (Controls on LEFT)
         if loadings_figure and "pca_model" in result.raw_results:
-            # Create container
+            # Create container with HORIZONTAL layout (controls LEFT, plot RIGHT)
             loading_container = QWidget()
-            loading_layout = QVBoxLayout(loading_container)
-            loading_layout.setContentsMargins(0, 5, 0, 0)
+            loading_main_layout = QHBoxLayout(loading_container)
+            loading_main_layout.setContentsMargins(8, 8, 8, 8)
+            loading_main_layout.setSpacing(12)
             
-            # Controls
-            controls_layout = QHBoxLayout()
-            controls_layout.addStretch()
-            controls_layout.addWidget(QLabel("Show Component:"))
+            # LEFT SIDE: Controls panel
+            controls_panel = QFrame()
+            controls_panel.setFixedWidth(180)
+            controls_panel.setStyleSheet("""
+                QFrame {
+                    background-color: #f8f9fa;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 6px;
+                }
+            """)
+            controls_layout = QVBoxLayout(controls_panel)
+            controls_layout.setContentsMargins(12, 12, 12, 12)
+            controls_layout.setSpacing(8)
             
-            comp_combo = QComboBox()
+            # Title
+            title_label = QLabel("🔧 Show Components")
+            title_label.setStyleSheet("font-weight: bold; font-size: 12px; color: #2c3e50; border: none;")
+            controls_layout.addWidget(title_label)
+            
+            # Component checkable combo (max 4)
             pca_model = result.raw_results["pca_model"]
-            n_comps = pca_model.n_components_
-            comp_combo.addItem("All Components")
+            n_comps = min(pca_model.n_components_, 10)  # Limit displayed options
+            
+            comp_combo = CheckableComboBox(max_items=4)
             for i in range(n_comps):
-                comp_combo.addItem(f"PC{i+1}")
-            
+                comp_combo.addCheckableItem(f"PC{i+1}", checked=(i < 2))  # Default: PC1, PC2
+            comp_combo._update_display_text()
             controls_layout.addWidget(comp_combo)
-            loading_layout.addLayout(controls_layout)
             
-            # Plot
+            # Info label
+            info_label = QLabel("Select up to 4 components")
+            info_label.setStyleSheet("font-size: 10px; color: #6c757d; border: none;")
+            controls_layout.addWidget(info_label)
+            
+            controls_layout.addStretch()
+            loading_main_layout.addWidget(controls_panel)
+            
+            # RIGHT SIDE: Plot
             loading_tab = matplotlib_widget_class()
             loading_tab.update_plot(loadings_figure)
-            loading_layout.addWidget(loading_tab)
+            loading_main_layout.addWidget(loading_tab, 1)  # Stretch factor 1
             
-            # Update logic
-            def update_loadings(index):
+            # Update logic for multi-component selection
+            def update_loadings_multi():
                 try:
+                    selected_indices = comp_combo.getCheckedIndices()
+                    if not selected_indices:
+                        return
+                    
                     # Get wavenumbers from dataset_data
                     if not result.dataset_data:
                         return
                     
-                    # Assume all datasets have same wavenumbers
                     first_df = next(iter(result.dataset_data.values()))
                     wavenumbers = first_df.index.values
                     
-                    fig, ax = plt.subplots(figsize=(10, 6))
+                    # Create subplots for selected components
+                    n_selected = len(selected_indices)
+                    fig, axes = plt.subplots(n_selected, 1, figsize=(10, 3.5 * n_selected))
+                    if n_selected == 1:
+                        axes = [axes]
                     
-                    if index == 0: # All components
-                        # Recreate the original multi-subplot figure (simplified)
-                        # Actually, better to just show all in one plot or subplots
-                        # For simplicity, let's plot all in one axis if "All" is selected, 
-                        # OR revert to the original figure if possible.
-                        # But we can't easily revert to original figure object without storing it.
-                        # So let's plot all lines on one axis for "All Components" in this view
-                        # OR just use the original figure if index == 0?
-                        # The original figure was passed as loadings_figure.
-                        # We can re-use it!
-                        loading_tab.update_plot(loadings_figure)
-                        return
-                    else:
-                        # Specific component (index-1)
-                        pc_idx = index - 1
+                    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
+                    
+                    for ax_idx, pc_idx in enumerate(selected_indices):
+                        ax = axes[ax_idx]
                         component = pca_model.components_[pc_idx]
                         explained_var = pca_model.explained_variance_ratio_[pc_idx] * 100
                         
-                        ax.plot(wavenumbers, component, color='#1f77b4', linewidth=1.5)
-                        ax.set_xlabel('Wavenumber (cm⁻¹)', fontsize=12)
-                        ax.set_ylabel('Loading Value', fontsize=12)
-                        ax.set_title(f'PC{pc_idx+1} Loadings ({explained_var:.2f}%)', fontsize=14, fontweight='bold')
+                        ax.plot(wavenumbers, component, color=colors[ax_idx % 4], linewidth=1.5)
+                        ax.set_ylabel('Loading', fontsize=10)
+                        ax.set_title(f'PC{pc_idx+1} ({explained_var:.1f}%)', fontsize=11, fontweight='bold')
                         ax.grid(True, alpha=0.3)
                         ax.invert_xaxis()
-                        ax.axhline(y=0, color='k', linestyle='--', linewidth=0.5)
+                        ax.axhline(y=0, color='k', linestyle='--', linewidth=0.5, alpha=0.5)
+                        # Hide x-axis tick labels (wavenumbers) except for bottom plot
+                        if ax_idx < n_selected - 1:
+                            ax.tick_params(axis='x', labelbottom=False)
+                        else:
+                            ax.set_xlabel('Wavenumber (cm⁻¹)', fontsize=10)
                         
-                        # Annotate peaks
+                        # Annotate top peaks
                         abs_loadings = np.abs(component)
-                        top_indices = np.argsort(abs_loadings)[-5:]
+                        top_indices = np.argsort(abs_loadings)[-3:]
                         for peak_idx in top_indices:
                             peak_wn = wavenumbers[peak_idx]
                             peak_val = component[peak_idx]
-                            ax.plot(peak_wn, peak_val, 'o', color='red', markersize=5)
-                            ax.annotate(f'{peak_wn:.0f}', xy=(peak_wn, peak_val), xytext=(0, 10),
-                                       textcoords='offset points', ha='center', fontsize=8)
-                        
-                        fig.tight_layout()
-                        loading_tab.update_plot(fig)
-                        plt.close(fig)
-                        
+                            ax.plot(peak_wn, peak_val, 'o', color=colors[ax_idx % 4], markersize=4)
+                    
+                    fig.tight_layout()
+                    loading_tab.update_plot(fig)
+                    plt.close(fig)
+                    
                 except Exception as e:
                     print(f"[ERROR] Failed to update loadings plot: {e}")
 
-            comp_combo.currentIndexChanged.connect(update_loadings)
+            # Connect to model changes
+            comp_combo._model.itemChanged.connect(update_loadings_multi)
             
             tab_widget.addTab(loading_container, "🔬 Loading Plot")
         elif loadings_figure:

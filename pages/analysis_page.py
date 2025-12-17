@@ -438,7 +438,7 @@ class AnalysisPage(QWidget):
         QMessageBox.critical(
             self,
             self.localize("ANALYSIS_PAGE.error_title"),
-            self.localize("ANALYSIS_PAGE.analysis_error").format(error_msg)
+            self.localize("ANALYSIS_PAGE.analysis_error", error=error_msg)
         )
         
         # Emit signal

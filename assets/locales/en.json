@@ -537,7 +537,7 @@
         "error_title": "Analysis Error",
         "warning_title": "Warning",
         "dataset_not_found": "Selected dataset not found.",
-        "analysis_error": "Analysis failed: {0}",
+        "analysis_error": "Analysis failed: {error}",
         "export_png_title": "Export Plot as PNG",
         "export_svg_title": "Export Plot as SVG",
         "export_csv_title": "Export Data as CSV",

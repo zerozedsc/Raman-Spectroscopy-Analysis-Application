@@ -626,7 +626,7 @@
         "select_datasets_first": "最初にデータセットを選択してください",
         "analysis_cancelled": "分析がキャンセルされました",
         "analysis_complete": "分析が正常に完了しました",
-        "analysis_error": "分析エラー: {0}",
+        "analysis_error": "分析エラー: {error}",
         "analysis_summary": "分析サマリー",
         "no_results_to_export": "エクスポートする結果がありません",
         "save_plot": "プロットを保存",
