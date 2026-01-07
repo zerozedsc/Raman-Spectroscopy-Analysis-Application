@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
 Optimized Spec File with Splash Screen
-Generated: 2025-11-21 13:40:31
+Generated: 2026-01-07 19:43:34
 """
 
 from PyInstaller.utils.hooks import collect_submodules, collect_data_files
@@ -10,20 +10,31 @@ import sys
 
 spec_root = os.path.abspath(os.getcwd())
 
+# Build toggles controlled by build scripts
+build_mode = os.environ.get('RAMAN_BUILD_MODE', 'onedir').strip().lower()
+dist_name = os.environ.get('RAMAN_DIST_NAME', 'raman_app_installer_staging').strip()
+console_enabled = os.environ.get('RAMAN_CONSOLE', '0').strip().lower() in ('1', 'true', 'yes')
+no_upx = os.environ.get('RAMAN_NO_UPX', '0').strip().lower() in ('1', 'true', 'yes')
+
+is_windows = os.name == 'nt'
+
 # ============== CONFIGURATION ==============
 block_cipher = None
 
 # Explicitly exclude heavy/unused modules to improve startup speed
+# Note: 'unittest' removed because sklearn and onnxruntime require it at runtime
+# Note: 'pydoc', 'doctest' removed because seaborn/scipy/numpy/joblib/sympy require them
+# Note: 'distutils', 'setuptools', 'pkg_resources', 'packaging' removed - setuptools needs them
+# Note: 'wheel' removed - setuptools dependency system requires it
 excluded_modules = [
     'tkinter', '_tkinter', 'turtle',
-    'test', 'unittest', 'doctest', 'pydoc', 'pdb', 'bdb',
+    'test', 'pdb', 'bdb',
     'matplotlib.tests', 'numpy.tests', 'scipy.tests', 'pandas.tests',
     'ipython', 'IPython', 'jedi', 'jupyter', 'notebook',
     'PIL.ImageTk', 'curses',
-    'distutils', 'setuptools', 'pip', 'wheel',
+    'pip',
     'xmlrpc', 'xml.etree.cElementTree',
-    'multiprocessing.dummy', 'pydoc_data',
-    'pkg_resources', 'packaging'
+    'multiprocessing.dummy', 'pydoc_data'
 ]
 
 # ============== DATA FILES ==============
@@ -98,12 +109,13 @@ except:
 
 # ============== BINARIES ==============
 binaries = []
-dll_path = os.path.join(spec_root, 'drivers')
-if os.path.exists(dll_path):
-    binaries += [
-        (os.path.join(dll_path, 'atmcd32d.dll'), 'drivers'),
-        (os.path.join(dll_path, 'atmcd64d.dll'), 'drivers'),
-    ]
+if is_windows:
+    dll_path = os.path.join(spec_root, 'drivers')
+    if os.path.exists(dll_path):
+        binaries += [
+            (os.path.join(dll_path, 'atmcd32d.dll'), 'drivers'),
+            (os.path.join(dll_path, 'atmcd64d.dll'), 'drivers'),
+        ]
 
 # ============== ANALYSIS ==============
 a = Analysis(
@@ -117,7 +129,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludedimports=excluded_modules,
+    excludes=excluded_modules,
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
@@ -131,37 +143,46 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 splash = None
 
 # ============== EXE ==============
+_exe_args = [pyz, a.scripts]
+
+# IMPORTANT:
+# - onedir builds: binaries/datas are collected by COLLECT into a folder
+# - onefile builds: binaries/datas MUST be embedded into the single executable
+if build_mode == 'onefile':
+    _exe_args += [a.binaries, a.zipfiles, a.datas]
+    if splash is not None:
+        _exe_args += [splash.binaries]
+
 exe = EXE(
-    pyz,
-    a.scripts,
-    # Exclude binaries from EXE to keep it small and fast-loading
-    exclude_binaries=True,
-    name='raman_app',
+    *_exe_args,
+    # Exclude binaries from EXE to keep it small and fast-loading (onedir only)
+    exclude_binaries=(build_mode == 'onedir'),
+    name=dist_name,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,  # Don't strip, can cause issues on Windows
-    upx=True,     # Compress with UPX (reduces size by ~30%)
+    upx=(not no_upx),
     upx_exclude=['vcruntime140.dll', 'python*.dll'],  # Don't compress these
-    console=False,
+    console=console_enabled,
     disable_windowed_traceback=True,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
     icon='assets/app_icon.ico' if os.path.exists('assets/app_icon.ico') else None,
-    *([] if splash is None else [splash, splash.binaries])
+    *([] if splash is None else [splash])
 )
 
 # ============== COLLECT ==============
-# Collect everything into a folder (One-Dir mode)
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    *([] if splash is None else [splash.binaries]),
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name='raman_app',
-)
+if build_mode == 'onedir':
+    coll = COLLECT(
+        exe,
+        a.binaries,
+        a.zipfiles,
+        a.datas,
+        *([] if splash is None else [splash.binaries]),
+        strip=False,
+        upx=(not no_upx),
+        upx_exclude=[],
+        name=dist_name,
+    )

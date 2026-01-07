@@ -43,6 +43,7 @@ os.chdir(project_root)
 
 # Default executable path (relative to project root)
 DEFAULT_EXE_PATHS = [
+    r"dist\raman_app.exe",
     r"dist\raman_app\raman_app.exe",
     r"dist_installer\raman_app_installer_staging\raman_app.exe",
 ]
@@ -141,7 +142,27 @@ class TestSuite:
         
         # Execution environment
         self.exe_dir = self.exe_path.parent
-        self.project_root = self.exe_path.parent.parent.parent if self.exe_path.parent.parent else Path.cwd()
+        # This module chdir()'s to project root at import time
+        self.project_root = Path.cwd()
+
+        self.is_onefile = self._detect_onefile_distribution()
+
+    def _detect_onefile_distribution(self) -> bool:
+        """Best-effort detection of onefile distributions.
+
+        Heuristic:
+        - onedir builds typically have adjacent `_internal/` and/or `assets/`
+        - onefile builds typically have neither next to the exe
+        """
+        try:
+            if not self.exe_path.exists() or not self.exe_path.is_file():
+                return False
+
+            internal_dir = self.exe_dir / '_internal'
+            assets_dir = self.exe_dir / 'assets'
+            return (not internal_dir.exists()) and (not assets_dir.exists())
+        except Exception:
+            return False
     
     def run_all(self) -> Tuple[int, int, int]:
         """Run all tests and return (passed, failed, warnings)"""
@@ -151,7 +172,8 @@ class TestSuite:
         
         print(f"📦 Target Executable: {self.exe_path}")
         print(f"📁 Distribution Directory: {self.exe_dir}")
-        print(f"🔍 Project Root: {self.project_root}\n")
+        print(f"🔍 Project Root: {self.project_root}")
+        print(f"🧩 Detected Build Mode: {'onefile' if self.is_onefile else 'onedir (or extracted)'}\n")
         
         self.start_time = datetime.now()
         
@@ -205,6 +227,15 @@ class TestSuite:
         start = time.time()
         
         try:
+            if self.is_onefile:
+                test.status = 'SKIP'
+                test.message = "Onefile build detected; no adjacent distribution directories to validate"
+                test.details['note'] = "onedir builds are expected to include assets/_internal/PySide6 folders"
+                test.duration = time.time() - start
+                self.results.append(test)
+                print(test.to_string(self.verbose))
+                return
+
             missing_dirs = []
             found_dirs = []
             
@@ -242,6 +273,15 @@ class TestSuite:
         start = time.time()
         
         try:
+            if self.is_onefile:
+                test.status = 'SKIP'
+                test.message = "Onefile build detected; assets are embedded in the executable"
+                test.details['note'] = "This test is only meaningful for onedir distributions"
+                test.duration = time.time() - start
+                self.results.append(test)
+                print(test.to_string(self.verbose))
+                return
+
             missing_assets = []
             found_assets = []
             
@@ -291,6 +331,15 @@ class TestSuite:
         start = time.time()
         
         try:
+            if self.is_onefile:
+                test.status = 'SKIP'
+                test.message = "Onefile build detected; bundled binaries are embedded in the executable"
+                test.details['note'] = "This test expects on-disk DLLs (typical for onedir distributions)"
+                test.duration = time.time() - start
+                self.results.append(test)
+                print(test.to_string(self.verbose))
+                return
+
             found_binaries = []
             missing_binaries = []
             
