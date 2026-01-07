@@ -10,7 +10,6 @@ a spectrometer, and a motorized stage.
 Need to install andor3 sdk at https://andor.oxinst.com/downloads/
 """
 
-
 from configs import *
 import numpy as np
 
@@ -18,6 +17,7 @@ import numpy as np
 try:
     from pylablib.devices import Andor
     import andor3
+
     CAMERA_AVAILABLE = True
 except ImportError:
     CAMERA_AVAILABLE = False
@@ -28,6 +28,7 @@ class AndorSDK3Handler:
     """
     Andor SDK3 Camera handler.
     """
+
     def __init__(self, camera_index=0):
         self.camera_index = camera_index
         self.cam = None
@@ -42,7 +43,7 @@ class AndorSDK3Handler:
             EnvironmentError: If Andor SDK3 libraries are not available.
             RuntimeError: If camera initialization fails.
         """
-        
+
         if not CAMERA_AVAILABLE:
             raise EnvironmentError(
                 f"Andor SDK3 libraries not available on {self.platform}"
@@ -59,7 +60,7 @@ class AndorSDK3Handler:
                 "AndorSDK3Handler",
                 "ANDORSDK",
                 "Andor SDK3 camera initialized successfully.",
-                status='info'
+                status="info",
             )
         except Exception as e:
             raise RuntimeError(f"Camera initialization failed: {e}")
@@ -70,7 +71,7 @@ class AndorSDK3Handler:
         Raises:
             RuntimeError: If camera is not initialized or frame acquisition fails.
         """
-        
+
         if not self.initialized:
             raise RuntimeError("Camera not initialized.")
         try:
@@ -85,7 +86,7 @@ class AndorSDK3Handler:
         Raises:
             RuntimeError: If camera is not initialized or closing fails.
         """
-        
+
         try:
             if self.cam:
                 self.cam.close()
@@ -98,14 +99,14 @@ class AndorSDK3Handler:
                 "AndorSDK3Handler",
                 "ANDORSDK",
                 "Andor SDK3 camera closed successfully.",
-                status='info'
+                status="info",
             )
         except Exception as e:
             create_logs(
                 "AndorSDK3Handler",
                 "ANDORSDK",
                 f"Failed to close camera: {e}",
-                status='error'
+                status="error",
             )
 
     def set_exposure(self, exposure_time=0.01):
@@ -125,6 +126,7 @@ class AndorSDK3Handler:
             raise RuntimeError("Camera not initialized.")
         self.sdk.send_software_trigger()
 
+
 # Read ASC file function
 def read_asc_file(filepath: str) -> np.ndarray:
     """
@@ -136,9 +138,9 @@ def read_asc_file(filepath: str) -> np.ndarray:
     Raises:
         IOError: If file reading fails.
     """
-    
+
     try:
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             data = []
             for line in f:
                 parts = line.strip().split()
@@ -156,15 +158,17 @@ class LaserController:
     Laser control skeleton. In a real system, this might use serial commands
     to a USB/RS232 interface, for example via pyserial.
     """
-    def __init__(self, port : str="COM3", baudrate: int=9600):
+
+    def __init__(self, port: str = "COM3", baudrate: int = 9600):
         import serial
+
         try:
             self.serial = serial.Serial(port, baudrate, timeout=1)
             create_logs(
                 "LaserController",
                 "ANDORSDK",
                 f"Laser connected on {port}",
-                status='info'
+                status="info",
             )
         except Exception as e:
             self.serial = None
@@ -172,7 +176,7 @@ class LaserController:
                 "LaserController",
                 "ANDORSDK",
                 f"Laser connection failed: {e}",
-                status='error'
+                status="error",
             )
 
     def laser_on(self):
@@ -184,20 +188,17 @@ class LaserController:
         if self.serial:
             self.serial.write(b"ON\n")
             create_logs(
-                "LaserController",
-                "ANDORSDK",
-                "Laser ON command sent.",
-                status='info'
+                "LaserController", "ANDORSDK", "Laser ON command sent.", status="info"
             )
         else:
             create_logs(
                 "LaserController",
                 "ANDORSDK",
                 "Failed to send laser ON command: Serial connection not established.",
-                status='error'
+                status="error",
             )
             raise RuntimeError("Serial connection not established for laser control.")
-        
+
     def laser_off(self):
         """
         Turn the laser off.
@@ -207,21 +208,18 @@ class LaserController:
         if self.serial:
             self.serial.write(b"OFF\n")
             create_logs(
-                "LaserController",
-                "ANDORSDK",
-                "Laser OFF command sent.",
-                status='info'
+                "LaserController", "ANDORSDK", "Laser OFF command sent.", status="info"
             )
         else:
             create_logs(
                 "LaserController",
                 "ANDORSDK",
                 "Failed to send laser OFF command: Serial connection not established.",
-                status='error'
+                status="error",
             )
             raise RuntimeError("Serial connection not established for laser control.")
 
-    def set_power(self, power_mW : float=100):
+    def set_power(self, power_mW: float = 100):
         """
         Set the laser power in milliwatts.
         Args:
@@ -236,14 +234,14 @@ class LaserController:
                 "LaserController",
                 "ANDORSDK",
                 f"Laser power set to {power_mW} mW.",
-                status='info'
+                status="info",
             )
         else:
             create_logs(
                 "LaserController",
                 "ANDORSDK",
                 "Failed to set laser power: Serial connection not established.",
-                status='error'
+                status="error",
             )
             raise RuntimeError("Serial connection not established for laser control.")
 
@@ -252,15 +250,17 @@ class SpectrometerController:
     """
     Spectrometer grating / wavelength control. Typically a USB-RS232 device.
     """
+
     def __init__(self, port="COM4", baudrate=9600):
         import serial
+
         try:
             self.serial = serial.Serial(port, baudrate, timeout=1)
             create_logs(
                 "SpectrometerController",
                 "ANDORSDK",
                 f"Spectrometer connected on {port}",
-                status='info'
+                status="info",
             )
         except Exception as e:
             self.serial = None
@@ -268,7 +268,7 @@ class SpectrometerController:
                 "SpectrometerController",
                 "ANDORSDK",
                 f"Spectrometer connection failed: {e}",
-                status='error'
+                status="error",
             )
 
     def set_wavelength(self, wavelength_nm):
@@ -279,7 +279,7 @@ class SpectrometerController:
                 "SpectrometerController",
                 "ANDORSDK",
                 f"Wavelength set to {wavelength_nm} nm.",
-                status='info'
+                status="info",
             )
 
     def get_wavelength(self):
@@ -290,7 +290,7 @@ class SpectrometerController:
                 "SpectrometerController",
                 "ANDORSDK",
                 f"Current wavelength: {result}",
-                status='info'
+                status="info",
             )
             return result
 
@@ -300,15 +300,17 @@ class StageController:
     Motorized x-y-z stage controller.
     Typically controlled over serial (RS232/USB).
     """
+
     def __init__(self, port="COM5", baudrate=9600):
         import serial
+
         try:
             self.serial = serial.Serial(port, baudrate, timeout=1)
             create_logs(
                 "StageController",
                 "ANDORSDK",
                 f"Stage connected on {port}",
-                status='info'
+                status="info",
             )
         except Exception as e:
             self.serial = None
@@ -316,7 +318,7 @@ class StageController:
                 "StageController",
                 "ANDORSDK",
                 f"Stage connection failed: {e}",
-                status='error'
+                status="error",
             )
 
     def move_to(self, x, y, z):
@@ -327,18 +329,13 @@ class StageController:
                 "StageController",
                 "ANDORSDK",
                 f"Stage moved to position ({x}, {y}, {z}).",
-                status='info'
+                status="info",
             )
 
     def home(self):
         if self.serial:
             self.serial.write(b"HOME\n")
-            create_logs(
-                "StageController",
-                "ANDORSDK",
-                "Stage homed.",
-                status='info'
-            )
+            create_logs("StageController", "ANDORSDK", "Stage homed.", status="info")
 
 
 class RamanMeasurementManager:
@@ -346,6 +343,7 @@ class RamanMeasurementManager:
     Raman measurement manager that coordinates
     laser, camera, spectrometer, stage
     """
+
     def __init__(self):
         self.camera = AndorSDK3Handler()
         self.laser = LaserController()
@@ -376,7 +374,7 @@ class RamanMeasurementManager:
             "RamanMeasurementManager",
             "ANDORSDK",
             f"Single point measurement at ({x}, {y}, {z}) with wavelength {wavelength} nm.",
-            status='info'
+            status="info",
         )
         return frame
 
@@ -387,5 +385,5 @@ class RamanMeasurementManager:
             "RamanMeasurementManager",
             "ANDORSDK",
             "All devices shut down successfully.",
-            status='info'
+            status="info",
         )

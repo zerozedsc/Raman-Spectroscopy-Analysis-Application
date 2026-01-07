@@ -5,6 +5,8 @@
 param(
     [switch]$Clean = $false,
     [switch]$Debug = $false,
+    [ValidateSet('onefile', 'onedir')]
+    [string]$Mode = 'onefile',
     [string]$OutputDir = "dist",
     [switch]$NoCompress = $false,
     [switch]$Console = $false,
@@ -49,21 +51,38 @@ try {
     
     # ============== ENVIRONMENT CHECK ==============
     Write-Section "Environment Check"
+
+    # Prefer repo virtual environment if available to avoid system-Python mismatch
+    $VenvPython = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
+    if (Test-Path -LiteralPath $VenvPython) {
+        $PythonCmd = $VenvPython
+        $PythonDisplay = ".\\.venv\\Scripts\\python.exe"
+        Write-Status "Using virtual environment Python: $PythonCmd" 'Success'
+    }
+    else {
+        $PythonCmd = "python"
+        $PythonDisplay = "python"
+        Write-Status "Virtual environment not found at $VenvPython; using Python from PATH" 'Warning'
+    }
     
     # Check Python
     Write-Status "Checking Python environment..." 'Info'
-    $PythonVersion = python --version 2>&1
+    $PythonVersion = & $PythonCmd --version 2>&1
     Write-Status "Python: $PythonVersion" 'Success'
     
     # Check PyInstaller
     Write-Status "Checking PyInstaller installation..." 'Info'
-    $PyInstallerVersion = pyinstaller --version 2>&1
+    $PyInstallerVersion = & $PythonCmd -m PyInstaller --version 2>&1
     if ($LASTEXITCODE -eq 0) {
         Write-Status "PyInstaller: $PyInstallerVersion" 'Success'
     }
     else {
-        Write-Status "PyInstaller not found. Installing..." 'Warning'
-        pip install pyinstaller
+        Write-Status "PyInstaller not found for $PythonDisplay. Installing/Upgrading..." 'Warning'
+        & $PythonCmd -m pip install --upgrade pyinstaller pyinstaller-hooks-contrib
+        if ($LASTEXITCODE -ne 0) {
+            Write-Status "ERROR: Failed to install PyInstaller into the selected Python environment" 'Error'
+            exit 1
+        }
     }
     
     # Check spec file
@@ -144,18 +163,21 @@ try {
     # Set environment variable for log level (used at runtime)
     $env:RAMAN_LOG_LEVEL = $LogLevel
     Write-Status "Log level set to: $LogLevel" 'Info'
-    
-    # Modify spec file for console mode if requested
-    if ($Console) {
-        Write-Status "Console mode enabled - updating spec file temporarily" 'Warning'
-        $SpecContent = Get-Content "raman_app.spec" -Raw
-        $SpecContent = $SpecContent -replace "console=False", "console=True"
-        $SpecContent | Set-Content "raman_app_temp.spec"
-        $SpecFile = 'raman_app_temp.spec'
+
+    # Spec-driven build toggles
+    $env:RAMAN_BUILD_MODE = $Mode
+    $env:RAMAN_DIST_NAME = 'raman_app'
+    $env:RAMAN_CONSOLE = if ($Console) { '1' } else { '0' }
+
+    if ($NoCompress) {
+        $env:RAMAN_NO_UPX = '1'
+        Write-Status "UPX compression disabled" 'Warning'
     }
     else {
-        $SpecFile = 'raman_app.spec'
+        Remove-Item Env:RAMAN_NO_UPX -ErrorAction SilentlyContinue
     }
+
+    $SpecFile = 'raman_app.spec'
     
     $BuildArgs = @(
         '--distpath', $OutputDir,
@@ -176,11 +198,11 @@ try {
     $BuildArgs += $SpecFile
     
     Write-Status "Building with PyInstaller..." 'Info'
-    Write-Status "Command: pyinstaller $($BuildArgs -join ' ')" 'Info'
+    Write-Status "Command: $PythonDisplay -m PyInstaller $($BuildArgs -join ' ')" 'Info'
     
     $StartTime = Get-Date
     
-    & pyinstaller @BuildArgs
+    & $PythonCmd -m PyInstaller @BuildArgs
     
     if ($LASTEXITCODE -ne 0) {
         Write-Status "ERROR: PyInstaller build failed!" 'Error'
@@ -193,8 +215,15 @@ try {
     
     # ============== POST-BUILD VALIDATION ==============
     Write-Section "Post-Build Validation"
-    
-    $ExePath = Join-Path $OutputDir "raman_app" "raman_app.exe"
+
+    if ($Mode -eq 'onefile') {
+        $DistDirPath = $OutputDir
+        $ExePath = Join-Path $OutputDir "raman_app.exe"
+    }
+    else {
+        $DistDirPath = Join-Path $OutputDir "raman_app"
+        $ExePath = Join-Path $DistDirPath "raman_app.exe"
+    }
     
     if (Test-Path $ExePath) {
         Write-Status "Executable created: $ExePath" 'Success'
@@ -203,36 +232,52 @@ try {
         $ExeSizeMB = [Math]::Round($ExeSize / 1MB, 2)
         Write-Status "Executable size: $ExeSizeMB MB" 'Info'
         
-        $DirPath = Join-Path $OutputDir "raman_app"
-        $DirSize = (Get-ChildItem -LiteralPath $DirPath -Recurse | Measure-Object -Property Length -Sum).Sum
-        $DirSizeMB = [Math]::Round($DirSize / 1MB, 2)
-        Write-Status "Total distribution size: $DirSizeMB MB" 'Info'
+        if ($Mode -eq 'onefile') {
+            $DirSizeMB = $ExeSizeMB
+            Write-Status "Distribution mode: onefile (single executable)" 'Info'
+        }
+        else {
+            $DirSize = (Get-ChildItem -LiteralPath $DistDirPath -Recurse | Measure-Object -Property Length -Sum).Sum
+            $DirSizeMB = [Math]::Round($DirSize / 1MB, 2)
+            Write-Status "Total distribution size: $DirSizeMB MB" 'Info'
+        }
     }
     else {
         Write-Status "ERROR: Executable not created at expected location!" 'Error'
         exit 1
     }
     
-    # Check for required directories/files in output
-    $RequiredItems = @('assets', 'PySide6', 'drivers')
+    # Check for required directories/files in output (onedir only)
     $MissingItems = @()
-    
-    foreach ($Item in $RequiredItems) {
-        $ItemPath = Join-Path $OutputDir "raman_app" $Item
-        if (Test-Path $ItemPath) {
-            Write-Status "Found: $Item" 'Success'
+    if ($Mode -eq 'onedir') {
+        $RequiredItems = @('assets', 'PySide6', 'drivers')
+
+        foreach ($Item in $RequiredItems) {
+            $ItemPath = Join-Path $DistDirPath $Item
+            if (Test-Path $ItemPath) {
+                Write-Status "Found: $Item" 'Success'
+            }
+            else {
+                Write-Status "Missing: $Item (may be required)" 'Warning'
+                $MissingItems += $Item
+            }
         }
-        else {
-            Write-Status "Missing: $Item (may be required)" 'Warning'
-            $MissingItems += $Item
-        }
+    }
+    else {
+        Write-Status "Skipping folder-content checks (onefile embeds resources)" 'Info'
     }
     
     # ============== BUILD SUMMARY ==============
     Write-Section "Build Summary"
     
     Write-Status "Build type: Portable Executable" 'Info'
-    Write-Status "Output location: $OutputDir\raman_app\" 'Info'
+    Write-Status "Mode: $Mode" 'Info'
+    if ($Mode -eq 'onefile') {
+        Write-Status "Output location: $OutputDir\" 'Info'
+    }
+    else {
+        Write-Status "Output location: $OutputDir\raman_app\" 'Info'
+    }
     Write-Status "Executable: raman_app.exe" 'Success'
     Write-Status "Build time: $([Math]::Round($BuildTime, 2))s" 'Info'
     Write-Status "Total size: $DirSizeMB MB" 'Info'
@@ -249,31 +294,44 @@ try {
     
     Write-Host ""
     Write-Host "1. Test the executable:" -ForegroundColor $Colors.Info
-    Write-Host "   .\$OutputDir\raman_app\raman_app.exe" -ForegroundColor $Colors.Info
+    if ($Mode -eq 'onefile') {
+        Write-Host "   .\$OutputDir\raman_app.exe" -ForegroundColor $Colors.Info
+    }
+    else {
+        Write-Host "   .\$OutputDir\raman_app\raman_app.exe" -ForegroundColor $Colors.Info
+    }
     Write-Host ""
     Write-Host "2. Run test suite:" -ForegroundColor $Colors.Info
-    Write-Host "   python test_build_executable.py --exe dist/raman_app/raman_app.exe" -ForegroundColor $Colors.Info
+    if ($Mode -eq 'onefile') {
+        Write-Host "   $PythonDisplay build_scripts\test_build_executable.py --exe dist\raman_app.exe" -ForegroundColor $Colors.Info
+    }
+    else {
+        Write-Host "   $PythonDisplay build_scripts\test_build_executable.py --exe dist\raman_app\raman_app.exe" -ForegroundColor $Colors.Info
+    }
     Write-Host ""
     Write-Host "3. For installer build:" -ForegroundColor $Colors.Info
     Write-Host "   .\build_installer.ps1" -ForegroundColor $Colors.Info
     Write-Host ""
     
     Write-Status "Portable build complete!" 'Success'
-    
-    # Cleanup temporary spec file if created
-    if ($Console -and (Test-Path "raman_app_temp.spec")) {
-        Remove-Item "raman_app_temp.spec" -Force
-        Write-Status "Cleaned up temporary spec file" 'Info'
-    }
+
+    # Cleanup build env vars (avoid leaking into caller session)
+    Remove-Item Env:RAMAN_BUILD_MODE -ErrorAction SilentlyContinue
+    Remove-Item Env:RAMAN_DIST_NAME -ErrorAction SilentlyContinue
+    Remove-Item Env:RAMAN_CONSOLE -ErrorAction SilentlyContinue
+    Remove-Item Env:RAMAN_LOG_LEVEL -ErrorAction SilentlyContinue
+    Remove-Item Env:RAMAN_NO_UPX -ErrorAction SilentlyContinue
     
     # Restore original directory
     Pop-Location
 }
 catch {
-    # Cleanup temporary spec file on error
-    if ($Console -and (Test-Path "raman_app_temp.spec")) {
-        Remove-Item "raman_app_temp.spec" -Force -ErrorAction SilentlyContinue
-    }
+    # Cleanup build env vars on error
+    Remove-Item Env:RAMAN_BUILD_MODE -ErrorAction SilentlyContinue
+    Remove-Item Env:RAMAN_DIST_NAME -ErrorAction SilentlyContinue
+    Remove-Item Env:RAMAN_CONSOLE -ErrorAction SilentlyContinue
+    Remove-Item Env:RAMAN_LOG_LEVEL -ErrorAction SilentlyContinue
+    Remove-Item Env:RAMAN_NO_UPX -ErrorAction SilentlyContinue
     
     # Restore original directory on error
     Pop-Location -ErrorAction SilentlyContinue

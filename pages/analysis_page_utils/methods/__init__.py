@@ -10,14 +10,14 @@ from .exploratory import (
     perform_umap_analysis,
     perform_tsne_analysis,
     perform_hierarchical_clustering,
-    perform_kmeans_clustering
+    perform_kmeans_clustering,
 )
 
 from .statistical import (
     perform_spectral_comparison,
     perform_peak_analysis,
     perform_correlation_analysis,
-    perform_anova_test
+    perform_anova_test,
 )
 
 # Import visualization functions from functions.visualization package
@@ -26,7 +26,7 @@ from functions.visualization import (
     create_mean_spectra_overlay,
     create_waterfall_plot,
     create_correlation_heatmap,
-    create_peak_scatter
+    create_peak_scatter,
 )
 
 __all__ = [
@@ -36,17 +36,15 @@ __all__ = [
     "perform_tsne_analysis",
     "perform_hierarchical_clustering",
     "perform_kmeans_clustering",
-    
     # Statistical
     "perform_spectral_comparison",
     "perform_peak_analysis",
     "perform_correlation_analysis",
     "perform_anova_test",
-    
     # Visualization
     "create_spectral_heatmap",
     "create_mean_spectra_overlay",
     "create_waterfall_plot",
     "create_correlation_heatmap",
-    "create_peak_scatter"
+    "create_peak_scatter",
 ]

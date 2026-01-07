@@ -30,8 +30,8 @@ def visualize_raman_spectra(
     xlim: tuple = None,
     ylim: tuple = None,
     legend: bool = True,
-    legend_loc: str = 'best',
-    sample_limit: int = 10
+    legend_loc: str = "best",
+    sample_limit: int = 10,
 ) -> plt:
     """
     Visualize the Raman spectra data from a DataFrame.
@@ -92,12 +92,14 @@ def visualize_raman_spectra(
 
     # Limit number of samples to plot if needed
     if len(intensity_columns) > sample_limit:
-        console_log(f"Limiting plot to {sample_limit} samples out of {len(intensity_columns)}")
+        console_log(
+            f"Limiting plot to {sample_limit} samples out of {len(intensity_columns)}"
+        )
         intensity_columns = intensity_columns[:sample_limit]
 
     # Clear any existing plots
     plt.clf()
-    plt.close('all')
+    plt.close("all")
     fig = plt.figure(num=1, figsize=figsize, clear=True)
 
     # Plot each spectrum
@@ -109,12 +111,12 @@ def visualize_raman_spectra(
 
     # Set plot attributes
     plt.title(title)
-    plt.xlabel('Raman Shift (cm⁻¹)')
-    plt.ylabel('Intensity')
+    plt.xlabel("Raman Shift (cm⁻¹)")
+    plt.ylabel("Intensity")
     plt.grid(True, alpha=0.3)
 
     if legend:
-        plt.legend(loc=legend_loc, fontsize='small')
+        plt.legend(loc=legend_loc, fontsize="small")
 
     if xlim:
         plt.xlim(xlim)
@@ -134,10 +136,10 @@ def visualize_processed_spectra(
     ylim: tuple = None,
     legend: bool = True,
     sample_names: List[str] = None,
-    legend_loc: str = 'best',
+    legend_loc: str = "best",
     sample_limit: int = 10,
-    cmap: str = 'viridis',
-    add_mean: bool = False
+    cmap: str = "viridis",
+    add_mean: bool = False,
 ) -> plt:
     """
     Visualize processed spectral data from ramanspy or numpy arrays.
@@ -212,35 +214,37 @@ def visualize_processed_spectra(
 
     # Clear any existing plots
     plt.clf()
-    plt.close('all')
+    plt.close("all")
     fig = plt.figure(num=1, figsize=figsize, clear=True)
 
     # Plot each spectrum
     cmap_func = plt.get_cmap(cmap)
     for i in range(plot_samples):
-        color = cmap_func(i / max(1, plot_samples - 1)) if n_samples > 1 else cmap_func(0.5)
+        color = (
+            cmap_func(i / max(1, plot_samples - 1)) if n_samples > 1 else cmap_func(0.5)
+        )
         plt.plot(
             spectral_axis,
             spectral_data[i],
             label=sample_names[i],
             color=color,
-            alpha=0.7
+            alpha=0.7,
         )
 
     # Add mean spectrum if requested
     if add_mean and n_samples > 1:
         mean_spectrum = np.mean(spectral_data[:plot_samples], axis=0)
-        plt.plot(spectral_axis, mean_spectrum, 'k-', linewidth=2, label='Mean Spectrum')
+        plt.plot(spectral_axis, mean_spectrum, "k-", linewidth=2, label="Mean Spectrum")
 
     # Set plot attributes
     plt.title(title)
-    plt.xlabel('Raman Shift (cm⁻¹)')
-    plt.ylabel('Intensity (normalized)')
+    plt.xlabel("Raman Shift (cm⁻¹)")
+    plt.ylabel("Intensity (normalized)")
     plt.grid(True, alpha=0.3)
 
     if legend:
         if n_samples <= 15:  # Only show legend if not too many samples
-            plt.legend(loc=legend_loc, fontsize='small')
+            plt.legend(loc=legend_loc, fontsize="small")
 
     if xlim:
         plt.xlim(xlim)
@@ -252,10 +256,7 @@ def visualize_processed_spectra(
 
 
 def extract_raman_characteristics(
-    x: np.ndarray,
-    y: np.ndarray,
-    sample_name: str = "Sample",
-    show_plot: bool = False
+    x: np.ndarray, y: np.ndarray, sample_name: str = "Sample", show_plot: bool = False
 ) -> Tuple[List[Tuple[float, float]], float]:
     """
     Extract Raman characteristics from a single spectrum.
@@ -295,8 +296,7 @@ def extract_raman_characteristics(
     # Sort peaks by intensity (highest first)
     sorted_idx = np.argsort(peak_intensities)[::-1]
     top_peaks = [
-        (float(peak_positions[i]), float(peak_intensities[i]))
-        for i in sorted_idx[:5]
+        (float(peak_positions[i]), float(peak_intensities[i])) for i in sorted_idx[:5]
     ]
 
     # Calculate area under curve
@@ -306,11 +306,13 @@ def extract_raman_characteristics(
     if show_plot:
         plt.figure(figsize=(10, 6))
         plt.plot(x, y, label="Raman Spectrum")
-        plt.scatter(peak_positions, peak_intensities, color='red', label="Detected Peaks")
-        
+        plt.scatter(
+            peak_positions, peak_intensities, color="red", label="Detected Peaks"
+        )
+
         for pos, inten in top_peaks:
-            plt.text(pos, inten, f"{int(pos)}", fontsize=8, ha='center')
-        
+            plt.text(pos, inten, f"{int(pos)}", fontsize=8, ha="center")
+
         plt.title(f"Raman Spectrum - {sample_name}")
         plt.xlabel("Wavenumber (cm⁻¹)")
         plt.ylabel("Intensity (a.u.)")

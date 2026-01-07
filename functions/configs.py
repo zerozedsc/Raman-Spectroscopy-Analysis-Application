@@ -19,44 +19,44 @@ DEBUG = True
 
 # Global Constants
 CURRENT_DIR = os.getcwd()
-DATETIME_FT = '%d-%m-%Y %H:%M:%S'
-DATE_FT = '%d-%m-%Y'
+DATETIME_FT = "%d-%m-%Y %H:%M:%S"
+DATE_FT = "%d-%m-%Y"
 LOCAL_DATA = {}
 
 
 # logs function
-def create_logs(log_name, filename, log_message, status='info'):
+def create_logs(log_name, filename, log_message, status="info"):
     """
     Create log entries with configurable log level filtering.
-    
+
     Log level can be controlled via RAMAN_LOG_LEVEL environment variable.
     Supported values: DEBUG, INFO, WARNING, ERROR
     Default: WARNING (logs warnings and errors only)
     """
     # Get log level from environment variable (default to WARNING)
-    env_log_level = os.getenv('RAMAN_LOG_LEVEL', 'WARNING').upper()
+    env_log_level = os.getenv("RAMAN_LOG_LEVEL", "WARNING").upper()
     log_level_map = {
-        'DEBUG': logging.DEBUG,
-        'INFO': logging.INFO,
-        'WARNING': logging.WARNING,
-        'ERROR': logging.ERROR
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARNING": logging.WARNING,
+        "ERROR": logging.ERROR,
     }
     min_level = log_level_map.get(env_log_level, logging.WARNING)
-    
+
     # Map status to logging level
     status_level_map = {
-        'debug': logging.DEBUG,
-        'info': logging.INFO,
-        'warning': logging.WARNING,
-        'error': logging.ERROR
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
     }
     message_level = status_level_map.get(status.lower(), logging.INFO)
-    
+
     # Skip if message level is below minimum level
     if message_level < min_level:
         return
-    
-    log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+
+    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     foldername = "logs"
     full_filename = os.path.join(foldername, filename + ".log")
 
@@ -88,17 +88,19 @@ def create_logs(log_name, filename, log_message, status='info'):
         logger.addHandler(stream_handler)
 
     # Log the message
-    if status == 'info':
+    if status == "info":
         logger.info(log_message)
-    elif status == 'error':
+    elif status == "error":
         logger.error(log_message)
-    elif status == 'warning':
+    elif status == "warning":
         logger.warning(log_message)
-    elif status == 'debug':
+    elif status == "debug":
         logger.debug(log_message)
 
 
-def console_log(log_message, status='info', show_status=False, show_time=False, show=True, **kwargs) -> None:
+def console_log(
+    log_message, status="info", show_status=False, show_time=False, show=True, **kwargs
+) -> None:
     """
     Log messages to the console with different severity levels.
 
@@ -115,10 +117,10 @@ def console_log(log_message, status='info', show_status=False, show_time=False, 
         return
 
     st_dict = {
-        'info': "[INFO] ",
-        'error': "[ERROR] ",
-        'warning': "[WARNING] ",
-        'debug': "[DEBUG] "
+        "info": "[INFO] ",
+        "error": "[ERROR] ",
+        "warning": "[WARNING] ",
+        "debug": "[DEBUG] ",
     }
     time_str = ""
 
@@ -138,7 +140,7 @@ def console_log(log_message, status='info', show_status=False, show_time=False, 
 
 
 def generate_id(i, n, id_type="uuid") -> str:
-    ''' Generate ID based on the type and length provided.'''
+    """Generate ID based on the type and length provided."""
 
     if id_type == "numeric":
         # Generate n digits number ID with leading zeros
@@ -148,15 +150,15 @@ def generate_id(i, n, id_type="uuid") -> str:
         return str(uuid.uuid4())
     elif id_type == "alphanumeric":
         # Generate number and letter as ID
-        prefix = chr(65 + (i // (10 ** n)))  # 65 is ASCII for 'A'
-        number = i % (10 ** n)
+        prefix = chr(65 + (i // (10**n)))  # 65 is ASCII for 'A'
+        number = i % (10**n)
         return f"{prefix}{str(number).zfill(n)}"
     else:
         return None
 
 
 def ts_id() -> int:
-    ''' Return current timestamp as integer/ID.'''
+    """Return current timestamp as integer/ID."""
 
     time_now = datetime.now().strftime(DATETIME_FT)
     dt_object = datetime.strptime(time_now, DATETIME_FT)
@@ -170,7 +172,7 @@ def datetime_now() -> str:
 
 
 def str2dt(s, ft) -> datetime:
-    '''Convert string to datetime object using DATETIME_FT format.'''
+    """Convert string to datetime object using DATETIME_FT format."""
     return datetime.strptime(s, ft)
 
 
@@ -238,13 +240,16 @@ def json_str_process(value) -> dict:
         else:
             return {"error": "Invalid data type"}
     except json.JSONDecodeError as e:
-        create_logs("from_json", "app",
-                    f"convert to json.JSONDecodeError error: {e}", status='error')
+        create_logs(
+            "from_json",
+            "app",
+            f"convert to json.JSONDecodeError error: {e}",
+            status="error",
+        )
         return {}
 
     except Exception as e:
-        create_logs("from_json", "app",
-                    f"convert to json error: {e}", status='error')
+        create_logs("from_json", "app", f"convert to json error: {e}", status="error")
         return {}
 
 
@@ -267,6 +272,6 @@ def safe_filename(value) -> str:
     pattern = r'[<>:"/\\|?*]'
 
     # Replace invalid characters with an underscore
-    safe_value = re.sub(pattern, '_', value)
+    safe_value = re.sub(pattern, "_", value)
 
     return safe_value

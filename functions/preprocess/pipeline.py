@@ -16,6 +16,7 @@ import pandas as pd
 try:
     import ramanspy as rp
     import matplotlib.pyplot as plt
+
     RAMANSPY_AVAILABLE = True
 except ImportError:
     RAMANSPY_AVAILABLE = False
@@ -24,8 +25,9 @@ try:
     from ..utils import create_logs, CURRENT_DIR
 except ImportError:
     # Fallback logging function and current directory
-    def create_logs(log_id, source, message, status='info'):
+    def create_logs(log_id, source, message, status="info"):
         print(f"[{status.upper()}] {source}: {message}")
+
     CURRENT_DIR = os.getcwd()
 
 
@@ -42,7 +44,7 @@ class RamanPipeline:
     def __init__(self, region: tuple[int, int] = (1050, 1700)):
         """
         Initialize the RamanPipeline.
-        
+
         Parameters
         ----------
         region : tuple[int, int]
@@ -50,12 +52,13 @@ class RamanPipeline:
         """
         self.region = region
 
-    def pipeline_hirschsprung_multi(self,
-                                    hirsch_dfs: List[pd.DataFrame],
-                                    normal_dfs: List[pd.DataFrame],
-                                    wavenumber_rowname: str = 'wavenumber',
-                                    region: Tuple[int, int] = (1050, 1700)
-                                    ) -> Tuple[np.ndarray, list, np.ndarray, pd.DataFrame]:
+    def pipeline_hirschsprung_multi(
+        self,
+        hirsch_dfs: List[pd.DataFrame],
+        normal_dfs: List[pd.DataFrame],
+        wavenumber_rowname: str = "wavenumber",
+        region: Tuple[int, int] = (1050, 1700),
+    ) -> Tuple[np.ndarray, list, np.ndarray, pd.DataFrame]:
         """
         Preprocessing pipeline specifically for Hirschsprung disease multi-sample analysis.
 
@@ -87,15 +90,25 @@ class RamanPipeline:
 
         # Handle empty input cases
         if not hirsch_dfs and not normal_dfs:
-            raise ValueError("Both hirsch_dfs and normal_dfs are empty. At least one must be provided.")
+            raise ValueError(
+                "Both hirsch_dfs and normal_dfs are empty. At least one must be provided."
+            )
         elif hirsch_dfs:
-            wavenumbers = hirsch_dfs[0]['wavenumber'].values
+            wavenumbers = hirsch_dfs[0]["wavenumber"].values
         else:
-            wavenumbers = normal_dfs[0]['wavenumber'].values
+            wavenumbers = normal_dfs[0]["wavenumber"].values
 
         # Concatenate all hirsch and normal DataFrames (drop wavenumber, keep only intensity columns)
-        all_hirsch = [df.drop(wavenumber_rowname, axis=1) for df in hirsch_dfs] if hirsch_dfs else []
-        all_normal = [df.drop(wavenumber_rowname, axis=1) for df in normal_dfs] if normal_dfs else []
+        all_hirsch = (
+            [df.drop(wavenumber_rowname, axis=1) for df in hirsch_dfs]
+            if hirsch_dfs
+            else []
+        )
+        all_normal = (
+            [df.drop(wavenumber_rowname, axis=1) for df in normal_dfs]
+            if normal_dfs
+            else []
+        )
         merged_df = pd.concat(all_hirsch + all_normal, axis=1)
 
         intensities = merged_df.values.T  # shape: (n_samples, n_wavenumbers)
@@ -103,18 +116,20 @@ class RamanPipeline:
         # Labels
         labels = []
         if hirsch_dfs:
-            labels += ['hirsch'] * sum(df.shape[1] - 1 for df in hirsch_dfs)
+            labels += ["hirsch"] * sum(df.shape[1] - 1 for df in hirsch_dfs)
         if normal_dfs:
-            labels += ['normal'] * sum(df.shape[1] - 1 for df in normal_dfs)
+            labels += ["normal"] * sum(df.shape[1] - 1 for df in normal_dfs)
 
         # Preprocessing pipeline
-        pipeline = rp.preprocessing.Pipeline([
-            rp.preprocessing.misc.Cropper(region=region),
-            rp.preprocessing.despike.WhitakerHayes(),
-            rp.preprocessing.denoise.SavGol(window_length=7, polyorder=3),
-            rp.preprocessing.baseline.ASPLS(lam=1e5, tol=0.01),
-            rp.preprocessing.normalise.Vector()
-        ])
+        pipeline = rp.preprocessing.Pipeline(
+            [
+                rp.preprocessing.misc.Cropper(region=region),
+                rp.preprocessing.despike.WhitakerHayes(),
+                rp.preprocessing.denoise.SavGol(window_length=7, polyorder=3),
+                rp.preprocessing.baseline.ASPLS(lam=1e5, tol=0.01),
+                rp.preprocessing.normalise.Vector(),
+            ]
+        )
         spectra = rp.SpectralContainer(intensities, wavenumbers)
         data = pipeline.apply(spectra)
 
@@ -124,7 +139,7 @@ class RamanPipeline:
         self,
         dfs: List[pd.DataFrame],
         label: str,
-        wavenumber_col: str = 'wavenumber',
+        wavenumber_col: str = "wavenumber",
         intensity_cols: Optional[List[str]] = None,
         region: Tuple[int, int] = (1050, 1700),
         preprocessing_steps: Optional[List[Callable]] = None,
@@ -132,7 +147,7 @@ class RamanPipeline:
         show_parameters_in_title: bool = False,
         max_plot_visualize_steps: int = 10,
         save_pkl: bool = False,
-        save_pkl_name: Optional[str] = None
+        save_pkl_name: Optional[str] = None,
     ) -> dict[str, Any]:
         """
         Dynamic preprocessing pipeline for generic Raman spectral DataFrames.
@@ -186,7 +201,9 @@ class RamanPipeline:
             wavenumbers = merged_df[wavenumber_col].values
             if intensity_cols is None:
                 exclude = {wavenumber_col}
-                intensity_cols = [col for col in merged_df.columns if col not in exclude]
+                intensity_cols = [
+                    col for col in merged_df.columns if col not in exclude
+                ]
             intensities = merged_df[intensity_cols].values
         else:
             raise ValueError(f"Wavenumber column '{wavenumber_col}' not found.")
@@ -202,27 +219,27 @@ class RamanPipeline:
                 rp.preprocessing.despike.WhitakerHayes(),
                 rp.preprocessing.denoise.SavGol(window_length=7, polyorder=3),
                 rp.preprocessing.baseline.ASPLS(lam=1e5, tol=0.01),
-                rp.preprocessing.normalise.Vector()
+                rp.preprocessing.normalise.Vector(),
             ]
 
         # Initialize preprocessing info dictionary
         preprocessing_info = {
-            'pipeline_config': {
-                'total_steps': len(preprocessing_steps),
-                'wavenumber_col': wavenumber_col,
-                'region': region,
-                'n_spectra': n_spectra,
-                'original_wavenumber_range': (wavenumbers.min(), wavenumbers.max()),
-                'original_data_shape': intensities.shape
+            "pipeline_config": {
+                "total_steps": len(preprocessing_steps),
+                "wavenumber_col": wavenumber_col,
+                "region": region,
+                "n_spectra": n_spectra,
+                "original_wavenumber_range": (wavenumbers.min(), wavenumbers.max()),
+                "original_data_shape": intensities.shape,
             },
-            'steps': [],
-            'parameters_used': {},
-            'step_order': [],
-            'execution_info': {
-                'execution_time': None,
-                'memory_usage': None,
-                'errors': []
-            }
+            "steps": [],
+            "parameters_used": {},
+            "step_order": [],
+            "execution_info": {
+                "execution_time": None,
+                "memory_usage": None,
+                "errors": [],
+            },
         }
 
         # Record start time
@@ -232,15 +249,23 @@ class RamanPipeline:
         spectra = rp.SpectralContainer(intensities, wavenumbers)
 
         # Store initial spectra info
-        preprocessing_info['pipeline_config']['initial_spectral_axis_shape'] = spectra.spectral_axis.shape
-        preprocessing_info['pipeline_config']['initial_spectral_data_shape'] = spectra.spectral_data.shape
+        preprocessing_info["pipeline_config"][
+            "initial_spectral_axis_shape"
+        ] = spectra.spectral_axis.shape
+        preprocessing_info["pipeline_config"][
+            "initial_spectral_data_shape"
+        ] = spectra.spectral_data.shape
 
         plot_data = {}
-        
+
         if visualize_steps:
             # Create combined figure with all steps
-            fig, axes = plt.subplots(len(preprocessing_steps) + 1, 1,
-                                   figsize=(12, 3 * (len(preprocessing_steps) + 1)), sharex=True)
+            fig, axes = plt.subplots(
+                len(preprocessing_steps) + 1,
+                1,
+                figsize=(12, 3 * (len(preprocessing_steps) + 1)),
+                sharex=True,
+            )
 
             # Plot raw spectra
             axes[0].set_title("Raw Spectra")
@@ -265,29 +290,31 @@ class RamanPipeline:
 
                 # Extract step information
                 step_info = {
-                    'step_index': i + 1,
-                    'step_name': step.__class__.__name__,
-                    'step_module': step.__class__.__module__,
-                    'parameters': self._extract_step_parameters(step),
-                    'execution_time': step_execution_time,
-                    'data_transformation': {
-                        'input_shape': pre_step_shape,
-                        'output_shape': post_step_shape,
-                        'input_axis_shape': pre_step_axis_shape,
-                        'output_axis_shape': post_step_axis_shape,
-                        'shape_changed': pre_step_shape != post_step_shape,
-                        'axis_changed': pre_step_axis_shape != post_step_axis_shape
-                    }
+                    "step_index": i + 1,
+                    "step_name": step.__class__.__name__,
+                    "step_module": step.__class__.__module__,
+                    "parameters": self._extract_step_parameters(step),
+                    "execution_time": step_execution_time,
+                    "data_transformation": {
+                        "input_shape": pre_step_shape,
+                        "output_shape": post_step_shape,
+                        "input_axis_shape": pre_step_axis_shape,
+                        "output_axis_shape": post_step_axis_shape,
+                        "shape_changed": pre_step_shape != post_step_shape,
+                        "axis_changed": pre_step_axis_shape != post_step_axis_shape,
+                    },
                 }
 
                 # Add specific parameter interpretations based on step type
-                if hasattr(step, '__class__'):
-                    step_info['step_category'] = self._categorize_step(step)
-                    step_info['parameter_description'] = self._describe_parameters(step)
+                if hasattr(step, "__class__"):
+                    step_info["step_category"] = self._categorize_step(step)
+                    step_info["parameter_description"] = self._describe_parameters(step)
 
-                preprocessing_info['steps'].append(step_info)
-                preprocessing_info['step_order'].append(step.__class__.__name__)
-                preprocessing_info['parameters_used'][f"step_{i+1}_{step.__class__.__name__}"] = step_info['parameters']
+                preprocessing_info["steps"].append(step_info)
+                preprocessing_info["step_order"].append(step.__class__.__name__)
+                preprocessing_info["parameters_used"][
+                    f"step_{i+1}_{step.__class__.__name__}"
+                ] = step_info["parameters"]
 
                 # Visualization
                 if visualize_steps:
@@ -304,15 +331,18 @@ class RamanPipeline:
 
             except Exception as e:
                 error_info = {
-                    'step_index': i + 1,
-                    'step_name': step.__class__.__name__,
-                    'error': str(e),
-                    'error_type': type(e).__name__
+                    "step_index": i + 1,
+                    "step_name": step.__class__.__name__,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
                 }
-                preprocessing_info['execution_info']['errors'].append(error_info)
-                create_logs("preprocess_error", "RamanPipeline",
-                          f"Error in step {i+1} ({step.__class__.__name__}): {e}",
-                          status='error')
+                preprocessing_info["execution_info"]["errors"].append(error_info)
+                create_logs(
+                    "preprocess_error",
+                    "RamanPipeline",
+                    f"Error in step {i+1} ({step.__class__.__name__}): {e}",
+                    status="error",
+                )
                 continue
 
         if visualize_steps:
@@ -321,23 +351,35 @@ class RamanPipeline:
                 ax.set_ylabel("Intensity")
             axes[-1].set_xlabel("Wavenumber (cm⁻¹)")
             plt.tight_layout()
-            plot_data['combined_figure'] = fig
+            plot_data["combined_figure"] = fig
             plt.show()
 
         # Complete preprocessing info
         total_execution_time = time.time() - start_time
-        preprocessing_info['execution_info']['execution_time'] = total_execution_time
-        preprocessing_info['pipeline_config']['final_spectral_axis_shape'] = spectra.spectral_axis.shape
-        preprocessing_info['pipeline_config']['final_spectral_data_shape'] = spectra.spectral_data.shape
-        preprocessing_info['pipeline_config']['final_wavenumber_range'] = (
-            spectra.spectral_axis.min(), spectra.spectral_axis.max())
+        preprocessing_info["execution_info"]["execution_time"] = total_execution_time
+        preprocessing_info["pipeline_config"][
+            "final_spectral_axis_shape"
+        ] = spectra.spectral_axis.shape
+        preprocessing_info["pipeline_config"][
+            "final_spectral_data_shape"
+        ] = spectra.spectral_data.shape
+        preprocessing_info["pipeline_config"]["final_wavenumber_range"] = (
+            spectra.spectral_axis.min(),
+            spectra.spectral_axis.max(),
+        )
 
         # Add summary statistics
-        preprocessing_info['summary'] = {
-            'total_steps_executed': len([s for s in preprocessing_info['steps'] if 'error' not in s]),
-            'total_errors': len(preprocessing_info['execution_info']['errors']),
-            'total_execution_time': total_execution_time,
-            'average_step_time': total_execution_time / len(preprocessing_steps) if preprocessing_steps else 0,
+        preprocessing_info["summary"] = {
+            "total_steps_executed": len(
+                [s for s in preprocessing_info["steps"] if "error" not in s]
+            ),
+            "total_errors": len(preprocessing_info["execution_info"]["errors"]),
+            "total_execution_time": total_execution_time,
+            "average_step_time": (
+                total_execution_time / len(preprocessing_steps)
+                if preprocessing_steps
+                else 0
+            ),
         }
 
         data = {
@@ -345,7 +387,7 @@ class RamanPipeline:
             "labels": labels,
             "raw": merged_df,
             "plot_data": plot_data,
-            "preprocessing_info": preprocessing_info
+            "preprocessing_info": preprocessing_info,
         }
 
         # Save to pickle if requested
@@ -353,14 +395,20 @@ class RamanPipeline:
             try:
                 save_dir = os.path.join(CURRENT_DIR, "data", "preprocessed_data")
                 os.makedirs(save_dir, exist_ok=True)
-                save_pkl_name = save_pkl_name if save_pkl_name else f"{label}_preprocessed.pkl"
+                save_pkl_name = (
+                    save_pkl_name if save_pkl_name else f"{label}_preprocessed.pkl"
+                )
                 pkl_path = os.path.join(save_dir, save_pkl_name)
-                pkl_path += ".pkl" if not pkl_path.endswith('.pkl') else ''
-                with open(pkl_path, 'wb') as f:
+                pkl_path += ".pkl" if not pkl_path.endswith(".pkl") else ""
+                with open(pkl_path, "wb") as f:
                     pkl.dump(data, f)
             except Exception as e:
-                create_logs("preprocess_error", "RamanPipeline",
-                          f"Error saving preprocessed data: {e}", status='error')
+                create_logs(
+                    "preprocess_error",
+                    "RamanPipeline",
+                    f"Error saving preprocessed data: {e}",
+                    status="error",
+                )
                 raise e
 
         return data
@@ -371,24 +419,39 @@ class RamanPipeline:
         module_name = step.__class__.__module__
 
         # Category mapping based on class name and module
-        if 'baseline' in module_name or step_name in ['ASLS', 'AIRPLS', 'ARPLS', 'ModPoly', 'IModPoly', 'ASPLS']:
-            return 'baseline_correction'
-        elif 'denoise' in module_name or step_name in ['SavGol', 'MovingAverage']:
-            return 'denoising'
-        elif 'despike' in module_name or step_name in ['WhitakerHayes', 'Gaussian', 'MedianDespike']:
-            return 'despiking'
-        elif 'normalise' in module_name or 'normalize' in module_name or step_name in ['Vector', 'SNV', 'MSC']:
-            return 'normalization'
-        elif 'misc' in module_name or step_name in ['Cropper']:
-            return 'preprocessing'
-        elif step_name in ['MultiScaleConv1D', 'Transformer1DBaseline']:
-            return 'advanced_baseline'
-        elif step_name in ['WavenumberCalibration', 'IntensityCalibration']:
-            return 'calibration'
-        elif step_name in ['Derivative']:
-            return 'derivatives'
+        if "baseline" in module_name or step_name in [
+            "ASLS",
+            "AIRPLS",
+            "ARPLS",
+            "ModPoly",
+            "IModPoly",
+            "ASPLS",
+        ]:
+            return "baseline_correction"
+        elif "denoise" in module_name or step_name in ["SavGol", "MovingAverage"]:
+            return "denoising"
+        elif "despike" in module_name or step_name in [
+            "WhitakerHayes",
+            "Gaussian",
+            "MedianDespike",
+        ]:
+            return "despiking"
+        elif (
+            "normalise" in module_name
+            or "normalize" in module_name
+            or step_name in ["Vector", "SNV", "MSC"]
+        ):
+            return "normalization"
+        elif "misc" in module_name or step_name in ["Cropper"]:
+            return "preprocessing"
+        elif step_name in ["MultiScaleConv1D", "Transformer1DBaseline"]:
+            return "advanced_baseline"
+        elif step_name in ["WavenumberCalibration", "IntensityCalibration"]:
+            return "calibration"
+        elif step_name in ["Derivative"]:
+            return "derivatives"
         else:
-            return 'other'
+            return "other"
 
     def _describe_parameters(self, step) -> Dict[str, str]:
         """Provide human-readable descriptions of parameters."""
@@ -397,29 +460,31 @@ class RamanPipeline:
 
         # Common parameter descriptions
         param_descriptions = {
-            'lam': 'Smoothness parameter (higher = smoother baseline)',
-            'p': 'Asymmetry parameter (0-1, lower = more asymmetric)',
-            'poly_order': 'Polynomial order (higher = more flexible)',
-            'tol': 'Convergence tolerance (lower = more precise)',
-            'max_iter': 'Maximum number of iterations',
-            'window_length': 'Window size for smoothing',
-            'polyorder': 'Polynomial order for fitting',
-            'region': 'Wavenumber range for processing',
-            'diff_order': 'Order of difference matrix',
-            'alpha': 'Learning rate or weighting factor',
-            'quantile': 'Quantile for robust estimation',
-            'scale': 'Scaling factor',
-            'num_std': 'Number of standard deviations',
-            'eta': 'Regularization parameter',
-            'threshold': 'Threshold value for processing',
-            'kernel_size': 'Kernel size for filtering',
-            'order': 'Derivative order',
-            'reference_peaks': 'Reference peak positions for calibration'
+            "lam": "Smoothness parameter (higher = smoother baseline)",
+            "p": "Asymmetry parameter (0-1, lower = more asymmetric)",
+            "poly_order": "Polynomial order (higher = more flexible)",
+            "tol": "Convergence tolerance (lower = more precise)",
+            "max_iter": "Maximum number of iterations",
+            "window_length": "Window size for smoothing",
+            "polyorder": "Polynomial order for fitting",
+            "region": "Wavenumber range for processing",
+            "diff_order": "Order of difference matrix",
+            "alpha": "Learning rate or weighting factor",
+            "quantile": "Quantile for robust estimation",
+            "scale": "Scaling factor",
+            "num_std": "Number of standard deviations",
+            "eta": "Regularization parameter",
+            "threshold": "Threshold value for processing",
+            "kernel_size": "Kernel size for filtering",
+            "order": "Derivative order",
+            "reference_peaks": "Reference peak positions for calibration",
         }
 
         for param_name, param_value in parameters.items():
             if param_name in param_descriptions:
-                descriptions[param_name] = f"{param_descriptions[param_name]} (value: {param_value})"
+                descriptions[param_name] = (
+                    f"{param_descriptions[param_name]} (value: {param_value})"
+                )
             else:
                 descriptions[param_name] = f"Parameter value: {param_value}"
 
@@ -432,26 +497,26 @@ class RamanPipeline:
 
         try:
             # Extract key parameters for display
-            if hasattr(step, 'region') and step.region is not None:
+            if hasattr(step, "region") and step.region is not None:
                 if isinstance(step.region, (tuple, list)) and len(step.region) == 2:
                     param_info.append(f"region=({step.region[0]}-{step.region[1]})")
 
-            if hasattr(step, 'window_length') and hasattr(step, 'polyorder'):
+            if hasattr(step, "window_length") and hasattr(step, "polyorder"):
                 param_info.append(f"window={step.window_length}, poly={step.polyorder}")
 
-            if hasattr(step, 'lam'):
+            if hasattr(step, "lam"):
                 param_info.append(f"λ={step.lam:.0e}")
 
-            if hasattr(step, 'p'):
+            if hasattr(step, "p"):
                 param_info.append(f"p={step.p}")
 
-            if hasattr(step, 'kernel_size'):
+            if hasattr(step, "kernel_size"):
                 param_info.append(f"kernel={step.kernel_size}")
 
-            if hasattr(step, 'threshold'):
+            if hasattr(step, "threshold"):
                 param_info.append(f"threshold={step.threshold}")
 
-            if hasattr(step, 'order'):
+            if hasattr(step, "order"):
                 param_info.append(f"order={step.order}")
 
         except Exception:
@@ -476,19 +541,30 @@ class RamanPipeline:
 
         try:
             # Check if step has kwargs dictionary
-            if hasattr(step, 'kwargs') and isinstance(step.kwargs, dict):
+            if hasattr(step, "kwargs") and isinstance(step.kwargs, dict):
                 parameters.update(step.kwargs)
 
             # Check for _parameters attribute
-            elif hasattr(step, '_parameters') and isinstance(step._parameters, dict):
+            elif hasattr(step, "_parameters") and isinstance(step._parameters, dict):
                 parameters.update(step._parameters)
 
             # Direct attribute access for common parameters
             else:
                 common_attrs = [
-                    'region', 'window_length', 'polyorder', 'lam', 'p',
-                    'poly_order', 'tol', 'max_iter', 'kernel_size', 'threshold',
-                    'order', 'reference_peaks', 'alpha', 'mode'
+                    "region",
+                    "window_length",
+                    "polyorder",
+                    "lam",
+                    "p",
+                    "poly_order",
+                    "tol",
+                    "max_iter",
+                    "kernel_size",
+                    "threshold",
+                    "order",
+                    "reference_peaks",
+                    "alpha",
+                    "mode",
                 ]
 
                 for attr in common_attrs:
@@ -496,37 +572,40 @@ class RamanPipeline:
                         parameters[attr] = getattr(step, attr)
 
             # Add step class name
-            parameters['class_name'] = step.__class__.__name__
+            parameters["class_name"] = step.__class__.__name__
 
         except Exception as e:
-            create_logs("preprocess_error", "RamanPipeline",
-                       f"Error extracting parameters from {step.__class__.__name__}: {e}",
-                       status='error')
-            parameters['class_name'] = step.__class__.__name__
-            parameters['extraction_error'] = str(e)
+            create_logs(
+                "preprocess_error",
+                "RamanPipeline",
+                f"Error extracting parameters from {step.__class__.__name__}: {e}",
+                status="error",
+            )
+            parameters["class_name"] = step.__class__.__name__
+            parameters["extraction_error"] = str(e)
 
         return parameters
 
 
 class EnhancedRamanPipeline(RamanPipeline):
     """Enhanced RamanPipeline with progress tracking support."""
-    
+
     def preprocess_with_progress(
         self,
         dfs: List[pd.DataFrame],
         label: str,
         preprocessing_steps: List[Callable],
         progress_callback: Callable[[int, str, int], bool] = None,
-        wavenumber_col: str = 'wavenumber',
+        wavenumber_col: str = "wavenumber",
         intensity_cols: Optional[List[str]] = None,
         region: Tuple[int, int] = (1050, 1700),
         visualize_steps: bool = False,
         save_pkl: bool = False,
-        save_pkl_name: Optional[str] = None
+        save_pkl_name: Optional[str] = None,
     ) -> dict[str, Any]:
         """
         Enhanced preprocessing pipeline with progress tracking.
-        
+
         Parameters
         ----------
         dfs : List[pd.DataFrame]
@@ -550,7 +629,7 @@ class EnhancedRamanPipeline(RamanPipeline):
             If True, save results to pickle file.
         save_pkl_name : Optional[str]
             Name for pickle file.
-            
+
         Returns
         -------
         dict
@@ -560,7 +639,7 @@ class EnhancedRamanPipeline(RamanPipeline):
             raise ImportError("ramanspy is required for preprocessing with progress")
 
         total_steps = len(preprocessing_steps)
-        
+
         # Process setup
         if progress_callback:
             should_continue = progress_callback(0, "Initializing...", 0)
@@ -570,7 +649,7 @@ class EnhancedRamanPipeline(RamanPipeline):
         # Use the parent class method but with progress tracking
         # This is a simplified version - in practice you'd modify the main preprocess method
         # to include progress callbacks at each step
-        
+
         result = self.preprocess(
             dfs=dfs,
             label=label,
@@ -580,11 +659,11 @@ class EnhancedRamanPipeline(RamanPipeline):
             preprocessing_steps=preprocessing_steps,
             visualize_steps=visualize_steps,
             save_pkl=save_pkl,
-            save_pkl_name=save_pkl_name
+            save_pkl_name=save_pkl_name,
         )
-        
+
         # Signal completion
         if progress_callback:
             progress_callback(total_steps, "Complete", 100)
-            
+
         return result

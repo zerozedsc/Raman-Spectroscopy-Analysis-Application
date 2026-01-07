@@ -210,3 +210,9 @@ data/preprocessed_data/
 models/
 projects/
 /projects/
+.AGI-BANKS/
+.docs/
+.backup/
+test_script/
+tests/
+build_scripts/working_v1

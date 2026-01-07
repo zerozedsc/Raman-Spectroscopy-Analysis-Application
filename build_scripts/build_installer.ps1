@@ -48,15 +48,28 @@ try {
     
     # ============== ENVIRONMENT CHECK ==============
     Write-Section "Environment Check"
+
+    # Prefer repo virtual environment if available to avoid system-Python mismatch
+    $VenvPython = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
+    if (Test-Path -LiteralPath $VenvPython) {
+        $PythonCmd = $VenvPython
+        $PythonDisplay = ".\\.venv\\Scripts\\python.exe"
+        Write-Status "Using virtual environment Python: $PythonCmd" 'Success'
+    }
+    else {
+        $PythonCmd = "python"
+        $PythonDisplay = "python"
+        Write-Status "Virtual environment not found at $VenvPython; using Python from PATH" 'Warning'
+    }
     
     # Check Python
     Write-Status "Checking Python environment..." 'Info'
-    $PythonVersion = python --version 2>&1
+    $PythonVersion = & $PythonCmd --version 2>&1
     Write-Status "Python: $PythonVersion" 'Success'
     
     # Check PyInstaller
     Write-Status "Checking PyInstaller installation..." 'Info'
-    $PyInstallerVersion = pyinstaller --version 2>&1
+    $PyInstallerVersion = & $PythonCmd -m PyInstaller --version 2>&1
     if ($LASTEXITCODE -eq 0) {
         Write-Status "PyInstaller: $PyInstallerVersion" 'Success'
     }
@@ -135,6 +148,12 @@ try {
     
     # ============== BUILD EXECUTABLE FOR INSTALLER ==============
     Write-Section "Building Executable (Installer Staging)"
+
+    # Set env vars used by the spec file
+    $env:RAMAN_LOG_LEVEL = $LogLevel
+    $env:RAMAN_BUILD_MODE = 'onedir'
+    $env:RAMAN_DIST_NAME = 'raman_app_installer_staging'
+    $env:RAMAN_CONSOLE = if ($Console) { '1' } else { '0' }
     
     $BuildArgs = @(
         '--distpath', 'dist_installer',
@@ -151,9 +170,10 @@ try {
     $BuildArgs += 'raman_app_installer.spec'
 
     Write-Status "Building executable for installer..." 'Info'
+    Write-Status "Command: $PythonDisplay -m PyInstaller $($BuildArgs -join ' ') raman_app_installer.spec" 'Info'
     
     $StartTime = Get-Date
-    & pyinstaller @BuildArgs
+    & $PythonCmd -m PyInstaller @BuildArgs
     
     if ($LASTEXITCODE -ne 0) {
         Write-Status "ERROR: PyInstaller build failed!" 'Error'
@@ -256,8 +276,8 @@ try {
     
     Write-Host ""
     Write-Host "Portable Build (Recommended for Testing):" -ForegroundColor $Colors.Info
-    Write-Host "  1. Run: .\build_portable.ps1" -ForegroundColor $Colors.Info
-    Write-Host "  2. Test: .\dist\raman_app\raman_app.exe" -ForegroundColor $Colors.Info
+    Write-Host "  1. Run: .\build_portable.ps1 -Mode onefile" -ForegroundColor $Colors.Info
+    Write-Host "  2. Test: .\dist\raman_app.exe" -ForegroundColor $Colors.Info
     Write-Host ""
     
     Write-Host "Installer Requirements:" -ForegroundColor $Colors.Info
@@ -267,10 +287,16 @@ try {
     Write-Host ""
     
     Write-Host "Testing:" -ForegroundColor $Colors.Info
-    Write-Host "  python test_build_executable.py --exe dist_installer/raman_app_installer_staging/raman_app.exe" -ForegroundColor $Colors.Info
+    Write-Host "  $PythonDisplay build_scripts\test_build_executable.py --exe dist_installer\raman_app_installer_staging\raman_app.exe" -ForegroundColor $Colors.Info
     Write-Host ""
     
     Write-Status "Installer staging build complete!" 'Success'
+
+    # Cleanup build env vars
+    Remove-Item Env:RAMAN_BUILD_MODE -ErrorAction SilentlyContinue
+    Remove-Item Env:RAMAN_DIST_NAME -ErrorAction SilentlyContinue
+    Remove-Item Env:RAMAN_CONSOLE -ErrorAction SilentlyContinue
+    Remove-Item Env:RAMAN_LOG_LEVEL -ErrorAction SilentlyContinue
     
     # Restore original directory
     Pop-Location
@@ -278,6 +304,13 @@ try {
 catch {
     # Restore original directory on error
     Pop-Location -ErrorAction SilentlyContinue
+
+    # Cleanup build env vars on error
+    Remove-Item Env:RAMAN_BUILD_MODE -ErrorAction SilentlyContinue
+    Remove-Item Env:RAMAN_DIST_NAME -ErrorAction SilentlyContinue
+    Remove-Item Env:RAMAN_CONSOLE -ErrorAction SilentlyContinue
+    Remove-Item Env:RAMAN_LOG_LEVEL -ErrorAction SilentlyContinue
+
     Write-Status "FATAL ERROR: $_" 'Error'
     Write-Status $_.ScriptStackTrace 'Error'
     exit 1

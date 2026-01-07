@@ -27,7 +27,7 @@ def get_peak_assignment(
     peak: Union[int, float, str],
     pick_near: bool = False,
     tolerance: int = 5,
-    json_file_path: str = "assets/data/raman_peaks.json"
+    json_file_path: str = "assets/data/raman_peaks.json",
 ) -> dict:
     """
     Get the assignment meaning of a Raman peak based on the raman_peaks.json database.
@@ -58,13 +58,13 @@ def get_peak_assignment(
     >>> result = get_peak_assignment(1004)
     >>> print(result["assignment"])
     'Phenylalanine (protein)'
-    
+
     >>> result = get_peak_assignment(1006, pick_near=True, tolerance=5)
     >>> print(result)
     {'peak': 1004, 'assignment': 'Phenylalanine (protein)', 'distance': 2, 'original_peak': 1006}
     """
     global _raman_peaks_cache
-    
+
     try:
         # Convert peak to integer (round if float)
         if isinstance(peak, (float, str)):
@@ -94,19 +94,27 @@ def get_peak_assignment(
                 else:
                     full_path = json_file_path
 
-                with open(full_path, 'r', encoding='utf-8') as file:
+                with open(full_path, "r", encoding="utf-8") as file:
                     raman_data = json.load(file)
 
                 # Cache the data for future use
                 _raman_peaks_cache = raman_data
 
         except FileNotFoundError:
-            create_logs("get_peak_assignment", "peak_assignment",
-                        f"Raman peaks file not found: {json_file_path}", status='error')
+            create_logs(
+                "get_peak_assignment",
+                "peak_assignment",
+                f"Raman peaks file not found: {json_file_path}",
+                status="error",
+            )
             return {"assignment": "Database file not found"}
         except json.JSONDecodeError as e:
-            create_logs("get_peak_assignment", "peak_assignment",
-                        f"Error parsing JSON file: {e}", status='error')
+            create_logs(
+                "get_peak_assignment",
+                "peak_assignment",
+                f"Error parsing JSON file: {e}",
+                status="error",
+            )
             return {"assignment": "Database file corrupted"}
 
         # Convert peak to string for lookup (JSON keys are strings)
@@ -124,7 +132,7 @@ def get_peak_assignment(
 
         # Find nearest peak within tolerance
         nearest_peak = None
-        min_distance = float('inf')
+        min_distance = float("inf")
 
         for db_peak_str in raman_data.keys():
             try:
@@ -149,8 +157,12 @@ def get_peak_assignment(
             return {"assignment": "Not Found"}
 
     except Exception as e:
-        create_logs("get_peak_assignment", "peak_assignment",
-                    f"Error in get_peak_assignment: {e}", status='error')
+        create_logs(
+            "get_peak_assignment",
+            "peak_assignment",
+            f"Error in get_peak_assignment: {e}",
+            status="error",
+        )
         return {"assignment": "Error occurred during lookup"}
 
 
@@ -158,7 +170,7 @@ def get_multiple_peak_assignments(
     peaks: List[Union[int, float, str]],
     pick_near: bool = False,
     tolerance: int = 5,
-    json_file_path: str = "assets/data/raman_peaks.json"
+    json_file_path: str = "assets/data/raman_peaks.json",
 ) -> List[dict]:
     """
     Get assignments for multiple peaks at once.
@@ -196,7 +208,7 @@ def get_multiple_peak_assignments(
 def find_peaks_in_range(
     min_wavenumber: Union[int, float],
     max_wavenumber: Union[int, float],
-    json_file_path: str = "assets/data/raman_peaks.json"
+    json_file_path: str = "assets/data/raman_peaks.json",
 ) -> List[dict]:
     """
     Find all peaks within a specified wavenumber range.
@@ -223,7 +235,7 @@ def find_peaks_in_range(
     ...     print(f"{peak['peak']}: {peak['assignment']}")
     """
     global _raman_peaks_cache
-    
+
     try:
         # Load data using the existing function (ensures cache is populated)
         dummy_result = get_peak_assignment(1000, json_file_path=json_file_path)
@@ -232,7 +244,7 @@ def find_peaks_in_range(
 
         # Get cached data
         raman_data = _raman_peaks_cache
-        
+
         if raman_data is None:
             return []
 
@@ -252,15 +264,19 @@ def find_peaks_in_range(
         return results
 
     except Exception as e:
-        create_logs("find_peaks_in_range", "peak_assignment",
-                    f"Error in find_peaks_in_range: {e}", status='error')
+        create_logs(
+            "find_peaks_in_range",
+            "peak_assignment",
+            f"Error in find_peaks_in_range: {e}",
+            status="error",
+        )
         return []
 
 
 def clear_cache():
     """
     Clear the peak database cache.
-    
+
     Useful for testing or when the database file has been updated.
     """
     global _raman_peaks_cache
