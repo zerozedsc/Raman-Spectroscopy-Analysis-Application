@@ -117,7 +117,131 @@ class GroupTreeManager(QWidget):
         self.tree.expandAll()
 
     def create_group_dialog(self):
-        """Prompt user for group name and create it."""
+        """Prompt user for group name and create it - NOW USING MULTI-GROUP DIALOG."""
+        print("\n" + "="*70)
+        print("[DEBUG] ➕ CREATE GROUP BUTTON CLICKED (GroupTreeManager)")
+        print("[DEBUG] Timestamp:", __import__('datetime').datetime.now())
+        print("[DEBUG] Method: create_group_dialog")
+        print("[DEBUG] Instance:", self)
+        print("="*70 + "\n")
+        
+        self._open_multi_group_dialog()
+    
+    def _open_multi_group_dialog(self):
+        """Open the multi-group creation dialog."""
+        print("\n" + "="*70)
+        print("[DEBUG] 🚀 OPENING MULTI-GROUP DIALOG (GroupTreeManager)")
+        print("="*70)
+        print("[DEBUG] Step 1: Attempting to import MultiGroupCreationDialog...")
+        
+        try:
+            from pages.analysis_page_utils.multi_group_dialog import MultiGroupCreationDialog
+            print("[DEBUG] ✅ MultiGroupCreationDialog imported successfully!")
+            print("[DEBUG] Class:", MultiGroupCreationDialog)
+        except Exception as e:
+            print(f"[ERROR] ❌ Failed to import MultiGroupCreationDialog: {e}")
+            print("[ERROR] Exception type:", type(e).__name__)
+            import traceback
+            print("[ERROR] Full traceback:")
+            traceback.print_exc()
+            
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.critical(
+                self,
+                "Import Error",
+                f"Failed to import multi-group dialog:\n{str(e)}\n\nPlease check console for details."
+            )
+            return
+        
+        try:
+            print("\n[DEBUG] Step 2: Creating dialog instance...")
+            print(f"[DEBUG] Dataset count: {len(self.dataset_names)}")
+            print(f"[DEBUG] Localize function: {self.localize}")
+            
+            dialog = MultiGroupCreationDialog(
+                self.dataset_names,
+                self.localize,
+                self
+            )
+            print("[DEBUG] ✅ Dialog created successfully!")
+            print(f"[DEBUG] Dialog title: {dialog.windowTitle()}")
+            print("\n[DEBUG] Step 3: Calling dialog.exec()...")
+            
+            from PySide6.QtWidgets import QDialog
+            result = dialog.exec()
+            print("\n[DEBUG] Step 4: Dialog closed")
+            print(f"[DEBUG] Result: {result} (Accepted={QDialog.Accepted})")
+            
+            if result == QDialog.Accepted:
+                print("\n[DEBUG] ✅ Dialog was ACCEPTED")
+                assignments = dialog.get_assignments()
+                print(f"[DEBUG] Assignments: {assignments}")
+                
+                if assignments:
+                    # Clear existing groups first (keep Unassigned)
+                    root = self.tree.invisibleRootItem()
+                    items_to_remove = []
+                    for i in range(root.childCount()):
+                        item = root.child(i)
+                        if item != self.unassigned_root:
+                            items_to_remove.append(item)
+                    
+                    for item in items_to_remove:
+                        root.removeChild(item)
+                    
+                    # Create groups and assign datasets
+                    for group_name, dataset_list in assignments.items():
+                        print(f"[DEBUG] Creating group '{group_name}' with {len(dataset_list)} datasets")
+                        
+                        # Create group
+                        group_item = self.add_group(group_name)
+                        
+                        # Move datasets from Unassigned to this group
+                        for dataset_name in dataset_list:
+                            # Find dataset in Unassigned
+                            for i in range(self.unassigned_root.childCount()):
+                                item = self.unassigned_root.child(i)
+                                if item.text(0) == dataset_name:
+                                    # Move to group
+                                    cloned_item = item.clone()
+                                    self.unassigned_root.removeChild(item)
+                                    group_item.addChild(cloned_item)
+                                    break
+                    
+                    # Show success message
+                    from PySide6.QtWidgets import QMessageBox
+                    total_assigned = sum(len(datasets) for datasets in assignments.values())
+                    QMessageBox.information(
+                        self,
+                        "Groups Created",
+                        f"Successfully created {len(assignments)} group(s) with {total_assigned} dataset(s) assigned.\n\n"
+                        + "\n".join([f"• {name}: {len(datasets)} dataset(s)" for name, datasets in assignments.items()])
+                    )
+                else:
+                    print("[DEBUG] No assignments returned")
+            else:
+                print("\n[DEBUG] ❌ Dialog was CANCELLED/REJECTED")
+                
+        except Exception as e:
+            print(f"\n[ERROR] ❌ Exception in _open_multi_group_dialog: {e}")
+            print(f"[ERROR] Exception type: {type(e).__name__}")
+            import traceback
+            print("[ERROR] Full traceback:")
+            traceback.print_exc()
+            
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"An error occurred:\n{str(e)}\n\nPlease check console for details."
+            )
+        finally:
+            print("\n" + "="*70)
+            print("[DEBUG] 🏁 _open_multi_group_dialog completed (GroupTreeManager)")
+            print("="*70 + "\n")
+    
+    def _old_create_group_dialog_DISABLED(self):
+        """OLD METHOD - DISABLED - Use _open_multi_group_dialog instead."""
         dialog = QInputDialog(self)
         dialog.setWindowTitle(self.localize("ANALYSIS_PAGE.create_group_title") if self.localize else "Create Group")
         dialog.setLabelText(self.localize("ANALYSIS_PAGE.group_name_label") if self.localize else "Group Name:")

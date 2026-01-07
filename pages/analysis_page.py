@@ -234,7 +234,7 @@ class AnalysisPage(QWidget):
         
         # Connect export buttons (plot export via matplotlib toolbar)
         results_panel = self.method_view.results_panel
-        results_panel.export_data_btn.clicked.connect(self.method_view._handle_export_csv)
+        results_panel.export_data_btn.clicked.connect(self._export_data_multi_format)
         
         self.view_stack.addWidget(self.method_view)
         self.view_stack.setCurrentWidget(self.method_view)
@@ -346,6 +346,10 @@ class AnalysisPage(QWidget):
         self.method_view.run_btn.setEnabled(False)
         self.method_view.run_btn.setText(self.localize("ANALYSIS_PAGE.running"))
         
+        # Show loading overlay on results panel
+        if hasattr(self.method_view.results_panel, 'show_loading'):
+            self.method_view.results_panel.show_loading()
+        
         # Create and start analysis thread
         # AnalysisThread expects dataset_data as Dict[str, pd.DataFrame]
         self.analysis_thread = AnalysisThread(
@@ -384,6 +388,10 @@ class AnalysisPage(QWidget):
         # Re-enable run button
         self.method_view.run_btn.setEnabled(True)
         self.method_view.run_btn.setText(self.localize("ANALYSIS_PAGE.start_analysis_button"))
+        
+        # Hide loading overlay
+        if hasattr(self.method_view.results_panel, 'hide_loading'):
+            self.method_view.results_panel.hide_loading()
         
         # Store result
         self.current_result = result
@@ -433,6 +441,10 @@ class AnalysisPage(QWidget):
         if self.method_view:
             self.method_view.run_btn.setEnabled(True)
             self.method_view.run_btn.setText(self.localize("ANALYSIS_PAGE.start_analysis_button"))
+            
+            # Hide loading overlay
+            if hasattr(self.method_view.results_panel, 'hide_loading'):
+                self.method_view.results_panel.hide_loading()
         
         # Show error dialog
         QMessageBox.critical(
@@ -640,6 +652,21 @@ class AnalysisPage(QWidget):
         filename = f"{method_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
         
         self.export_manager.export_data_csv(self.current_result.data_table, filename)
+    
+    def _export_data_multi_format(self):
+        """Export current data table in multiple formats (CSV, Excel, JSON, etc.)."""
+        if not self.current_result or self.current_result.data_table is None:
+            QMessageBox.warning(
+                self,
+                self.localize("ANALYSIS_PAGE.export_error_title"),
+                self.localize("ANALYSIS_PAGE.no_data_to_export")
+            )
+            return
+        
+        method_name = ANALYSIS_METHODS[self.current_category][self.current_method_key]["name"]
+        filename = f"{method_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        self.export_manager.export_data_multi_format(self.current_result.data_table, filename)
     
     def export_full_report(self):
         """Export complete analysis report (public method for external calls)."""

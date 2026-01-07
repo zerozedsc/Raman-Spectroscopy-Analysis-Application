@@ -124,10 +124,16 @@ class GroupAssignmentTable(QWidget):
         
         toolbar.addSeparator()
         
-        # Add custom group action
-        custom_group_action = toolbar.addAction("➕ Create Group")
-        custom_group_action.setToolTip("Create a custom group label")
-        custom_group_action.triggered.connect(self._add_custom_group)
+        # Multi-group creation action (NEW - replaces old single-input dialog)
+        print("[DEBUG] ========== INITIALIZING CREATE GROUPS BUTTON ==========")
+        multi_group_action = toolbar.addAction("➕ Create Groups")
+        multi_group_action.setToolTip("Create multiple groups at once with keyword patterns")
+        print(f"[DEBUG] Button created: {multi_group_action}")
+        print(f"[DEBUG] Button text: {multi_group_action.text()}")
+        print(f"[DEBUG] Connecting to method: _on_create_groups_clicked")
+        multi_group_action.triggered.connect(self._on_create_groups_clicked)
+        print(f"[DEBUG] Connection successful!")
+        print("[DEBUG] ==========================================================")
         
         main_layout.addWidget(toolbar)
         
@@ -495,7 +501,108 @@ class GroupAssignmentTable(QWidget):
             self.groups_changed.emit(self.get_groups())
     
     def _add_custom_group(self):
-        """Add a custom group label to all dropdowns."""
+        """
+        Legacy method - now redirects to multi-group dialog.
+        Kept for backward compatibility in case called from elsewhere.
+        """
+        print("[DEBUG] _add_custom_group called - redirecting to multi-group dialog")
+        self._on_create_groups_clicked()
+    
+    def _on_create_groups_clicked(self):
+        """Handler for Create Groups button click."""
+        print("\n" + "="*70)
+        print("[DEBUG] ➕ CREATE GROUPS BUTTON CLICKED!")
+        print("[DEBUG] Timestamp:", __import__('datetime').datetime.now())
+        print("[DEBUG] Method: _on_create_groups_clicked")
+        print("[DEBUG] Instance:", self)
+        print("[DEBUG] Instance class:", self.__class__.__name__)
+        print("="*70 + "\n")
+        self._open_multi_group_dialog()
+    
+    def _open_multi_group_dialog(self):
+        """Open the multi-group creation dialog."""
+        print("\n" + "="*70)
+        print("[DEBUG] 🚀 OPENING MULTI-GROUP DIALOG")
+        print("="*70)
+        print("[DEBUG] Step 1: Attempting to import MultiGroupCreationDialog...")
+        print("[DEBUG] Import path: .multi_group_dialog")
+        try:
+            from .multi_group_dialog import MultiGroupCreationDialog
+            print("[DEBUG] ✅ MultiGroupCreationDialog imported successfully!")
+            print("[DEBUG] Class:", MultiGroupCreationDialog)
+        except Exception as e:
+            print(f"[ERROR] ❌ Failed to import MultiGroupCreationDialog: {e}")
+            print("[ERROR] Exception type:", type(e).__name__)
+            import traceback
+            print("[ERROR] Full traceback:")
+            traceback.print_exc()
+            QMessageBox.critical(
+                self,
+                "Import Error",
+                f"Failed to import multi-group dialog:\n{str(e)}\n\nPlease check console for details."
+            )
+            return
+        
+        try:
+            print("\n[DEBUG] Step 2: Creating dialog instance...")
+            print(f"[DEBUG] Dataset count: {len(self.dataset_names)}")
+            print(f"[DEBUG] Localize function: {self.localize_func}")
+            dialog = MultiGroupCreationDialog(
+                self.dataset_names,
+                self.localize_func,
+                self
+            )
+            print("[DEBUG] ✅ Dialog created successfully!")
+            print(f"[DEBUG] Dialog title: {dialog.windowTitle()}")
+            print("\n[DEBUG] Step 3: Calling dialog.exec()...")
+            
+            result = dialog.exec()
+            print("\n[DEBUG] Step 4: Dialog closed")
+            print(f"[DEBUG] Result: {result} (Accepted={QDialog.Accepted})")
+            
+            if result == QDialog.Accepted:
+                print("\n[DEBUG] ✅ Dialog was ACCEPTED")
+                assignments = dialog.get_assignments()
+                print(f"[DEBUG] Assignments: {assignments}")
+                
+                if assignments:
+                    # Apply assignments using set_groups
+                    self.set_groups(assignments)
+                    
+                    # Show success message
+                    total_assigned = sum(len(datasets) for datasets in assignments.values())
+                    QMessageBox.information(
+                        self,
+                        "Groups Created",
+                        f"Successfully created {len(assignments)} group(s) with {total_assigned} dataset(s) assigned.\n\n"
+                        + "\n".join([f"• {name}: {len(datasets)} dataset(s)" for name, datasets in assignments.items()])
+                    )
+                    
+                    self._update_summary()
+                    self.groups_changed.emit(self.get_groups())
+                else:
+                    print("[DEBUG] No assignments returned")
+            else:
+                print("\n[DEBUG] ❌ Dialog was CANCELLED/REJECTED")
+                
+        except Exception as e:
+            print(f"\n[ERROR] ❌ Exception in _open_multi_group_dialog: {e}")
+            print(f"[ERROR] Exception type: {type(e).__name__}")
+            import traceback
+            print("[ERROR] Full traceback:")
+            traceback.print_exc()
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"An error occurred:\n{str(e)}\n\nPlease check console for details."
+            )
+        finally:
+            print("\n" + "="*70)
+            print("[DEBUG] 🏁 _open_multi_group_dialog completed")
+            print("="*70 + "\n")
+    
+    def _old_add_custom_group_DISABLED(self):
+        """OLD METHOD - DISABLED - Use _on_create_groups_clicked instead."""
         from PySide6.QtWidgets import QInputDialog
         
         text, ok = QInputDialog.getText(

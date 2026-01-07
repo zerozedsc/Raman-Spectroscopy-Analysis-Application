@@ -27,6 +27,7 @@ from utils import PROJECT_MANAGER
 from .methods.exploratory import create_spectrum_preview_figure
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy import stats
 
 
 # =============================================================================
@@ -58,10 +59,11 @@ class CheckableComboBox(QComboBox):
                 min-width: 140px;
             }
             QComboBox:hover { border-color: #0078d4; }
-            QComboBox::drop-down { border: none; width: 24px; }
+            QComboBox::drop-down { border: none; width: 24px; background-color: white; }
             QComboBox QAbstractItemView {
                 border: 1px solid #ced4da;
-                selection-background-color: transparent;
+                selection-background-color: #e3f2fd;
+                background-color: white;
             }
         """)
     
@@ -347,7 +349,7 @@ def _v1_create_method_view(
     
     # Add professional hint label
     if dataset_selection_mode == "multi":
-        hint_label = QLabel("💡 <b>Unsupervised Mode:</b> Select multiple datasets for combined analysis. Click checkboxes or use 'Select All' below.")
+        hint_label = QLabel(localize_func("ANALYSIS_PAGE.unsupervised_mode_hint"))
         hint_label.setWordWrap(True)
         hint_label.setStyleSheet("""
             font-size: 12px;
@@ -441,7 +443,7 @@ def _v1_create_method_view(
         toolbar_layout = QHBoxLayout()
         toolbar_layout.setContentsMargins(8, 8, 8, 4)
         
-        select_all_checkbox = QCheckBox("Select All")
+        select_all_checkbox = QCheckBox(localize_func("ANALYSIS_PAGE.select_all"))
         select_all_checkbox.setObjectName("selectAllCheckbox")
         select_all_checkbox.setStyleSheet("""
             QCheckBox {
@@ -795,7 +797,14 @@ def _v1_create_results_panel(localize_func: Callable) -> QWidget:
         }
     """)
     
-    layout = QVBoxLayout(results_panel)
+    # Create a stacked layout to support loading overlay
+    from PySide6.QtWidgets import QStackedLayout
+    stacked_layout = QStackedLayout(results_panel)
+    stacked_layout.setStackingMode(QStackedLayout.StackAll)
+    
+    # Main results widget (index 0)
+    main_widget = QWidget()
+    layout = QVBoxLayout(main_widget)
     layout.setContentsMargins(24, 24, 24, 24)
     layout.setSpacing(16)
     
@@ -858,10 +867,51 @@ def _v1_create_results_panel(localize_func: Callable) -> QWidget:
     
     layout.addWidget(tab_widget)
     
+    # Add main widget to stacked layout
+    stacked_layout.addWidget(main_widget)
+    
+    # Loading overlay widget (index 1) - semi-transparent gray overlay
+    loading_overlay = QWidget()
+    loading_overlay.setStyleSheet("""
+        QWidget {
+            background-color: rgba(255, 255, 255, 0.85);
+        }
+    """)
+    loading_overlay_layout = QVBoxLayout(loading_overlay)
+    loading_overlay_layout.setAlignment(Qt.AlignCenter)
+    
+    loading_label = QLabel("⏳ Analyzing...")
+    loading_label.setStyleSheet("""
+        font-size: 18px;
+        font-weight: 600;
+        color: #0078d4;
+        background-color: white;
+        padding: 20px 40px;
+        border-radius: 8px;
+        border: 2px solid #0078d4;
+    """)
+    loading_label.setAlignment(Qt.AlignCenter)
+    loading_overlay_layout.addWidget(loading_label)
+    
+    stacked_layout.addWidget(loading_overlay)
+    loading_overlay.setVisible(False)  # Hidden by default
+    
     # Store references for external access
     results_panel.tab_widget = tab_widget
     results_panel.export_data_btn = export_data_btn
     results_panel.results_title = results_title
+    results_panel.loading_overlay = loading_overlay
+    
+    # Add helper methods to show/hide loading
+    def show_loading():
+        loading_overlay.setVisible(True)
+        loading_overlay.raise_()
+    
+    def hide_loading():
+        loading_overlay.setVisible(False)
+    
+    results_panel.show_loading = show_loading
+    results_panel.hide_loading = hide_loading
     
     return results_panel
 
@@ -1009,11 +1059,12 @@ class DatasetSelectionWidget(QWidget):
                     color: #2c3e50;
                 }
                 QComboBox:hover { border-color: #0078d4; }
-                QComboBox::drop-down { border: none; width: 24px; }
+                QComboBox::drop-down { border: none; width: 24px; background-color: white; }
                 QComboBox QAbstractItemView {
                     border: 1px solid #ced4da;
                     selection-background-color: #e3f2fd;
                     selection-color: #1976d2;
+                    background-color: white;
                 }
             """)
             layout.addWidget(self.simple_input)
@@ -1041,7 +1092,7 @@ class DatasetSelectionWidget(QWidget):
             tb_layout = QHBoxLayout(toolbar)
             tb_layout.setContentsMargins(12, 8, 12, 8)
             
-            self.select_all_cb = QCheckBox("Select All")
+            self.select_all_cb = QCheckBox(self.localize("ANALYSIS_PAGE.select_all") if self.localize else "Select All")
             self.select_all_cb.setCursor(Qt.PointingHandCursor)
             self.select_all_cb.setStyleSheet("""
                 QCheckBox { font-size: 13px; font-weight: 500; color: #495057; }
@@ -1493,7 +1544,7 @@ class MethodView(QWidget):
         selected_data = self.dataset_widget.get_selection()
         
         if not selected_data:
-            QMessageBox.warning(self, "Input Error", "Please select at least one dataset.")
+            QMessageBox.warning(self, localize_func("ANALYSIS_PAGE.input_error_title"), localize_func("ANALYSIS_PAGE.input_error_no_dataset"))
             return
             
         # 2. Get Parameters (Pass the widget itself, logic handled downstream)
@@ -1539,6 +1590,9 @@ def populate_results_tabs(
     """
     tab_widget = results_panel.tab_widget
     
+    # PRESERVE current tab index before clearing tabs
+    current_tab_index = tab_widget.currentIndex() if tab_widget.count() > 0 else 0
+    
     # Clear existing tabs
     while tab_widget.count() > 0:
         tab_widget.removeTab(0)
@@ -1546,41 +1600,76 @@ def populate_results_tabs(
     # Show CSV export button (plot export via matplotlib toolbar)
     results_panel.export_data_btn.setVisible(True)
     
-    # === Tab 0: Spectrum Preview with Controls (Horizontal Layout) ===
+    # === Tab 0: Spectrum Preview with Collapsible Display Options Sidebar ===
     if result.dataset_data:
         try:
-            # Create container with HORIZONTAL layout (controls LEFT, plot RIGHT)
+            # Create main container
             spectrum_container = QWidget()
-            spectrum_main_layout = QHBoxLayout(spectrum_container)
-            spectrum_main_layout.setContentsMargins(8, 8, 8, 8)
-            spectrum_main_layout.setSpacing(12)
+            spectrum_main_layout = QVBoxLayout(spectrum_container)
+            spectrum_main_layout.setContentsMargins(0, 0, 0, 0)
+            spectrum_main_layout.setSpacing(0)
             
-            # LEFT SIDE: Controls panel
-            spectrum_controls = QFrame()
-            spectrum_controls.setFixedWidth(180)
-            spectrum_controls.setStyleSheet("""
+            # TOP: Toolbar with toggle button
+            toolbar_widget = QWidget()
+            toolbar_layout = QHBoxLayout(toolbar_widget)
+            toolbar_layout.setContentsMargins(8, 4, 8, 4)
+            toolbar_layout.setSpacing(8)
+            toolbar_widget.setStyleSheet("background-color: #f8f9fa; border-bottom: 1px solid #e0e0e0;")
+            
+            toggle_btn = QPushButton(localize_func("ANALYSIS_PAGE.display_options_button"))
+            toggle_btn.setCheckable(True)
+            toggle_btn.setChecked(False)  # Collapsed by default
+            toggle_btn.setStyleSheet("""
+                QPushButton {
+                    padding: 6px 12px;
+                    background-color: #0078d4;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    font-size: 11px;
+                    font-weight: bold;
+                }
+                QPushButton:hover { background-color: #005a9e; }
+                QPushButton:checked { background-color: #005a9e; }
+            """)
+            toolbar_layout.addWidget(toggle_btn)
+            toolbar_layout.addStretch()
+            
+            spectrum_main_layout.addWidget(toolbar_widget)
+            
+            # BOTTOM: Horizontal layout with collapsible sidebar
+            content_widget = QWidget()
+            content_layout = QHBoxLayout(content_widget)
+            content_layout.setContentsMargins(0, 0, 0, 0)
+            content_layout.setSpacing(0)
+            
+            # LEFT: Collapsible Sidebar
+            sidebar = QFrame()
+            sidebar.setFixedWidth(220)
+            sidebar.setVisible(False)  # Hidden by default
+            sidebar.setStyleSheet("""
                 QFrame {
                     background-color: #f8f9fa;
-                    border: 1px solid #e0e0e0;
-                    border-radius: 6px;
+                    border-right: 1px solid #e0e0e0;
                 }
             """)
-            controls_layout = QVBoxLayout(spectrum_controls)
-            controls_layout.setContentsMargins(12, 12, 12, 12)
-            controls_layout.setSpacing(8)
+            sidebar_layout = QVBoxLayout(sidebar)
+            sidebar_layout.setContentsMargins(12, 12, 12, 12)
+            sidebar_layout.setSpacing(10)
             
             # Title
-            title_label = QLabel("📊 Display Options")
+            title_label = QLabel("📊 " + localize_func("ANALYSIS_PAGE.display_mode").rstrip(":"))
             title_label.setStyleSheet("font-weight: bold; font-size: 12px; color: #2c3e50; border: none;")
-            controls_layout.addWidget(title_label)
+            sidebar_layout.addWidget(title_label)
             
-            # Display mode combo
-            mode_label = QLabel("Show:")
-            mode_label.setStyleSheet("font-size: 11px; color: #495057; border: none;")
-            controls_layout.addWidget(mode_label)
+            # Display mode section
+            mode_label = QLabel(localize_func("ANALYSIS_PAGE.display_mode"))
+            mode_label.setStyleSheet("font-size: 11px; color: #495057; border: none; font-weight: bold;")
+            sidebar_layout.addWidget(mode_label)
             
             mode_combo = QComboBox()
-            mode_combo.addItems(["Mean Spectra", "All Spectra"])
+            mode_combo.addItems([localize_func("ANALYSIS_PAGE.display_mode_mean"), 
+                                localize_func("ANALYSIS_PAGE.display_mode_all")])
             mode_combo.setStyleSheet("""
                 QComboBox {
                     padding: 6px 10px;
@@ -1591,77 +1680,156 @@ def populate_results_tabs(
                 }
                 QComboBox:hover { border-color: #0078d4; }
             """)
-            controls_layout.addWidget(mode_combo)
+            sidebar_layout.addWidget(mode_combo)
             
             # Separator
-            sep = QFrame()
-            sep.setFrameShape(QFrame.HLine)
-            sep.setStyleSheet("border: none; background-color: #e0e0e0; max-height: 1px;")
-            controls_layout.addWidget(sep)
+            sep1 = QFrame()
+            sep1.setFrameShape(QFrame.HLine)
+            sep1.setStyleSheet("border: none; background-color: #dee2e6; max-height: 1px;")
+            sidebar_layout.addWidget(sep1)
             
-            # Individual spectrum selector
-            single_label = QLabel("Or select single:")
-            single_label.setStyleSheet("font-size: 11px; color: #495057; border: none;")
-            controls_layout.addWidget(single_label)
+            # Dataset selection section
+            dataset_label = QLabel(localize_func("ANALYSIS_PAGE.select_datasets_to_show"))
+            dataset_label.setStyleSheet("font-size: 11px; color: #495057; border: none; font-weight: bold;")
+            sidebar_layout.addWidget(dataset_label)
             
-            spectrum_list = QListWidget()
-            spectrum_list.setMaximumHeight(150)
-            spectrum_list.setStyleSheet("""
-                QListWidget {
+            # "Select All" checkbox
+            select_all_cb = QCheckBox(localize_func("ANALYSIS_PAGE.select_all"))
+            select_all_cb.setChecked(True)  # All selected by default
+            select_all_cb.setStyleSheet("""
+                QCheckBox {
+                    font-size: 11px;
+                    color: #0078d4;
+                    font-weight: bold;
+                    border: none;
+                    padding: 4px;
+                }
+                QCheckBox:checked {
+                    background-color: #e3f2fd;
+                    border-radius: 3px;
+                }
+            """)
+            sidebar_layout.addWidget(select_all_cb)
+            
+            # Scrollable checkbox list for datasets
+            dataset_scroll = QScrollArea()
+            dataset_scroll.setWidgetResizable(True)
+            dataset_scroll.setStyleSheet("""
+                QScrollArea {
                     border: 1px solid #ced4da;
                     border-radius: 4px;
                     background-color: white;
-                    font-size: 10px;
                 }
-                QListWidget::item { padding: 4px; }
-                QListWidget::item:selected { background-color: #e3f2fd; color: #0078d4; }
             """)
+            dataset_scroll.setMaximumHeight(200)
             
-            # Populate with dataset names and spectrum count
+            dataset_list_widget = QWidget()
+            dataset_list_layout = QVBoxLayout(dataset_list_widget)
+            dataset_list_layout.setContentsMargins(8, 8, 8, 8)
+            dataset_list_layout.setSpacing(6)
+            
+            # Create checkboxes for each dataset
+            dataset_checkboxes = []
             for ds_name, df in result.dataset_data.items():
                 n_spectra = df.shape[1]
-                spectrum_list.addItem(f"📁 {ds_name} ({n_spectra} spectra)")
+                cb = QCheckBox(f"{ds_name} ({n_spectra} spectra)")
+                cb.setChecked(True)  # All checked by default
+                cb.setStyleSheet("""
+                    QCheckBox { 
+                        font-size: 10px; 
+                        color: #495057; 
+                        border: none; 
+                        padding: 4px;
+                    }
+                    QCheckBox:checked {
+                        background-color: #e3f2fd;
+                        border-radius: 3px;
+                    }
+                """)
+                cb.dataset_name = ds_name  # Store dataset name for later use
+                dataset_checkboxes.append(cb)
+                dataset_list_layout.addWidget(cb)
             
-            controls_layout.addWidget(spectrum_list)
-            controls_layout.addStretch()
+            dataset_list_layout.addStretch()
+            dataset_scroll.setWidget(dataset_list_widget)
+            sidebar_layout.addWidget(dataset_scroll)
             
-            spectrum_main_layout.addWidget(spectrum_controls)
+            sidebar_layout.addStretch()
+            content_layout.addWidget(sidebar)
             
-            # RIGHT SIDE: Plot
+            # RIGHT: Plot area
             spectrum_tab = matplotlib_widget_class()
             spectrum_fig = create_spectrum_preview_figure(result.dataset_data)
             spectrum_tab.update_plot(spectrum_fig)
-            spectrum_main_layout.addWidget(spectrum_tab, 1)
+            content_layout.addWidget(spectrum_tab, 1)
             
-            # Update logic for display mode changes
+            spectrum_main_layout.addWidget(content_widget, 1)
+            
+            # Toggle sidebar visibility
+            def toggle_sidebar():
+                sidebar.setVisible(toggle_btn.isChecked())
+            
+            toggle_btn.toggled.connect(toggle_sidebar)
+            
+            # Select All logic
+            def on_select_all_changed(state):
+                # Use explicit CheckState comparison for robustness
+                is_checked = (state == Qt.CheckState.Checked) or (int(state) == 2)
+                print(f"[DEBUG] Select All changed: state={state}, state_type={type(state)}, state_int={int(state)}, is_checked={is_checked}, num_checkboxes={len(dataset_checkboxes)}")
+                for cb in dataset_checkboxes:
+                    cb.setChecked(is_checked)
+                # Verify result
+                checked_count = sum(1 for cb in dataset_checkboxes if cb.isChecked())
+                print(f"[DEBUG] After Select All: {checked_count}/{len(dataset_checkboxes)} datasets selected")
+            
+            select_all_cb.stateChanged.connect(on_select_all_changed)
+            
+            # Prevent unchecking the last selected checkbox
+            def on_dataset_checkbox_changed():
+                checked_count = sum(1 for cb in dataset_checkboxes if cb.isChecked())
+                # If only one checkbox is checked, disable unchecking it
+                if checked_count == 1:
+                    for cb in dataset_checkboxes:
+                        if cb.isChecked():
+                            cb.blockSignals(True)
+                            cb.setChecked(True)  # Force it to stay checked
+                            cb.blockSignals(False)
+            
+            # Update plot when any selection changes
             def update_spectrum_display():
                 try:
                     mode = mode_combo.currentText()
-                    selected_items = spectrum_list.selectedItems()
+                    # Check for localized "All Spectra" text
+                    show_all = (mode == localize_func("ANALYSIS_PAGE.display_mode_all") or mode == "All Spectra")
                     
-                    if selected_items:
-                        # Single dataset selected
-                        selected_text = selected_items[0].text()
-                        # Extract dataset name from "📁 name (N spectra)"
-                        ds_name = selected_text.split(" (")[0].replace("📁 ", "")
-                        if ds_name in result.dataset_data:
-                            single_data = {ds_name: result.dataset_data[ds_name]}
-                            fig = create_spectrum_preview_figure(single_data, show_all=(mode == "All Spectra"))
-                            spectrum_tab.update_plot(fig)
-                            plt.close(fig)
-                    else:
-                        # All datasets
-                        fig = create_spectrum_preview_figure(result.dataset_data, show_all=(mode == "All Spectra"))
-                        spectrum_tab.update_plot(fig)
-                        plt.close(fig)
-                        
+                    # Get selected datasets
+                    selected_datasets = {}
+                    for cb in dataset_checkboxes:
+                        if cb.isChecked():
+                            ds_name = cb.dataset_name
+                            if ds_name in result.dataset_data:
+                                selected_datasets[ds_name] = result.dataset_data[ds_name]
+                    
+                    # Prevent unselecting last item
+                    if not selected_datasets:
+                        on_dataset_checkbox_changed()
+                        return
+                    
+                    # Generate figure
+                    fig = create_spectrum_preview_figure(selected_datasets, show_all=show_all)
+                    spectrum_tab.update_plot(fig)
+                    plt.close(fig)
+                    
                 except Exception as e:
                     print(f"[ERROR] Failed to update spectrum preview: {e}")
             
+            # Connect all checkboxes
+            for cb in dataset_checkboxes:
+                cb.stateChanged.connect(on_dataset_checkbox_changed)
+                cb.stateChanged.connect(update_spectrum_display)
             mode_combo.currentIndexChanged.connect(update_spectrum_display)
-            spectrum_list.itemSelectionChanged.connect(update_spectrum_display)
             
-            tab_widget.addTab(spectrum_container, "📈 Spectrum Preview")
+            tab_widget.addTab(spectrum_container, "📈 " + localize_func("ANALYSIS_PAGE.spectrum_preview_tab"))
         except Exception as e:
             print(f"[ERROR] Failed to create spectrum preview: {e}")
     
@@ -1690,71 +1858,253 @@ def populate_results_tabs(
             score_tab = matplotlib_widget_class()
             score_tab.update_plot(result.primary_figure)
             score_tab.setMinimumHeight(400)
-            tab_widget.addTab(score_tab, "📈 Score Plot")
+            tab_widget.addTab(score_tab, "📈 " + localize_func("ANALYSIS_PAGE.score_plot_tab"))
         
         # Tab 2: Scree Plot
         if scree_figure:
             scree_tab = matplotlib_widget_class()
             scree_tab.update_plot(scree_figure)
             scree_tab.setMinimumHeight(400)
-            tab_widget.addTab(scree_tab, "📊 Scree Plot")
+            tab_widget.addTab(scree_tab, "📊 " + localize_func("ANALYSIS_PAGE.scree_plot_tab"))
         
-        # Tab 3: Loading Plot with Component Selection (Controls on LEFT)
+        # Tab 3: Loading Plot with 2-Column Grid and Collapsible Component Selector
         if loadings_figure and "pca_model" in result.raw_results:
-            # Create container with HORIZONTAL layout (controls LEFT, plot RIGHT)
+            # Create main container
             loading_container = QWidget()
-            loading_main_layout = QHBoxLayout(loading_container)
-            loading_main_layout.setContentsMargins(8, 8, 8, 8)
-            loading_main_layout.setSpacing(12)
+            loading_main_layout = QVBoxLayout(loading_container)
+            loading_main_layout.setContentsMargins(0, 0, 0, 0)
+            loading_main_layout.setSpacing(0)
             
-            # LEFT SIDE: Controls panel
-            controls_panel = QFrame()
-            controls_panel.setFixedWidth(180)
-            controls_panel.setStyleSheet("""
+            # TOP: Toolbar with toggle button
+            toolbar_widget = QWidget()
+            toolbar_layout = QHBoxLayout(toolbar_widget)
+            toolbar_layout.setContentsMargins(8, 4, 8, 4)
+            toolbar_layout.setSpacing(8)
+            toolbar_widget.setStyleSheet("background-color: #f8f9fa; border-bottom: 1px solid #e0e0e0;")
+            
+            toggle_loading_btn = QPushButton(localize_func("ANALYSIS_PAGE.show_components_button_loading"))
+            toggle_loading_btn.setCheckable(True)
+            toggle_loading_btn.setChecked(False)  # Collapsed by default
+            toggle_loading_btn.setStyleSheet("""
+                QPushButton {
+                    padding: 6px 12px;
+                    background-color: #0078d4;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    font-size: 11px;
+                    font-weight: bold;
+                }
+                QPushButton:hover { background-color: #005a9e; }
+                QPushButton:checked { background-color: #005a9e; }
+            """)
+            toolbar_layout.addWidget(toggle_loading_btn)
+            toolbar_layout.addStretch()
+            
+            loading_main_layout.addWidget(toolbar_widget)
+            
+            # BOTTOM: Horizontal layout with collapsible sidebar
+            content_widget = QWidget()
+            content_layout = QHBoxLayout(content_widget)
+            content_layout.setContentsMargins(0, 0, 0, 0)
+            content_layout.setSpacing(0)
+            
+            # LEFT: Collapsible Sidebar
+            loading_sidebar = QFrame()
+            loading_sidebar.setFixedWidth(220)
+            loading_sidebar.setVisible(False)  # Hidden by default
+            loading_sidebar.setStyleSheet("""
                 QFrame {
                     background-color: #f8f9fa;
-                    border: 1px solid #e0e0e0;
-                    border-radius: 6px;
+                    border-right: 1px solid #e0e0e0;
                 }
             """)
-            controls_layout = QVBoxLayout(controls_panel)
-            controls_layout.setContentsMargins(12, 12, 12, 12)
-            controls_layout.setSpacing(8)
+            sidebar_layout = QVBoxLayout(loading_sidebar)
+            sidebar_layout.setContentsMargins(12, 12, 12, 12)
+            sidebar_layout.setSpacing(10)
             
             # Title
-            title_label = QLabel("🔧 Show Components")
-            title_label.setStyleSheet("font-weight: bold; font-size: 12px; color: #2c3e50; border: none;")
-            controls_layout.addWidget(title_label)
-            
-            # Component checkable combo (max 4)
-            pca_model = result.raw_results["pca_model"]
-            n_comps = min(pca_model.n_components_, 10)  # Limit displayed options
-            
-            comp_combo = CheckableComboBox(max_items=4)
-            for i in range(n_comps):
-                comp_combo.addCheckableItem(f"PC{i+1}", checked=(i < 2))  # Default: PC1, PC2
-            comp_combo._update_display_text()
-            controls_layout.addWidget(comp_combo)
+            comp_title_label = QLabel(localize_func("ANALYSIS_PAGE.select_components_loading"))
+            comp_title_label.setStyleSheet("font-weight: bold; font-size: 12px; color: #2c3e50; border: none;")
+            sidebar_layout.addWidget(comp_title_label)
             
             # Info label
-            info_label = QLabel("Select up to 4 components")
+            info_label = QLabel(localize_func("ANALYSIS_PAGE.loading_plot_info"))
             info_label.setStyleSheet("font-size: 10px; color: #6c757d; border: none;")
-            controls_layout.addWidget(info_label)
+            info_label.setWordWrap(True)
+            sidebar_layout.addWidget(info_label)
             
-            controls_layout.addStretch()
-            loading_main_layout.addWidget(controls_panel)
+            # Get PCA model
+            pca_model = result.raw_results["pca_model"]
+            n_comps = min(pca_model.n_components_, 10)  # Limit to 10
             
-            # RIGHT SIDE: Plot
+            # "Select All" checkbox
+            select_all_loading_cb = QCheckBox(localize_func("ANALYSIS_PAGE.select_all"))
+            # Only enable Select All if total components <= 8
+            select_all_loading_cb.setEnabled(n_comps <= 8)
+            if n_comps > 8:
+                select_all_loading_cb.setToolTip(f"Cannot select all: {n_comps} components available, max 8 allowed")
+            select_all_loading_cb.setStyleSheet("""
+                QCheckBox {
+                    font-size: 11px;
+                    color: #0078d4;
+                    font-weight: bold;
+                    border: none;
+                    padding: 4px;
+                }
+                QCheckBox:checked {
+                    background-color: #e3f2fd;
+                    border-radius: 3px;
+                }
+                QCheckBox:disabled {
+                    color: #999999;
+                }
+            """)
+            sidebar_layout.addWidget(select_all_loading_cb)
+            
+            # Scrollable checkbox list for components
+            comp_scroll = QScrollArea()
+            comp_scroll.setWidgetResizable(True)
+            comp_scroll.setStyleSheet("""
+                QScrollArea {
+                    border: 1px solid #ced4da;
+                    border-radius: 4px;
+                    background-color: white;
+                }
+            """)
+            comp_scroll.setMaximumHeight(200)
+            
+            comp_list_widget = QWidget()
+            comp_list_layout = QVBoxLayout(comp_list_widget)
+            comp_list_layout.setContentsMargins(8, 8, 8, 8)
+            comp_list_layout.setSpacing(6)
+            
+            # Create checkboxes for each component
+            loading_checkboxes = []
+            loading_selection_order = []  # Track selection order for FIFO
+            for i in range(n_comps):
+                explained_var = pca_model.explained_variance_ratio_[i] * 100
+                cb = QCheckBox(f"PC{i+1} ({explained_var:.1f}%)")
+                cb.setChecked(i == 0)  # Default: only PC1 checked
+                cb.setStyleSheet("""
+                    QCheckBox { 
+                        font-size: 10px; 
+                        color: #495057; 
+                        border: none; 
+                        padding: 4px;
+                    }
+                    QCheckBox:checked {
+                        background-color: #e3f2fd;
+                        border-radius: 3px;
+                    }
+                """)
+                cb.pc_index = i  # Store PC index
+                loading_checkboxes.append(cb)
+                comp_list_layout.addWidget(cb)
+            
+            # Initialize selection order with default (PC1)
+            if loading_checkboxes:
+                loading_selection_order.append(loading_checkboxes[0])
+            
+            comp_list_layout.addStretch()
+            comp_scroll.setWidget(comp_list_widget)
+            sidebar_layout.addWidget(comp_scroll)
+            
+            sidebar_layout.addStretch()
+            content_layout.addWidget(loading_sidebar)
+            
+            # RIGHT: Plot area
             loading_tab = matplotlib_widget_class()
             loading_tab.update_plot(loadings_figure)
-            loading_main_layout.addWidget(loading_tab, 1)  # Stretch factor 1
+            content_layout.addWidget(loading_tab, 1)
             
-            # Update logic for multi-component selection
-            def update_loadings_multi():
+            loading_main_layout.addWidget(content_widget, 1)
+            
+            # Toggle sidebar visibility
+            def toggle_loading_sidebar():
+                loading_sidebar.setVisible(toggle_loading_btn.isChecked())
+            
+            toggle_loading_btn.toggled.connect(toggle_loading_sidebar)
+            
+            # Select All logic - only works if total components <= 8
+            def on_loading_select_all_changed(state):
+                # Use explicit CheckState comparison for robustness
+                is_checked = (state == Qt.CheckState.Checked) or (int(state) == 2)
+                print(f"[DEBUG] Loading Select All: state={state}, state_type={type(state)}, state_int={int(state)}, is_checked={is_checked}, total_components={len(loading_checkboxes)}")
+                # Only select all if within limit
+                if is_checked and len(loading_checkboxes) <= 8:
+                    print(f"[DEBUG] Selecting all {len(loading_checkboxes)} loading components")
+                    for cb in loading_checkboxes:
+                        cb.setChecked(True)
+                elif not is_checked:
+                    print(f"[DEBUG] Deselecting all loading components")
+                    for cb in loading_checkboxes:
+                        cb.setChecked(False)
+                else:
+                    print(f"[DEBUG] Cannot select all - too many components ({len(loading_checkboxes)} > 8)")
+                # Verify result
+                checked_count = sum(1 for cb in loading_checkboxes if cb.isChecked())
+                print(f"[DEBUG] After Loading Select All: {checked_count}/{len(loading_checkboxes)} selected")
+            
+            select_all_loading_cb.stateChanged.connect(on_loading_select_all_changed)
+            
+            # Prevent unchecking the last selected checkbox + FIFO logic
+            def on_loading_checkbox_changed():
+                checked_count = sum(1 for cb in loading_checkboxes if cb.isChecked())
+                
+                # FIFO Logic: If more than 8 selected, uncheck the first one
+                if checked_count > 8:
+                    # Find the first checked checkbox in selection order
+                    while loading_selection_order and not loading_selection_order[0].isChecked():
+                        loading_selection_order.pop(0)  # Remove unchecked items from order
+                    
+                    if loading_selection_order:
+                        first_cb = loading_selection_order.pop(0)
+                        first_cb.blockSignals(True)
+                        first_cb.setChecked(False)
+                        first_cb.blockSignals(False)
+                    
+                    # Recount after FIFO uncheck
+                    checked_count = sum(1 for cb in loading_checkboxes if cb.isChecked())
+                
+                # If only one checkbox is checked, keep it checked
+                if checked_count == 1:
+                    for cb in loading_checkboxes:
+                        if cb.isChecked():
+                            cb.blockSignals(True)
+                            cb.setChecked(True)  # Force it to stay checked
+                            cb.blockSignals(False)
+            
+            # Track selection order for FIFO
+            def track_loading_selection(cb):
+                def handler():
+                    if cb.isChecked():
+                        # Add to selection order if newly checked
+                        if cb not in loading_selection_order:
+                            loading_selection_order.append(cb)
+                    else:
+                        # Remove from selection order if unchecked
+                        if cb in loading_selection_order:
+                            loading_selection_order.remove(cb)
+                return handler
+            
+            # Update plot in 2-column grid when selection changes
+            def update_loadings_grid():
                 try:
-                    selected_indices = comp_combo.getCheckedIndices()
+                    # Get selected component indices
+                    selected_indices = []
+                    for cb in loading_checkboxes:
+                        if cb.isChecked():
+                            selected_indices.append(cb.pc_index)
+                    
+                    # Prevent unselecting last item
                     if not selected_indices:
+                        on_loading_checkbox_changed()
                         return
+                    
+                    # Limit to max 8 components
+                    selected_indices = selected_indices[:8]
+                    n_selected = len(selected_indices)
                     
                     # Get wavenumbers from dataset_data
                     if not result.dataset_data:
@@ -1763,77 +2113,414 @@ def populate_results_tabs(
                     first_df = next(iter(result.dataset_data.values()))
                     wavenumbers = first_df.index.values
                     
-                    # Create subplots for selected components
-                    n_selected = len(selected_indices)
-                    fig, axes = plt.subplots(n_selected, 1, figsize=(10, 3.5 * n_selected))
-                    if n_selected == 1:
-                        axes = [axes]
+                    # Calculate grid dimensions: 2 columns, dynamic rows
+                    # Examples: 8→4x2, 6→3x2, 5→3+2, 4→2x2, 3→2+1, 2→1x2, 1→1x1
+                    n_cols = 2 if n_selected > 1 else 1
+                    n_rows = (n_selected + 1) // 2
                     
-                    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728']
+                    # Create figure with 2-column grid - adjust title size when many plots
+                    fig = plt.figure(figsize=(12, 3 * n_rows))
                     
-                    for ax_idx, pc_idx in enumerate(selected_indices):
-                        ax = axes[ax_idx]
+                    # Dynamic color palette
+                    cmap = plt.get_cmap('tab20', max(n_selected, 10))
+                    colors = [cmap(i) for i in range(n_selected)]
+                    
+                    # Determine title fontsize based on number of subplots
+                    title_fontsize = 9 if n_selected > 4 else 11
+                    
+                    for subplot_idx, pc_idx in enumerate(selected_indices):
+                        # Calculate subplot position (1-indexed for matplotlib)
+                        ax = fig.add_subplot(n_rows, n_cols, subplot_idx + 1)
+                        
                         component = pca_model.components_[pc_idx]
                         explained_var = pca_model.explained_variance_ratio_[pc_idx] * 100
                         
-                        ax.plot(wavenumbers, component, color=colors[ax_idx % 4], linewidth=1.5)
+                        ax.plot(wavenumbers, component, color=colors[subplot_idx], linewidth=1.5)
                         ax.set_ylabel('Loading', fontsize=10)
-                        ax.set_title(f'PC{pc_idx+1} ({explained_var:.1f}%)', fontsize=11, fontweight='bold')
+                        ax.set_title(f'PC{pc_idx+1} ({explained_var:.1f}%)', fontsize=title_fontsize, fontweight='bold')
                         ax.grid(True, alpha=0.3)
                         ax.invert_xaxis()
                         ax.axhline(y=0, color='k', linestyle='--', linewidth=0.5, alpha=0.5)
-                        # Hide x-axis tick labels (wavenumbers) except for bottom plot
-                        if ax_idx < n_selected - 1:
-                            ax.tick_params(axis='x', labelbottom=False)
-                        else:
-                            ax.set_xlabel('Wavenumber (cm⁻¹)', fontsize=10)
                         
-                        # Annotate top peaks
+                        # Determine if this subplot is in the PHYSICAL bottom row
+                        # For 2-column layout: 
+                        # - If we have even number (e.g., 6): indices 4,5 are bottom (row 2)
+                        # - If we have odd number (e.g., 5): indices 4 is bottom of col 0, 5 would be bottom of col 1 if it existed
+                        # The key is: a subplot is at bottom if there's NO subplot below it in its column
+                        
+                        # Calculate which row this subplot is in (0-indexed)
+                        row_idx = subplot_idx // n_cols
+                        col_idx = subplot_idx % n_cols
+                        
+                        # Check if there's another row below this one
+                        # A subplot is at bottom if: row_idx == n_rows - 1
+                        # OR if it's the last subplot in an odd-numbered grid (special case)
+                        is_bottom_row = (row_idx == n_rows - 1)
+                        
+                        # Show x-axis labels and ticks only on bottom row
+                        if is_bottom_row:
+                            ax.set_xlabel('Wavenumber (cm⁻¹)', fontsize=10)
+                            ax.tick_params(axis='x', labelbottom=True, bottom=True)
+                        else:
+                            ax.set_xlabel('')  # Clear xlabel
+                            ax.tick_params(axis='x', labelbottom=False, bottom=False)
+                        
+                        # Annotate top 3 peaks
                         abs_loadings = np.abs(component)
                         top_indices = np.argsort(abs_loadings)[-3:]
                         for peak_idx in top_indices:
                             peak_wn = wavenumbers[peak_idx]
                             peak_val = component[peak_idx]
-                            ax.plot(peak_wn, peak_val, 'o', color=colors[ax_idx % 4], markersize=4)
+                            ax.plot(peak_wn, peak_val, 'o', color=colors[subplot_idx], markersize=5)
                     
                     fig.tight_layout()
                     loading_tab.update_plot(fig)
                     plt.close(fig)
                     
                 except Exception as e:
-                    print(f"[ERROR] Failed to update loadings plot: {e}")
-
-            # Connect to model changes
-            comp_combo._model.itemChanged.connect(update_loadings_multi)
+                    print(f"[ERROR] Failed to update loadings grid: {e}")
             
-            tab_widget.addTab(loading_container, "🔬 Loading Plot")
+            # Connect all checkboxes
+            for cb in loading_checkboxes:
+                cb.stateChanged.connect(track_loading_selection(cb))
+                cb.stateChanged.connect(on_loading_checkbox_changed)
+                cb.stateChanged.connect(update_loadings_grid)
+            
+            tab_widget.addTab(loading_container, "🔬 " + localize_func("ANALYSIS_PAGE.loading_plot_tab"))
         elif loadings_figure:
             # Fallback if no model
             loading_tab = matplotlib_widget_class()
             loading_tab.update_plot(loadings_figure)
             loading_tab.setMinimumHeight(400)
-            tab_widget.addTab(loading_tab, "🔬 Loading Plot")
+            tab_widget.addTab(loading_tab, "🔬 " + localize_func("ANALYSIS_PAGE.loading_plot_tab"))
         
         # Tab 4: Biplot
         if biplot_figure:
             biplot_tab = matplotlib_widget_class()
             biplot_tab.update_plot(biplot_figure)
             biplot_tab.setMinimumHeight(400)
-            tab_widget.addTab(biplot_tab, "🎯 Biplot")
+            tab_widget.addTab(biplot_tab, "🎯 " + localize_func("ANALYSIS_PAGE.biplot_tab"))
         
-        # Tab 5: Cumulative Variance
-        if cumulative_variance_figure:
-            cumvar_tab = matplotlib_widget_class()
-            cumvar_tab.update_plot(cumulative_variance_figure)
-            cumvar_tab.setMinimumHeight(400)
-            tab_widget.addTab(cumvar_tab, "📈 Cumulative Variance")
+        # Tab 5: Cumulative Variance - REMOVED (redundant with Scree Plot)
+        # if cumulative_variance_figure:
+        #     cumvar_tab = matplotlib_widget_class()
+        #     cumvar_tab.update_plot(cumulative_variance_figure)
+        #     cumvar_tab.setMinimumHeight(400)
+        #     tab_widget.addTab(cumvar_tab, "📈 Cumulative Variance")
         
-        # Bonus: Distributions (if available)
-        if distributions_figure:
+        # Tab 5: Distributions (with component selector)
+        if distributions_figure and "pca_model" in result.raw_results:
+            # Create main container
+            dist_container = QWidget()
+            dist_main_layout = QVBoxLayout(dist_container)
+            dist_main_layout.setContentsMargins(0, 0, 0, 0)
+            dist_main_layout.setSpacing(0)
+            
+            # TOP: Toolbar with toggle button
+            dist_toolbar_widget = QWidget()
+            dist_toolbar_layout = QHBoxLayout(dist_toolbar_widget)
+            dist_toolbar_layout.setContentsMargins(8, 4, 8, 4)
+            dist_toolbar_layout.setSpacing(8)
+            dist_toolbar_widget.setStyleSheet("background-color: #f8f9fa; border-bottom: 1px solid #e0e0e0;")
+            
+            toggle_dist_btn = QPushButton(localize_func("ANALYSIS_PAGE.show_components_button_dist"))
+            toggle_dist_btn.setCheckable(True)
+            toggle_dist_btn.setChecked(False)  # Collapsed by default
+            toggle_dist_btn.setStyleSheet("""
+                QPushButton {
+                    padding: 6px 12px;
+                    background-color: #0078d4;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    font-size: 11px;
+                    font-weight: bold;
+                }
+                QPushButton:hover { background-color: #005a9e; }
+                QPushButton:checked { background-color: #005a9e; }
+            """)
+            dist_toolbar_layout.addWidget(toggle_dist_btn)
+            dist_toolbar_layout.addStretch()
+            
+            dist_main_layout.addWidget(dist_toolbar_widget)
+            
+            # BOTTOM: Horizontal layout with collapsible sidebar
+            dist_content_widget = QWidget()
+            dist_content_layout = QHBoxLayout(dist_content_widget)
+            dist_content_layout.setContentsMargins(0, 0, 0, 0)
+            dist_content_layout.setSpacing(0)
+            
+            # LEFT: Collapsible Sidebar
+            dist_sidebar = QFrame()
+            dist_sidebar.setFixedWidth(220)
+            dist_sidebar.setVisible(False)  # Hidden by default
+            dist_sidebar.setStyleSheet("""
+                QFrame {
+                    background-color: #f8f9fa;
+                    border-right: 1px solid #e0e0e0;
+                }
+            """)
+            dist_sidebar_layout = QVBoxLayout(dist_sidebar)
+            dist_sidebar_layout.setContentsMargins(12, 12, 12, 12)
+            dist_sidebar_layout.setSpacing(10)
+            
+            # Title
+            dist_comp_title_label = QLabel(localize_func("ANALYSIS_PAGE.select_components_dist"))
+            dist_comp_title_label.setStyleSheet("font-weight: bold; font-size: 12px; color: #2c3e50; border: none;")
+            dist_sidebar_layout.addWidget(dist_comp_title_label)
+            
+            # Info label
+            dist_info_label = QLabel(localize_func("ANALYSIS_PAGE.distributions_plot_info"))
+            dist_info_label.setStyleSheet("font-size: 10px; color: #6c757d; border: none;")
+            dist_info_label.setWordWrap(True)
+            dist_sidebar_layout.addWidget(dist_info_label)
+            
+            # Get PCA model
+            pca_model = result.raw_results["pca_model"]
+            n_comps = min(pca_model.n_components_, 10)  # Limit to 10
+            
+            # "Select All" checkbox
+            select_all_dist_cb = QCheckBox(localize_func("ANALYSIS_PAGE.select_all"))
+            # Only enable Select All if total components <= 6
+            select_all_dist_cb.setEnabled(n_comps <= 6)
+            if n_comps > 6:
+                select_all_dist_cb.setToolTip(f"Cannot select all: {n_comps} components available, max 6 allowed")
+            select_all_dist_cb.setStyleSheet("""
+                QCheckBox {
+                    font-size: 11px;
+                    color: #0078d4;
+                    font-weight: bold;
+                    border: none;
+                    padding: 4px;
+                }
+                QCheckBox:checked {
+                    background-color: #e3f2fd;
+                    border-radius: 3px;
+                }
+                QCheckBox:disabled {
+                    color: #999999;
+                }
+            """)
+            dist_sidebar_layout.addWidget(select_all_dist_cb)
+            
+            # Scrollable checkbox list for components
+            dist_comp_scroll = QScrollArea()
+            dist_comp_scroll.setWidgetResizable(True)
+            dist_comp_scroll.setStyleSheet("""
+                QScrollArea {
+                    border: 1px solid #ced4da;
+                    border-radius: 4px;
+                    background-color: white;
+                }
+            """)
+            dist_comp_scroll.setMaximumHeight(200)
+            
+            dist_comp_list_widget = QWidget()
+            dist_comp_list_layout = QVBoxLayout(dist_comp_list_widget)
+            dist_comp_list_layout.setContentsMargins(8, 8, 8, 8)
+            dist_comp_list_layout.setSpacing(6)
+            
+            # Create checkboxes for each component
+            dist_checkboxes = []
+            dist_selection_order = []  # Track selection order for FIFO
+            for i in range(n_comps):
+                explained_var = pca_model.explained_variance_ratio_[i] * 100
+                cb = QCheckBox(f"PC{i+1} ({explained_var:.1f}%)")
+                cb.setChecked(i == 0)  # Default: only PC1 checked
+                cb.setStyleSheet("""
+                    QCheckBox { 
+                        font-size: 10px; 
+                        color: #495057; 
+                        border: none; 
+                        padding: 4px;
+                    }
+                    QCheckBox:checked {
+                        background-color: #e3f2fd;
+                        border-radius: 3px;
+                    }
+                """)
+                cb.pc_index = i  # Store PC index
+                dist_checkboxes.append(cb)
+                dist_comp_list_layout.addWidget(cb)
+            
+            # Initialize selection order with default (PC1)
+            if dist_checkboxes:
+                dist_selection_order.append(dist_checkboxes[0])
+            
+            dist_comp_list_layout.addStretch()
+            dist_comp_scroll.setWidget(dist_comp_list_widget)
+            dist_sidebar_layout.addWidget(dist_comp_scroll)
+            
+            dist_sidebar_layout.addStretch()
+            dist_content_layout.addWidget(dist_sidebar)
+            
+            # RIGHT: Plot area
+            dist_tab = matplotlib_widget_class()
+            dist_tab.update_plot(distributions_figure)
+            dist_content_layout.addWidget(dist_tab, 1)
+            
+            dist_main_layout.addWidget(dist_content_widget, 1)
+            
+            # Toggle sidebar visibility
+            def toggle_dist_sidebar():
+                dist_sidebar.setVisible(toggle_dist_btn.isChecked())
+            
+            toggle_dist_btn.toggled.connect(toggle_dist_sidebar)
+            
+            # Select All logic - only works if total components <= 6
+            def on_dist_select_all_changed(state):
+                # Use explicit CheckState comparison for robustness
+                is_checked = (state == Qt.CheckState.Checked) or (int(state) == 2)
+                print(f"[DEBUG] Distributions Select All: state={state}, state_type={type(state)}, state_int={int(state)}, is_checked={is_checked}, total_components={len(dist_checkboxes)}")
+                # Only select all if within limit
+                if is_checked and len(dist_checkboxes) <= 6:
+                    print(f"[DEBUG] Selecting all {len(dist_checkboxes)} distribution components")
+                    for cb in dist_checkboxes:
+                        cb.setChecked(True)
+                elif not is_checked:
+                    print(f"[DEBUG] Deselecting all distribution components")
+                    for cb in dist_checkboxes:
+                        cb.setChecked(False)
+                else:
+                    print(f"[DEBUG] Cannot select all - too many components ({len(dist_checkboxes)} > 6)")
+                # Verify result
+                checked_count = sum(1 for cb in dist_checkboxes if cb.isChecked())
+                print(f"[DEBUG] After Distributions Select All: {checked_count}/{len(dist_checkboxes)} selected")
+            
+            select_all_dist_cb.stateChanged.connect(on_dist_select_all_changed)
+            
+            # Prevent unchecking the last selected checkbox + FIFO logic
+            def on_dist_checkbox_changed():
+                checked_count = sum(1 for cb in dist_checkboxes if cb.isChecked())
+                
+                # FIFO Logic: If more than 6 selected, uncheck the first one
+                if checked_count > 6:
+                    # Find the first checked checkbox in selection order
+                    while dist_selection_order and not dist_selection_order[0].isChecked():
+                        dist_selection_order.pop(0)  # Remove unchecked items from order
+                    
+                    if dist_selection_order:
+                        first_cb = dist_selection_order.pop(0)
+                        first_cb.blockSignals(True)
+                        first_cb.setChecked(False)
+                        first_cb.blockSignals(False)
+                    
+                    # Recount after FIFO uncheck
+                    checked_count = sum(1 for cb in dist_checkboxes if cb.isChecked())
+                
+                # If only one checkbox is checked, keep it checked
+                if checked_count == 1:
+                    for cb in dist_checkboxes:
+                        if cb.isChecked():
+                            cb.blockSignals(True)
+                            cb.setChecked(True)  # Force it to stay checked
+                            cb.blockSignals(False)
+            
+            # Track selection order for FIFO
+            def track_dist_selection(cb):
+                def handler():
+                    if cb.isChecked():
+                        # Add to selection order if newly checked
+                        if cb not in dist_selection_order:
+                            dist_selection_order.append(cb)
+                    else:
+                        # Remove from selection order if unchecked
+                        if cb in dist_selection_order:
+                            dist_selection_order.remove(cb)
+                return handler
+            
+            # Update distributions plot when selection changes
+            def update_distributions():
+                try:
+                    # Get selected component indices
+                    selected_indices = []
+                    for cb in dist_checkboxes:
+                        if cb.isChecked():
+                            selected_indices.append(cb.pc_index)
+                    
+                    # Prevent unselecting last item
+                    if not selected_indices:
+                        on_dist_checkbox_changed()
+                        return
+                    
+                    # Limit to max 6 components
+                    selected_indices = selected_indices[:6]
+                    n_selected = len(selected_indices)
+                    
+                    # Get scores and labels from result
+                    scores = result.raw_results.get("scores")
+                    labels = result.raw_results.get("labels")
+                    unique_labels = result.raw_results.get("unique_labels")
+                    colors = result.raw_results.get("colors")
+                    
+                    if scores is None or labels is None or unique_labels is None:
+                        return
+                    
+                    # Calculate grid dimensions (max 2 columns)
+                    n_cols = 2 if n_selected > 1 else 1
+                    n_rows = int(np.ceil(n_selected / n_cols))
+                    
+                    # Create figure
+                    fig = plt.figure(figsize=(6*n_cols, 4*n_rows))
+                    
+                    for subplot_idx, pc_idx in enumerate(selected_indices):
+                        ax = fig.add_subplot(n_rows, n_cols, subplot_idx + 1)
+                        
+                        # Plot distributions for each dataset
+                        for i, dataset_label in enumerate(unique_labels):
+                            mask = np.array([l == dataset_label for l in labels])
+                            pc_scores = scores[mask, pc_idx]
+                            
+                            # Calculate KDE (Kernel Density Estimation)
+                            try:
+                                kde = stats.gaussian_kde(pc_scores)
+                                x_range = np.linspace(pc_scores.min() - 1, pc_scores.max() + 1, 200)
+                                kde_values = kde(x_range)
+                                
+                                # Plot KDE curve
+                                ax.plot(x_range, kde_values, color=colors[i], linewidth=2.5,
+                                       label=dataset_label, alpha=0.9)
+                                
+                                # Fill under curve
+                                ax.fill_between(x_range, kde_values, alpha=0.25, color=colors[i])
+                            except Exception:
+                                # Fallback if KDE fails
+                                pass
+                            
+                            # Add histogram
+                            ax.hist(pc_scores, bins=20, density=True, alpha=0.15,
+                                   color=colors[i], edgecolor='white', linewidth=0.5)
+                        
+                        explained_var = pca_model.explained_variance_ratio_[pc_idx] * 100
+                        ax.set_title(f'PC{pc_idx+1} ({explained_var:.1f}%)', fontsize=11, fontweight='bold')
+                        ax.set_xlabel(f'PC{pc_idx+1} Score', fontsize=10)
+                        ax.set_ylabel('Density', fontsize=10)
+                        ax.legend(fontsize=9)
+                        ax.grid(True, alpha=0.3)
+                    
+                    fig.suptitle('PC Score Distributions', fontsize=14, fontweight='bold')
+                    fig.tight_layout()
+                    dist_tab.update_plot(fig)
+                    plt.close(fig)
+                    
+                except Exception as e:
+                    print(f"[ERROR] Failed to update distributions: {e}")
+                    import traceback
+                    traceback.print_exc()
+            
+            # Connect all checkboxes
+            for cb in dist_checkboxes:
+                cb.stateChanged.connect(track_dist_selection(cb))
+                cb.stateChanged.connect(on_dist_checkbox_changed)
+                cb.stateChanged.connect(update_distributions)
+            
+            tab_widget.addTab(dist_container, "📊 " + localize_func("ANALYSIS_PAGE.distributions_tab_pca"))
+        elif distributions_figure:
+            # Fallback if no model available
             dist_tab = matplotlib_widget_class()
             dist_tab.update_plot(distributions_figure)
             dist_tab.setMinimumHeight(400)
-            tab_widget.addTab(dist_tab, "📊 Distributions")
+            tab_widget.addTab(dist_tab, "📊 " + localize_func("ANALYSIS_PAGE.distributions_tab_pca"))
     
     else:
         # === Standard analysis results (non-PCA) ===
@@ -1890,6 +2577,13 @@ def populate_results_tabs(
     if hasattr(result, "diagnostics") and result.diagnostics:
         diag_tab = create_summary_tab(result.diagnostics)
         tab_widget.addTab(diag_tab, "🔍 " + localize_func("ANALYSIS_PAGE.diagnostics_tab"))
+    
+    # RESTORE the previous tab index to avoid jumping to first tab on analysis restart
+    if current_tab_index < tab_widget.count():
+        tab_widget.setCurrentIndex(current_tab_index)
+    else:
+        # If previous index is now out of bounds, default to first tab
+        tab_widget.setCurrentIndex(0)
 
 
 def create_data_table_tab(data_table) -> QWidget:

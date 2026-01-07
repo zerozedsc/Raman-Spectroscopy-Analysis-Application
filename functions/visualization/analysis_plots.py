@@ -446,7 +446,8 @@ def create_waterfall_plot(dataset_data: Dict[str, pd.DataFrame],
         "data_table": None,
         "summary_text": summary,
         "detailed_summary": f"Total spectra plotted: {len(all_spectra)}",
-        "raw_results": {"n_spectra": len(all_spectra), "use_3d": use_3d}
+        "raw_results": {"n_spectra": len(all_spectra), "use_3d": use_3d},
+        "loadings_figure": None  # Waterfall plot does not produce loadings
     }
 
 

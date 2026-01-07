@@ -250,14 +250,26 @@ class Vector:
         self.norm = norm
         self.pixelwise = pixelwise
     
-    def __call__(self, spectra: np.ndarray) -> np.ndarray:
+    def __call__(self, spectra):
         """Apply vector normalization."""
-        if spectra.ndim == 1:
-            return self._normalize_spectrum(spectra)
-        elif spectra.ndim == 2:
-            return np.array([self._normalize_spectrum(spectrum) for spectrum in spectra])
-        else:
-            raise ValueError("Spectra must be 1D or 2D array")
+        # Handle SpectralContainer objects
+        if hasattr(spectra, 'spectral_data'):
+            # SpectralContainer format
+            normalized_data = []
+            for spectrum in spectra.spectral_data:
+                normalized_data.append(self._normalize_spectrum(spectrum))
+            return spectra.__class__(np.array(normalized_data), spectra.spectral_axis)
+        
+        # Handle numpy arrays
+        if isinstance(spectra, np.ndarray):
+            if spectra.ndim == 1:
+                return self._normalize_spectrum(spectra)
+            elif spectra.ndim == 2:
+                return np.array([self._normalize_spectrum(spectrum) for spectrum in spectra])
+            else:
+                raise ValueError("Spectra must be 1D or 2D array")
+        
+        raise TypeError("Spectra must be numpy array or SpectralContainer")
     
     def _normalize_spectrum(self, spectrum: np.ndarray) -> np.ndarray:
         """Normalize a single spectrum."""
@@ -272,6 +284,10 @@ class Vector:
             return spectrum
         
         return spectrum / norm_value
+    
+    def apply(self, spectra):
+        """Apply vector normalization - compatibility method for preview system."""
+        return self.__call__(spectra)
 
 
 class MinMax:

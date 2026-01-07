@@ -47,7 +47,11 @@ def perform_spectral_comparison(dataset_data: Dict[str, pd.DataFrame],
     if len(dataset_names) < 2:
         raise ValueError("At least 2 datasets required for comparison")
     
-    # Extract first two datasets for comparison
+    # For multi-dataset comparison, plot all means
+    # Use colormap for multiple datasets
+    colors = plt.cm.tab10(np.linspace(0, 1, len(dataset_names)))
+    
+    # Extract first two datasets for statistical testing (t-test is pairwise)
     df1 = dataset_data[dataset_names[0]]
     df2 = dataset_data[dataset_names[1]]
     
@@ -94,14 +98,19 @@ def perform_spectral_comparison(dataset_data: Dict[str, pd.DataFrame],
     # Create primary figure: Mean spectra with CI
     fig1, ax1 = plt.subplots(figsize=(12, 6))
     
-    ax1.plot(wavenumbers, mean1, label=dataset_names[0], linewidth=2, color='blue')
-    ax1.plot(wavenumbers, mean2, label=dataset_names[1], linewidth=2, color='red')
-    
-    if show_ci:
-        ax1.fill_between(wavenumbers, mean1 - ci1, mean1 + ci1,
-                        alpha=0.2, color='blue')
-        ax1.fill_between(wavenumbers, mean2 - ci2, mean2 + ci2,
-                        alpha=0.2, color='red')
+    # Plot ALL datasets (not just first 2)
+    for idx, dataset_name in enumerate(dataset_names):
+        df = dataset_data[dataset_name]
+        mean = df.mean(axis=1).values
+        sem = df.sem(axis=1).values
+        ci = z_score * sem
+        
+        color = colors[idx]
+        ax1.plot(wavenumbers, mean, label=dataset_name, linewidth=2, color=color)
+        
+        if show_ci:
+            ax1.fill_between(wavenumbers, mean - ci, mean + ci,
+                            alpha=0.2, color=color)
     
     if highlight_significant:
         # Highlight significant regions
@@ -166,7 +175,8 @@ def perform_spectral_comparison(dataset_data: Dict[str, pd.DataFrame],
             "significant_mask": significant_mask,
             "means": [mean1, mean2],
             "sems": [sem1, sem2]
-        }
+        },
+        "loadings_figure": None  # Spectral comparison does not produce loadings
     }
 
 
@@ -381,7 +391,8 @@ def perform_peak_analysis(dataset_data: Dict[str, pd.DataFrame],
             "all_peaks": peaks,
             "top_peaks": top_peaks,
             "properties": properties
-        }
+        },
+        "loadings_figure": None  # Peak detection does not produce loadings
     }
 
 
@@ -481,7 +492,8 @@ def perform_correlation_analysis(dataset_data: Dict[str, pd.DataFrame],
             "correlation_matrix": corr_matrix.values,
             "labels": labels,
             "method": method
-        }
+        },
+        "loadings_figure": None  # Correlation analysis does not produce loadings
     }
 
 

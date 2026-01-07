@@ -311,35 +311,36 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                 }
             },
             "function": "perform_correlation_analysis"
-        },
-        "anova_test": {
-            "name": "ANOVA Statistical Test",
-            "description": "One-way ANOVA across multiple groups",
-            "min_datasets": 3,
-            "max_datasets": None,
-            "dataset_selection_mode": "multi",
-            "params": {
-                "alpha": {
-                    "type": "double_spinbox",
-                    "default": 0.05,
-                    "range": (0.01, 0.1),
-                    "step": 0.01,
-                    "label": "Significance Level (α)"
-                },
-                "post_hoc": {
-                    "type": "combo",
-                    "options": ["tukey", "bonferroni", "none"],
-                    "default": "tukey",
-                    "label": "Post-hoc Test"
-                },
-                "show_boxplot": {
-                    "type": "checkbox",
-                    "default": True,
-                    "label": "Show Box Plot"
-                }
-            },
-            "function": "perform_anova_test"
         }
+        # NOTE: ANOVA temporarily disabled - not ready for production use
+        # "anova_test": {
+        #     "name": "ANOVA Statistical Test",
+        #     "description": "One-way ANOVA across multiple groups",
+        #     "min_datasets": 3,
+        #     "max_datasets": None,
+        #     "dataset_selection_mode": "multi",
+        #     "params": {
+        #         "alpha": {
+        #             "type": "double_spinbox",
+        #             "default": 0.05,
+        #             "range": (0.01, 0.1),
+        #             "step": 0.01,
+        #             "label": "Significance Level (α)"
+        #         },
+        #         "post_hoc": {
+        #             "type": "combo",
+        #             "options": ["tukey", "bonferroni", "none"],
+        #             "default": "tukey",
+        #             "label": "Post-hoc Test"
+        #         },
+        #         "show_boxplot": {
+        #             "type": "checkbox",
+        #             "default": True,
+        #             "label": "Show Box Plot"
+        #         }
+        #     },
+        #     "function": "perform_anova_test"
+        # }
     },
     "visualization": {
         "heatmap": {

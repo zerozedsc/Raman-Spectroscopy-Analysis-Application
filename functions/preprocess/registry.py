@@ -19,6 +19,9 @@ except ImportError:
     def create_logs(log_id, source, message, status='info'):
         print(f"[{status.upper()}] {source}: {message}")
 
+# Import local normalization classes
+from .normalization import Vector, MSC, MinMax, SNV, AUC
+
 from .spike_removal import Gaussian, MedianDespike
 from .calibration import WavenumberCalibration, IntensityCalibration
 from .normalization import SNV, MSC, MovingAverage
@@ -148,12 +151,22 @@ class PreprocessingStepRegistry:
             
             "normalisation": {
                 "Vector": {
-                    "class": rp.preprocessing.normalise.Vector,
-                    "default_params": {"pixelwise": False},
+                    "class": Vector,
+                    "default_params": {"norm": "l2", "pixelwise": False},
                     "param_info": {
+                        "norm": {
+                            "type": "radio",
+                            "choices": ["l1", "l2", "max"],
+                            "descriptions": {
+                                "l1": "L1 norm (sum of absolute values) - robust to outliers, emphasizes total intensity",
+                                "l2": "L2 norm (Euclidean length) - standard vector normalization, preserves relative intensity ratios",
+                                "max": "Max norm (maximum absolute value) - scales spectrum to peak intensity, useful for peak comparison"
+                            },
+                            "description": "Normalization method: l1 (area), l2 (Euclidean), or max (peak intensity)"
+                        },
                         "pixelwise": {"type": "bool", "description": "Apply normalisation pixelwise (True) or spectrumwise (False)"}
                     },
-                    "description": "Vector normalisation"
+                    "description": "Vector normalisation with selectable norm type (L1/L2/Max)"
                 },
                 "MinMax": {
                     "class": rp.preprocessing.normalise.MinMax,

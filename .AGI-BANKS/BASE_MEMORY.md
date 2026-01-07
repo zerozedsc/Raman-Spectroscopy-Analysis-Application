@@ -1,7 +1,225 @@
 # Base Memory - AI Agent Knowledge Base
 
 > **Core knowledge and reference system for AI-assisted development**  
-> **Last Updated**: December 4, 2025 - Analysis Page Visualization Fixes & 3D Enhancements
+> **Last Updated**: December 18, 2025 - Dynamic Colormaps, Loading Overlay, Tab Preservation, Multi-Format Export
+
+## 🎨 DYNAMIC COLOR PALETTE PATTERN (December 18, 2025) ⭐ CRITICAL
+
+### Never Use Hardcoded Color Lists for Multi-Dataset Visualization
+
+**CRITICAL**: Always use matplotlib colormaps for dynamic color generation to avoid `IndexError` with variable dataset counts:
+
+```python
+# ❌ WRONG (causes IndexError with >5 datasets)
+colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+for i, dataset in enumerate(datasets):
+    ax.plot(..., color=colors[i])  # CRASHES if i >= 5!
+
+# ✅ CORRECT (handles any number of datasets)
+n_datasets = len(datasets)
+cmap = plt.get_cmap('tab20', max(n_datasets, 10))
+colors = [cmap(i) for i in range(n_datasets)]
+
+for i, dataset in enumerate(datasets):
+    ax.plot(..., color=colors[i])  # Always works!
+```
+
+**Recommended Colormaps**:
+- `tab10`: Up to 10 distinct categories (default Matplotlib palette)
+- `tab20`: Up to 20 distinct categories (best for research)
+- `Set1`, `Set2`, `Set3`: Qualitative palettes (8-12 colors)
+
+**Benefits**:
+- Handles unlimited datasets (automatic cycling after max colors)
+- Consistent with Matplotlib standards
+- Better accessibility (colorblind-safe options available)
+- No hardcoded maintenance
+
+**Locations Implemented**:
+- `pages/analysis_page_utils/methods/exploratory.py` - All multi-dataset plots
+- `pages/analysis_page_utils/method_view.py` - Loading plot component colors
+
+---
+
+## 🔄 TAB PRESERVATION PATTERN (December 18, 2025) ⭐ CRITICAL
+
+### Preserve User Context Across Results Updates
+
+**CRITICAL**: When repopulating tabs (e.g., after rerunning analysis), preserve the current tab index:
+
+```python
+def populate_results_tabs(results_panel, result, ...):
+    tab_widget = results_panel.tab_widget
+    
+    # ✅ PRESERVE current tab index BEFORE clearing
+    current_tab_index = tab_widget.currentIndex() if tab_widget.count() > 0 else 0
+    
+    # Clear and repopulate tabs
+    while tab_widget.count() > 0:
+        tab_widget.removeTab(0)
+    
+    # ... add new tabs ...
+    
+    # ✅ RESTORE the previous tab index
+    if current_tab_index < tab_widget.count():
+        tab_widget.setCurrentIndex(current_tab_index)
+    else:
+        tab_widget.setCurrentIndex(0)  # Fallback if out of bounds
+```
+
+**Why This Matters**:
+- Users often iterate on analysis parameters while viewing specific tabs
+- Jumping to first tab on each run disrupts workflow
+- Especially important for Loading Plot, Distributions, or secondary visualizations
+
+**Location**: `pages/analysis_page_utils/method_view.py` - `populate_results_tabs()`
+
+---
+
+## ⏳ LOADING OVERLAY PATTERN (December 18, 2025) ⭐ CRITICAL
+
+### Stacked Layout for Non-Blocking Visual Feedback
+
+**CRITICAL**: Use `QStackedLayout` with `StackAll` mode to overlay loading indicator over content:
+
+```python
+from PySide6.QtWidgets import QStackedLayout, QWidget, QVBoxLayout, QLabel
+
+# Create stacked layout for overlay support
+stacked_layout = QStackedLayout(results_panel)
+stacked_layout.setStackingMode(QStackedLayout.StackAll)  # ← CRITICAL
+
+# Index 0: Main content
+main_widget = QWidget()
+main_layout = QVBoxLayout(main_widget)
+# ... add normal widgets ...
+stacked_layout.addWidget(main_widget)
+
+# Index 1: Loading overlay (semi-transparent)
+loading_overlay = QWidget()
+loading_overlay.setStyleSheet("""
+    QWidget {
+        background-color: rgba(255, 255, 255, 0.85);
+    }
+""")
+loading_layout = QVBoxLayout(loading_overlay)
+loading_layout.setAlignment(Qt.AlignCenter)
+
+loading_label = QLabel("⏳ Analyzing...")
+loading_label.setStyleSheet("""
+    font-size: 18px;
+    font-weight: 600;
+    color: #0078d4;
+    background-color: white;
+    padding: 20px 40px;
+    border-radius: 8px;
+    border: 2px solid #0078d4;
+""")
+loading_layout.addWidget(loading_label)
+
+stacked_layout.addWidget(loading_overlay)
+loading_overlay.setVisible(False)  # Hidden by default
+
+# Helper methods
+def show_loading():
+    loading_overlay.setVisible(True)
+    loading_overlay.raise_()
+
+def hide_loading():
+    loading_overlay.setVisible(False)
+
+results_panel.show_loading = show_loading
+results_panel.hide_loading = hide_loading
+```
+
+**Usage Pattern**:
+```python
+# Start long operation
+results_panel.show_loading()
+
+# ... run analysis in thread ...
+
+# Finish operation
+results_panel.hide_loading()
+```
+
+**Key Points**:
+- Use `StackAll` mode (not `StackOne`)
+- Semi-transparent background (85% opacity recommended)
+- Call `raise_()` to ensure overlay is on top
+- Always pair show/hide in try-finally or signal handlers
+
+**Locations**:
+- `pages/analysis_page_utils/method_view.py` - Overlay creation
+- `pages/analysis_page.py` - Show/hide calls in `_run_analysis()` and `_on_analysis_finished()`
+
+---
+
+## 📤 MULTI-FORMAT EXPORT PATTERN (December 18, 2025) ⭐
+
+### Format Selection Dialog Before File Export
+
+**Pattern for supporting multiple export formats (CSV, Excel, JSON, etc.)**:
+
+```python
+from PySide6.QtWidgets import QDialog, QComboBox, QVBoxLayout, QHBoxLayout, QDialogButtonBox
+
+def export_data_multi_format(data_table, default_filename="data"):
+    # 1. Show format selection dialog
+    dialog = QDialog()
+    dialog.setWindowTitle("Export Data - Select Format")
+    
+    format_combo = QComboBox()
+    formats = [
+        ("csv", "CSV (Comma-Separated Values)"),
+        ("xlsx", "Excel Spreadsheet (.xlsx)"),
+        ("json", "JSON (JavaScript Object Notation)"),
+        ("txt", "Text File (Tab-delimited)"),
+        ("pkl", "Pickle (Python Binary)")
+    ]
+    for fmt_key, fmt_label in formats:
+        format_combo.addItem(fmt_label, fmt_key)
+    
+    # ... add to dialog layout ...
+    
+    if dialog.exec() != QDialog.Accepted:
+        return False
+    
+    # 2. Get file save path with appropriate filter
+    selected_format = format_combo.currentData()
+    file_path, _ = QFileDialog.getSaveFileName(
+        parent,
+        f"Export Data as {selected_format.upper()}",
+        f"{default_filename}.{selected_format}",
+        format_filters[selected_format]
+    )
+    
+    # 3. Export based on format
+    import pandas as pd
+    df = pd.DataFrame(data_table) if isinstance(data_table, dict) else data_table
+    
+    if selected_format == "csv":
+        df.to_csv(file_path, index=False)
+    elif selected_format == "xlsx":
+        df.to_excel(file_path, index=False, engine='openpyxl')
+    elif selected_format == "json":
+        df.to_json(file_path, orient='records', indent=2, force_ascii=False)
+    elif selected_format == "txt":
+        df.to_csv(file_path, sep='\\t', index=False)
+    elif selected_format == "pkl":
+        df.to_pickle(file_path)
+    
+    return True
+```
+
+**Requirements**:
+- `openpyxl>=3.0.0` for Excel support
+- Format dialog must match app styling
+- Handle encoding for JSON (force_ascii=False for international characters)
+
+**Location**: `pages/analysis_page_utils/export_utils.py` - `export_data_multi_format()`
+
+---
 
 ## 📊 ANALYSIS PAGE VISUALIZATION PATTERNS (December 4, 2025) ⭐ CRITICAL
 
@@ -1732,12 +1950,12 @@ def toggle_function(button):
 
 **Troubleshooting Decision Tree**:
 
-| Symptom | Diagnosis | Solution |
-|---------|-----------|----------|
-| No clicked() signal | Button click not reaching Qt | Check CSS pointer-events, isEnabled() |
-| clicked() fires, but not buttonClicked() | Button group connection broken | Verify addButton() calls |
-| buttonClicked() fires, but wrong action | Button identity comparison failed | Use objectName or button IDs |
-| All signals fire, but UI doesn't change | Widget/state issue | Check actual action code |
+| Symptom                                  | Diagnosis                         | Solution                              |
+| ---------------------------------------- | --------------------------------- | ------------------------------------- |
+| No clicked() signal                      | Button click not reaching Qt      | Check CSS pointer-events, isEnabled() |
+| clicked() fires, but not buttonClicked() | Button group connection broken    | Verify addButton() calls              |
+| buttonClicked() fires, but wrong action  | Button identity comparison failed | Use objectName or button IDs          |
+| All signals fire, but UI doesn't change  | Widget/state issue                | Check actual action code              |
 
 ### Common Failure Patterns
 

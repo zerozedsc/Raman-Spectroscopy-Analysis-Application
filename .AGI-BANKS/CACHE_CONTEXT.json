@@ -1,0 +1,69 @@
+{
+    "version": "4.1",
+    "project_type": "python",
+    "main_language": "python",
+    "frameworks": [
+        "PySide6",
+        "matplotlib",
+        "scikit-learn",
+        "numpy"
+    ],
+    "package_manager": "pip",
+    "test_framework": "pytest",
+    "last_detected": "2025-12-18T16:00:00Z",
+    "version_control": {
+        "type": "git",
+        "has_remote": true,
+        "alternative_backup": "none",
+        "last_checked": "2025-12-18T16:00:00Z"
+    },
+    "file_checksums": {
+        "pages/analysis_page_utils/method_view.py": "sha1:updated-2025-12-18",
+        "assets/locales/en.json": "sha1:updated-2025-12-18",
+        "assets/locales/ja.json": "sha1:updated-2025-12-18",
+        ".AGI-BANKS/RECENT_CHANGES/2025-12-18_0002_critical_fixes.md": "sha1:created-2025-12-18",
+        ".AGI-BANKS/RECENT_CHANGES/index.json": "sha1:updated-2025-12-18"
+    },
+    "shard_indexes": {
+        "recent_changes": ".AGI-BANKS/RECENT_CHANGES/index.json"
+    },
+    "cache_policy": {
+        "refresh_if_older_than_days": 7,
+        "checksum_validation": true,
+        "targeted_refresh_on_mismatch": true,
+        "max_shard_size_lines": 2000
+    },
+    "project_specific": {
+        "main_application": "main.py",
+        "ui_framework": "PySide6",
+        "key_features": [
+            "Real-time Raman spectral classification",
+            "PCA analysis with interactive visualization",
+            "Multi-language support (EN, JA)",
+            "Data preprocessing pipeline",
+            "Machine learning integration"
+        ],
+        "recent_updates": [
+            {
+                "date": "2025-12-18",
+                "type": "bug-fix + enhancement",
+                "description": "Fixed last-item protection, x-axis labels, defaults to PC1, removed Cumulative Variance tab, added PCA tab localization",
+                "files_changed": [
+                    "pages/analysis_page_utils/method_view.py",
+                    "assets/locales/en.json",
+                    "assets/locales/ja.json"
+                ]
+            },
+            {
+                "date": "2025-01-21",
+                "type": "enhancement",
+                "description": "Added full localization, checkbox validation, visual highlighting, fixed tight_layout warnings",
+                "files_changed": [
+                    "pages/analysis_page_utils/method_view.py",
+                    "assets/locales/en.json",
+                    "assets/locales/ja.json"
+                ]
+            }
+        ]
+    }
+}

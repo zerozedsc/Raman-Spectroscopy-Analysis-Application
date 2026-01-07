@@ -618,55 +618,88 @@ def perform_pca_analysis(dataset_data: Dict[str, pd.DataFrame],
     print(f"[DEBUG] show_loadings parameter: {show_loadings}")
     fig_loadings = None
     if show_loadings:
-        print("[DEBUG] Creating loadings figure with subplots...")
+        print("[DEBUG] Creating loadings figure with dynamic subplot layout...")
         
-        # Get max_loadings_components parameter (default 3, max 5)
-        max_loadings = params.get("max_loadings_components", 3)
+        # Get max_loadings_components parameter (default 1, max 5)
+        max_loadings = params.get("max_loadings_components", 1)
         max_loadings = min(max_loadings, n_components, 5)  # Ensure within bounds
         
         print(f"[DEBUG] Creating {max_loadings} loading subplot(s)")
         
-        # Create subplot grid (vertical stack for better readability)
-        fig_loadings, axes = plt.subplots(max_loadings, 1, figsize=(12, 4 * max_loadings))
+        # ✅ Dynamic layout calculation (max 2 columns, auto rows)
+        n_cols = 2 if max_loadings > 1 else 1
+        n_rows = int(np.ceil(max_loadings / n_cols))
+        
+        # ✅ Dynamic title size based on number of plots
+        base_title_size = 14
+        if max_loadings <= 2:
+            title_size = base_title_size
+        elif max_loadings <= 4:
+            title_size = base_title_size - 2  # 12pt
+        else:
+            title_size = base_title_size - 4  # 10pt
+        
+        # ✅ Scale figure height dynamically to prevent overlap
+        fig_height = max(6, 2.5 * n_rows)  # At least 2.5 inches per row
+        
+        # Create subplot grid with constrained layout for better spacing
+        fig_loadings, axes = plt.subplots(n_rows, n_cols, figsize=(12, fig_height),
+                                          constrained_layout=True)
         
         # Handle single subplot case (axes won't be array)
         if max_loadings == 1:
             axes = [axes]
+        else:
+            axes = axes.flatten()
         
-        # Color palette for components
-        colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+        # Dynamic color palette using matplotlib's tab20 colormap
+        cmap = plt.get_cmap('tab20', max(max_loadings, 10))
+        colors = [cmap(i) for i in range(max_loadings)]
         
         # Plot each component in its own subplot
         for pc_idx in range(max_loadings):
             ax = axes[pc_idx]
             
+            # ✅ FIX: Ensure wavenumbers and loadings have same length
+            loadings = pca.components_[pc_idx]
+            min_len = min(len(wavenumbers), len(loadings))
+            wn_truncated = wavenumbers[:min_len]
+            loadings_truncated = loadings[:min_len]
+            
             # Plot loadings for this component
-            ax.plot(wavenumbers, pca.components_[pc_idx], 
+            ax.plot(wn_truncated, loadings_truncated, 
                    linewidth=2, color=colors[pc_idx], label=f'PC{pc_idx+1}')
             
             # Explained variance for this component
             explained_var = pca.explained_variance_ratio_[pc_idx] * 100
             
+            # ✅ Calculate if this subplot is in the last row
+            current_row = pc_idx // n_cols
+            is_last_row = (current_row == n_rows - 1)
+            
             # Styling
-            ax.set_xlabel('Wavenumber (cm⁻¹)', fontsize=11, fontweight='bold')
             ax.set_ylabel('Loading Value', fontsize=11, fontweight='bold')
-            ax.set_title(f'PC{pc_idx+1} Loadings (Explained Variance: {explained_var:.2f}%)', 
-                        fontsize=12, fontweight='bold')
+            ax.set_title(f'PC{pc_idx+1} Loadings ({explained_var:.2f}%)', 
+                        fontsize=title_size, fontweight='bold')
             ax.legend(loc='upper right', fontsize=10)
             ax.grid(True, alpha=0.3)
             ax.invert_xaxis()  # Raman convention: high to low wavenumber
-            # Remove x-axis tick labels (wavenumbers) as requested
-            ax.set_xticklabels([])
             
-            # ✅ FIX #8 (P1): Annotate top 5 peak positions for this component (increased from 3)
-            # Consensus from 6 AI analyses: Top 5 peaks provide better spectral interpretation
-            loadings = pca.components_[pc_idx]
-            abs_loadings = np.abs(loadings)
-            top_indices = np.argsort(abs_loadings)[-5:]  # Top 5 peaks (increased from 3)
+            # ✅ Only show x-axis labels and ticks on last row
+            if is_last_row:
+                ax.set_xlabel('Wavenumber (cm⁻¹)', fontsize=11, fontweight='bold')
+            else:
+                ax.set_xlabel('')  # Clear x-axis label
+                ax.tick_params(axis='x', labelbottom=False)  # Hide x tick labels
+                ax.set_xticklabels([])  # Force remove all x tick labels
+            
+            # ✅ Annotate top 5 peak positions for this component (use truncated arrays)
+            abs_loadings = np.abs(loadings_truncated)
+            top_indices = np.argsort(abs_loadings)[-5:]  # Top 5 peaks
             
             for peak_idx in top_indices:
-                peak_wn = wavenumbers[peak_idx]
-                peak_val = loadings[peak_idx]
+                peak_wn = wn_truncated[peak_idx]
+                peak_val = loadings_truncated[peak_idx]
                 ax.plot(peak_wn, peak_val, 'o', color=colors[pc_idx], markersize=6, 
                        markeredgecolor='black', markeredgewidth=0.5)
                 ax.annotate(f'{peak_wn:.0f}', 
@@ -677,8 +710,12 @@ def perform_pca_analysis(dataset_data: Dict[str, pd.DataFrame],
                            ha='center',
                            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.8, edgecolor='#cccccc'))
         
-        fig_loadings.tight_layout()
-        print(f"[DEBUG] Loadings figure created successfully with {max_loadings} subplots")
+        # Hide unused subplots if grid has extras
+        for pc_idx in range(max_loadings, len(axes)):
+            axes[pc_idx].set_visible(False)
+        
+        # No need for tight_layout when using constrained_layout
+        print(f"[DEBUG] Loadings figure created successfully with {max_loadings} subplots in {n_rows}x{n_cols} grid (constrained layout)")
     else:
         print("[DEBUG] Loadings figure skipped (show_loadings=False)")
     
@@ -688,16 +725,32 @@ def perform_pca_analysis(dataset_data: Dict[str, pd.DataFrame],
     # === FIGURE 3: Score Distributions (CRITICAL for Raman classification) ===
     fig_distributions = None
     if show_distributions and len(unique_labels) > 1:
-        # Get number of components to show (default 3, max 6)
-        n_dist_comps = params.get("n_distribution_components", 3)
+        # Get number of components to show (default 1, max 6)
+        n_dist_comps = params.get("n_distribution_components", 1)
         n_pcs_to_plot = min(n_dist_comps, n_components)
         
-        # Calculate grid dimensions (max 2 columns)
+        # ✅ Dynamic layout calculation (max 2 columns, auto rows)
         n_cols = 2 if n_pcs_to_plot > 1 else 1
         n_rows = int(np.ceil(n_pcs_to_plot / n_cols))
         
-        # Create figure with appropriate size
-        fig_distributions, axes = plt.subplots(n_rows, n_cols, figsize=(6*n_cols, 4*n_rows))
+        # ✅ Dynamic title size based on number of plots
+        base_title_size = 14
+        if n_pcs_to_plot <= 2:
+            title_size = base_title_size
+            main_title_size = 16
+        elif n_pcs_to_plot <= 4:
+            title_size = base_title_size - 2  # 12pt
+            main_title_size = 14
+        else:
+            title_size = base_title_size - 3  # 11pt
+            main_title_size = 13
+        
+        # ✅ Scale figure height dynamically
+        fig_height = max(6, 2.5 * n_rows)
+        
+        # Create figure with constrained layout for better spacing
+        fig_distributions, axes = plt.subplots(n_rows, n_cols, figsize=(6*n_cols, fig_height),
+                                              constrained_layout=True)
         
         # Flatten axes for easy iteration if multiple
         if n_pcs_to_plot > 1:
@@ -705,12 +758,16 @@ def perform_pca_analysis(dataset_data: Dict[str, pd.DataFrame],
         else:
             axes_flat = [axes]
             
-        fig_distributions.suptitle('PC Score Distributions', fontsize=16, fontweight='bold')
+        fig_distributions.suptitle('PC Score Distributions', fontsize=main_title_size, fontweight='bold')
         
         # Plot distributions for each PC
         for idx in range(n_pcs_to_plot):
             ax = axes_flat[idx]
             pc_idx = idx  # 0-based index
+            
+            # ✅ Calculate if this subplot is in the last row
+            current_row = idx // n_cols
+            is_last_row = (current_row == n_rows - 1)
             
             # Plot histogram/KDE for each dataset
             for i, dataset_label in enumerate(unique_labels):
@@ -762,11 +819,19 @@ def perform_pca_analysis(dataset_data: Dict[str, pd.DataFrame],
                 except Exception:
                     pass
             
-            # Formatting
-            ax.set_xlabel(f'PC{pc_idx+1} Score', fontsize=12, fontweight='bold')
+            # ✅ Formatting with dynamic title size and conditional x-axis labels
             ax.set_ylabel('Density', fontsize=12, fontweight='bold')
             ax.set_title(f'PC{pc_idx+1} ({pca.explained_variance_ratio_[pc_idx]*100:.1f}%)',
-                        fontsize=13, fontweight='bold')
+                        fontsize=title_size, fontweight='bold')
+            
+            # ✅ Only show x-axis labels and ticks on last row
+            if is_last_row:
+                ax.set_xlabel(f'PC{pc_idx+1} Score', fontsize=12, fontweight='bold')
+            else:
+                ax.set_xlabel('')  # Clear x-axis label
+                ax.tick_params(axis='x', labelbottom=False)  # Hide x tick labels
+                ax.set_xticklabels([])  # Force remove all x tick labels
+                
             if idx == 0:  # Only show legend on first plot to save space
                 ax.legend(loc='upper right', fontsize=10, framealpha=0.9)
             ax.grid(True, alpha=0.3, axis='y')
@@ -782,7 +847,7 @@ def perform_pca_analysis(dataset_data: Dict[str, pd.DataFrame],
                 axes_flat[idx].axis('off')
                 axes_flat[idx].set_visible(False) # Explicitly hide
         
-        plt.tight_layout()
+        # No need for tight_layout when using constrained_layout
     
     if progress_callback:
         progress_callback(90)
@@ -964,7 +1029,8 @@ def perform_pca_analysis(dataset_data: Dict[str, pd.DataFrame],
             "loadings": pca.components_,
             "explained_variance": pca.explained_variance_ratio_,
             "labels": labels,
-            "unique_labels": unique_labels
+            "unique_labels": unique_labels,
+            "colors": colors  # Add colors for distributions update
         }
     }
 
@@ -1269,11 +1335,43 @@ def perform_hierarchical_clustering(dataset_data: Dict[str, pd.DataFrame],
     if params.get("show_labels", False):
         plt.setp(ax.get_xticklabels(), rotation=90)
     
+    # Add legend showing dataset ranges/colors
+    # Create dataset legend by analyzing sample indices
+    dataset_ranges = []
+    current_idx = 0
+    for dataset_name, df in dataset_data.items():
+        n_spectra = df.shape[1]
+        dataset_ranges.append({
+            'name': dataset_name,
+            'start': current_idx,
+            'end': current_idx + n_spectra - 1,
+            'count': n_spectra
+        })
+        current_idx += n_spectra
+    
+    # Get unique colors from dendrogram
+    dendrogram_colors = set(dend['color_list'])
+    
+    # Create color-to-dataset mapping legend text
+    legend_text = "Dataset Ranges:\\n"
+    for ds_info in dataset_ranges:
+        legend_text += f"{ds_info['name']}: samples {ds_info['start']}-{ds_info['end']} (n={ds_info['count']})\\n"
+    
+    # Add text box with dataset information
+    ax.text(0.02, 0.98, legend_text.strip(),
+            transform=ax.transAxes,
+            fontsize=9,
+            verticalalignment='top',
+            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+    
     plt.tight_layout()
     
-    summary = f"Hierarchical clustering completed.\n"
-    summary += f"Linkage: {linkage_method}, Distance metric: {distance_metric}\n"
-    summary += f"Total spectra: {X.shape[0]}"
+    summary = f"Hierarchical clustering completed.\\n"
+    summary += f"Linkage: {linkage_method}, Distance metric: {distance_metric}\\n"
+    summary += f"Total spectra: {X.shape[0]}\\n\\n"
+    summary += "Dataset Information:\\n"
+    for ds_info in dataset_ranges:
+        summary += f"  {ds_info['name']}: samples {ds_info['start']}-{ds_info['end']} (n={ds_info['count']})\\n"
     
     return {
         "primary_figure": fig,
@@ -1415,7 +1513,7 @@ def perform_kmeans_clustering(dataset_data: Dict[str, pd.DataFrame],
 
 def create_spectrum_preview_figure(dataset_data: Dict[str, pd.DataFrame], show_all: bool = False) -> Figure:
     """
-    Create a preview figure showing spectra with vertical offset stacking.
+    Create a preview figure showing spectra stacked behind each other (overlaid).
     
     Args:
         dataset_data: Dictionary of {dataset_name: DataFrame}
@@ -1427,10 +1525,11 @@ def create_spectrum_preview_figure(dataset_data: Dict[str, pd.DataFrame], show_a
     # ✅ FIX: Correct unpacking of plt.subplots (returns tuple of fig, ax)
     fig, ax = plt.subplots(figsize=(12, 6))
     
-    # Colorblind-safe palette (Tableau 10)
-    colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
+    # Dynamic color palette using matplotlib's tab20 colormap (handles any number of datasets)
+    n_datasets = len(dataset_data)
+    cmap = plt.get_cmap('tab20', max(n_datasets, 10))
+    colors = [cmap(i) for i in range(n_datasets)]
     
-    offset = 0
     max_intensity_overall = 0
     
     for idx, (dataset_name, df) in enumerate(dataset_data.items()):
@@ -1439,10 +1538,9 @@ def create_spectrum_preview_figure(dataset_data: Dict[str, pd.DataFrame], show_a
         color = colors[idx % len(colors)]
         
         if show_all:
-            # Show ALL individual spectra with low alpha
-            max_val = 0
+            # Show ALL individual spectra with low alpha (overlaid, not offset)
             for col_idx, col in enumerate(df.columns):
-                spectrum = df[col].values + offset
+                spectrum = df[col].values
                 alpha = 0.3 if n_spectra > 10 else 0.5
                 ax.plot(
                     wavenumbers, spectrum,
@@ -1452,22 +1550,15 @@ def create_spectrum_preview_figure(dataset_data: Dict[str, pd.DataFrame], show_a
                     label=f'{dataset_name}' if col_idx == 0 else None,
                     zorder=5 + idx
                 )
-                max_val = max(max_val, spectrum.max())
-            
-            # Calculate next offset
-            offset = max_val * 1.15
-            max_intensity_overall = max(max_intensity_overall, max_val)
+                max_intensity_overall = max(max_intensity_overall, spectrum.max())
         else:
-            # Show MEAN only (default behavior)
+            # Show MEAN only (default behavior) - overlaid without offset
             mean_spectrum = df.mean(axis=1).values
             std_spectrum = df.std(axis=1).values
             
-            # Apply vertical offset for stacking
-            mean_with_offset = mean_spectrum + offset
-            
-            # Plot MEAN line only (bold, prominent)
+            # Plot MEAN line only (bold, prominent) - NO OFFSET
             ax.plot(
-                wavenumbers, mean_with_offset,
+                wavenumbers, mean_spectrum,
                 color=color,
                 linewidth=2.8,
                 label=f'{dataset_name} (mean, n={n_spectra})',
@@ -1478,30 +1569,28 @@ def create_spectrum_preview_figure(dataset_data: Dict[str, pd.DataFrame], show_a
             # Add VERY subtle ±0.5σ envelope (barely visible)
             ax.fill_between(
                 wavenumbers,
-                mean_with_offset - std_spectrum * 0.5,
-                mean_with_offset + std_spectrum * 0.5,
+                mean_spectrum - std_spectrum * 0.5,
+                mean_spectrum + std_spectrum * 0.5,
                 color=color,
                 alpha=0.08,
                 edgecolor='none',
                 zorder=5 + idx
             )
             
-            # Calculate next offset (15% above max intensity)
-            max_intensity = (mean_with_offset + std_spectrum).max()
-            offset = max_intensity * 1.15
-            max_intensity_overall = max(max_intensity_overall, max_intensity)
+            # Track max intensity
+            max_intensity_overall = max(max_intensity_overall, (mean_spectrum + std_spectrum).max())
     
     # Styling
     ax.set_xlabel('Wavenumber (cm⁻¹)', fontsize=12, fontweight='bold')
-    ax.set_ylabel('Intensity (offset for clarity)', fontsize=12, fontweight='bold')
-    title = 'All Spectra (Vertically Stacked)' if show_all else 'Mean Spectra (Vertically Stacked)'
+    ax.set_ylabel('Intensity', fontsize=12, fontweight='bold')
+    title = 'All Spectra' if show_all else 'Mean Spectra'
     ax.set_title(title, fontsize=14, fontweight='bold')
     ax.legend(loc='upper right', fontsize=10, framealpha=0.9)
     ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
     ax.invert_xaxis()  # Raman convention: high → low wavenumber
     
     # Adjust y-limits
-    ax.set_ylim(-max_intensity_overall * 0.05, offset + max_intensity_overall * 0.05)
+    ax.set_ylim(-max_intensity_overall * 0.05, max_intensity_overall * 1.05)
     
     fig.tight_layout(pad=1.2)
     return fig

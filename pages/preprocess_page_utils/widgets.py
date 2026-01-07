@@ -811,7 +811,7 @@ class DynamicParameterWidget(QWidget):
                 widget.setValue(float(default_value))
             return widget
             
-        elif param_type == "choice":
+        elif param_type == "choice" or param_type == "combo":
             widget = QComboBox()
             choices = info.get("choices", [])
             widget.addItems(choices)
@@ -837,6 +837,91 @@ class DynamicParameterWidget(QWidget):
                     height: 12px;
                 }
             """)
+            return widget
+            
+        elif param_type == "radio":
+            # Create radio button group for mutually exclusive options
+            widget = QWidget()
+            layout = QVBoxLayout(widget)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setSpacing(8)
+            
+            choices = info.get("choices", [])
+            descriptions = info.get("descriptions", {})
+            
+            button_group = QButtonGroup(widget)
+            
+            for idx, choice in enumerate(choices):
+                radio_container = QWidget()
+                radio_layout = QVBoxLayout(radio_container)
+                radio_layout.setContentsMargins(0, 0, 0, 0)
+                radio_layout.setSpacing(2)
+                
+                radio_btn = QRadioButton(choice)
+                radio_btn.setProperty("choice_value", choice)
+                
+                # Set default selection
+                if default_value is not None and str(default_value) == str(choice):
+                    radio_btn.setChecked(True)
+                elif idx == 0 and default_value is None:
+                    radio_btn.setChecked(True)
+                
+                radio_btn.setStyleSheet("""
+                    QRadioButton {
+                        font-size: 12px;
+                        font-weight: 600;
+                        spacing: 8px;
+                        color: #2c3e50;
+                    }
+                    QRadioButton::indicator {
+                        width: 16px;
+                        height: 16px;
+                    }
+                    QRadioButton::indicator:unchecked {
+                        background-color: white;
+                        border: 2px solid #bdc3c7;
+                        border-radius: 8px;
+                    }
+                    QRadioButton::indicator:checked {
+                        background-color: #3498db;
+                        border: 2px solid #2980b9;
+                        border-radius: 8px;
+                    }
+                """)
+                
+                button_group.addButton(radio_btn)
+                radio_layout.addWidget(radio_btn)
+                
+                # Add description if available (use LOCALIZE if key is localization key)
+                if choice in descriptions:
+                    desc_text = descriptions[choice]
+                    # Try to localize if it looks like a localization key
+                    # For Vector normalization, we map keys to localization keys
+                    if param_name == "norm" and choice in ["l1", "l2", "max"]:
+                        # Use localization for Vector normalization descriptions
+                        localization_key = f"PREPROCESS.norm_{choice}_desc"
+                        try:
+                            desc_text = LOCALIZE(localization_key)
+                        except:
+                            # Fallback to original description if localization fails
+                            desc_text = descriptions[choice]
+                    
+                    desc_label = QLabel(desc_text)
+                    desc_label.setWordWrap(True)
+                    desc_label.setStyleSheet("""
+                        QLabel {
+                            font-size: 11px;
+                            color: #6c757d;
+                            padding-left: 24px;
+                            line-height: 1.4;
+                        }
+                    """)
+                    radio_layout.addWidget(desc_label)
+                
+                layout.addWidget(radio_container)
+            
+            # Store button group for later retrieval
+            widget.button_group = button_group
             return widget
             
         elif param_type == "tuple":
@@ -971,8 +1056,14 @@ class DynamicParameterWidget(QWidget):
                     params[param_name] = widget.value()
                 elif param_type in ["float", "scientific"]:
                     params[param_name] = widget.value()
-                elif param_type == "choice":
+                elif param_type in ["choice", "combo"]:
                     params[param_name] = widget.currentText()
+                elif param_type == "radio":
+                    # Get selected radio button value
+                    if hasattr(widget, 'button_group'):
+                        checked_btn = widget.button_group.checkedButton()
+                        if checked_btn:
+                            params[param_name] = checked_btn.property("choice_value")
                 elif param_type == "bool":
                     params[param_name] = widget.isChecked()
                 elif param_type == "tuple":

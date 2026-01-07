@@ -154,6 +154,148 @@ class ExportManager(QObject):
             )
             return False
     
+    def export_data_multi_format(self, data_table, default_filename: str = "analysis_data") -> bool:
+        """
+        Export data table to multiple formats (CSV, Excel, JSON, TXT, Pickle).
+        Shows format selection dialog similar to preprocess_page.
+        
+        Args:
+            data_table: Pandas DataFrame or dict
+            default_filename: Default filename (without extension)
+        
+        Returns:
+            True if export succeeded
+        """
+        if data_table is None:
+            self._show_error(self.localize("ANALYSIS_PAGE.no_data_to_export"))
+            return False
+        
+        from PySide6.QtWidgets import QDialog, QComboBox, QVBoxLayout, QHBoxLayout, QLabel, QDialogButtonBox
+        
+        # Create format selection dialog
+        dialog = QDialog(self.parent)
+        dialog.setWindowTitle("Export Data - Select Format")
+        dialog.setMinimumWidth(450)
+        
+        dialog.setStyleSheet("""
+            QDialog {
+                background-color: #f8f9fa;
+            }
+            QLabel {
+                color: #2c3e50;
+                font-size: 13px;
+            }
+            QComboBox {
+                padding: 10px;
+                border: 2px solid #ced4da;
+                border-radius: 6px;
+                background-color: white;
+                font-size: 13px;
+            }
+            QComboBox:focus {
+                border-color: #0078d4;
+            }
+            QPushButton {
+                background-color: #0078d4;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 6px;
+                font-weight: 500;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                background-color: #106ebe;
+            }
+        """)
+        
+        layout = QVBoxLayout(dialog)
+        layout.setSpacing(16)
+        layout.setContentsMargins(24, 24, 24, 24)
+        
+        # Format selection
+        format_layout = QHBoxLayout()
+        format_layout.addWidget(QLabel("Export Format:"))
+        
+        format_combo = QComboBox()
+        formats = [
+            ("csv", "CSV (Comma-Separated Values)"),
+            ("xlsx", "Excel Spreadsheet (.xlsx)"),
+            ("json", "JSON (JavaScript Object Notation)"),
+            ("txt", "Text File (Tab-delimited)"),
+            ("pkl", "Pickle (Python Binary)")
+        ]
+        for fmt_key, fmt_label in formats:
+            format_combo.addItem(fmt_label, fmt_key)
+        
+        format_layout.addWidget(format_combo)
+        layout.addLayout(format_layout)
+        
+        # Buttons
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(dialog.accept)
+        button_box.rejected.connect(dialog.reject)
+        layout.addWidget(button_box)
+        
+        if dialog.exec() != QDialog.Accepted:
+            return False
+        
+        # Get selected format
+        selected_format = format_combo.currentData()
+        
+        # Map format to file filter
+        format_filters = {
+            "csv": "CSV Files (*.csv);;All Files (*.*)",
+            "xlsx": "Excel Files (*.xlsx);;All Files (*.*)",
+            "json": "JSON Files (*.json);;All Files (*.*)",
+            "txt": "Text Files (*.txt);;All Files (*.*)",
+            "pkl": "Pickle Files (*.pkl);;All Files (*.*)"
+        }
+        
+        default_file = f"{default_filename}.{selected_format}"
+        
+        # Get save path
+        file_path, _ = QFileDialog.getSaveFileName(
+            self.parent,
+            f"Export Data as {selected_format.upper()}",
+            self._get_default_export_path(default_file),
+            format_filters.get(selected_format, "All Files (*.*)")
+        )
+        
+        if not file_path:
+            return False
+        
+        try:
+            import pandas as pd
+            
+            # Convert to DataFrame if dict
+            if isinstance(data_table, dict):
+                df = pd.DataFrame(data_table)
+            else:
+                df = data_table
+            
+            # Export based on format
+            if selected_format == "csv":
+                df.to_csv(file_path, index=False)
+            elif selected_format == "xlsx":
+                df.to_excel(file_path, index=False, engine='openpyxl')
+            elif selected_format == "json":
+                df.to_json(file_path, orient='records', indent=2, force_ascii=False)
+            elif selected_format == "txt":
+                df.to_csv(file_path, sep='\\t', index=False)
+            elif selected_format == "pkl":
+                df.to_pickle(file_path)
+            
+            self._show_success(
+                f"Data exported successfully to:\\n{file_path}"
+            )
+            return True
+        except Exception as e:
+            self._show_error(
+                f"Export failed: {str(e)}"
+            )
+            return False
+    
     def export_full_report(
         self, 
         result: Any, 

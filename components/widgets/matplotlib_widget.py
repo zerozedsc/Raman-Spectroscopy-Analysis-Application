@@ -182,8 +182,125 @@ class MatplotlibWidget(QWidget):
         try:
             self.figure.tight_layout(pad=1.2)
             self.canvas.draw_idle()  # Non-blocking draw
-        except:
+        except Exception:
+            # Silent fail on resize - layout incompatibility is acceptable here
             pass
+
+    def create_subplot_layout(self, num_plots: int, max_cols: int = 2, max_rows: int = None) -> Tuple[int, int]:
+        """
+        Calculate optimal subplot grid layout (rows, cols) for given number of plots.
+        
+        This method provides a robust, dynamic system for determining subplot arrangement
+        that works for both single and multiple graph displays.
+        
+        Args:
+            num_plots: Number of plots/graphs to display
+            max_cols: Maximum number of columns (default: 2 for side-by-side layout)
+            max_rows: Maximum number of rows (default: None for automatic calculation)
+        
+        Returns:
+            Tuple[int, int]: (num_rows, num_cols) for subplot grid
+        
+        Examples:
+            >>> create_subplot_layout(1)  # Single plot
+            (1, 1)
+            
+            >>> create_subplot_layout(2)  # Two plots side-by-side
+            (1, 2)
+            
+            >>> create_subplot_layout(3)  # Three plots: 2 cols x 2 rows (last row has 1 plot)
+            (2, 2)
+            
+            >>> create_subplot_layout(4)  # Four plots: 2x2 grid
+            (2, 2)
+            
+            >>> create_subplot_layout(6)  # Six plots: 3x2 grid
+            (3, 2)
+        """
+        if num_plots <= 0:
+            return (1, 1)
+        
+        if num_plots == 1:
+            return (1, 1)
+        
+        # Calculate number of columns (capped by max_cols)
+        num_cols = min(num_plots, max_cols)
+        
+        # Calculate required rows
+        num_rows = int(np.ceil(num_plots / num_cols))
+        
+        # Apply max_rows constraint if specified
+        if max_rows is not None and num_rows > max_rows:
+            num_rows = max_rows
+            # Recalculate cols to fit within max_rows constraint
+            num_cols = int(np.ceil(num_plots / num_rows))
+        
+        return (num_rows, num_cols)
+
+    def is_last_row(self, plot_index: int, total_plots: int, num_rows: int, num_cols: int) -> bool:
+        """
+        Determine if a subplot is in the last row of the grid.
+        
+        This is critical for showing x-axis labels only on bottom row plots
+        when displaying multiple graphs with shared x-axis ranges.
+        
+        Args:
+            plot_index: 0-based index of current plot
+            total_plots: Total number of plots in grid
+            num_rows: Number of rows in grid
+            num_cols: Number of columns in grid
+        
+        Returns:
+            bool: True if plot is in last row (should show x-axis), False otherwise
+        
+        Examples:
+            >>> # For 4 plots in 2x2 grid:
+            >>> is_last_row(0, 4, 2, 2)  # Top-left: False
+            False
+            >>> is_last_row(2, 4, 2, 2)  # Bottom-left: True
+            True
+            >>> is_last_row(3, 4, 2, 2)  # Bottom-right: True
+            True
+        """
+        # Calculate which row this plot is in (0-based)
+        current_row = plot_index // num_cols
+        
+        # Last row is (num_rows - 1)
+        last_row = num_rows - 1
+        
+        return current_row == last_row
+
+    def calculate_dynamic_title_size(self, num_plots: int, base_size: int = 14) -> int:
+        """
+        Calculate appropriate title font size based on number of plots.
+        
+        More plots = smaller titles to avoid overcrowding.
+        
+        Args:
+            num_plots: Number of plots to display
+            base_size: Base font size for single plot (default: 14)
+        
+        Returns:
+            int: Recommended title font size
+        
+        Examples:
+            >>> calculate_dynamic_title_size(1)  # Single plot
+            14
+            >>> calculate_dynamic_title_size(2)  # Two plots
+            12
+            >>> calculate_dynamic_title_size(4)  # Four plots
+            11
+            >>> calculate_dynamic_title_size(6)  # Six or more
+            10
+        """
+        if num_plots == 1:
+            return base_size
+        elif num_plots == 2:
+            return base_size - 2  # 12pt
+        elif num_plots <= 4:
+            return base_size - 3  # 11pt
+        else:
+            return base_size - 4  # 10pt for 5+ plots
 
     def update_plot(self, new_figure: Figure):
         """
@@ -525,12 +642,18 @@ class MatplotlibWidget(QWidget):
         # Consensus from 6 AI analyses: tight_layout must be called after ALL artists added
         try:
             self.figure.tight_layout(pad=1.2, rect=[0, 0.03, 1, 0.95])
-        except Exception as e:
-            print(f"[DEBUG] tight_layout failed: {e}, using constrained_layout")
+        except (ValueError, UserWarning, RuntimeWarning) as e:
+            # Known incompatibility with certain subplot types (e.g., colorbar axes)
+            # Try constrained_layout as fallback
             try:
                 self.figure.set_constrained_layout(True)
-            except:
+            except Exception:
+                # If both fail, continue without layout adjustment
                 pass
+        except Exception as e:
+            # Catch any other unexpected errors
+            print(f"[DEBUG] Layout adjustment failed: {type(e).__name__}")
+            pass
         
         self.canvas.draw()
         

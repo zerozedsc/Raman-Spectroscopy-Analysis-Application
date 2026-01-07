@@ -2510,6 +2510,9 @@ class PreprocessPage(QWidget):
                 # Connect real-time updates for sliders with immediate response
                 if hasattr(widget, 'realTimeUpdate'):
                     widget.realTimeUpdate.connect(lambda: self._schedule_preview_update(delay_ms=50))
+            # Connect radio button groups (for "radio" parameter type)
+            elif hasattr(widget, 'button_group') and widget.button_group is not None:
+                widget.button_group.buttonClicked.connect(lambda: self._schedule_preview_update())
             # Connect standard Qt widgets
             elif hasattr(widget, 'valueChanged'):
                 widget.valueChanged.connect(lambda: self._schedule_preview_update())
