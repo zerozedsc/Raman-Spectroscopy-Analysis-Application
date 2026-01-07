@@ -33,7 +33,8 @@ class RamanNoiseProcessor:
         for col in noisy_df.columns:
             if np.issubdtype(noisy_df[col].dtype, np.number):
                 noise = np.random.normal(
-                    loc=0.0, scale=noise_level, size=noisy_df[col].shape)
+                    loc=0.0, scale=noise_level, size=noisy_df[col].shape
+                )
                 noisy_df[col] = noisy_df[col] + noise
         return noisy_df
 
@@ -59,7 +60,7 @@ class RamanNoiseProcessor:
 
         # Scan through the spectrum using a moving window
         for i in range(0, len(wavenumber) - window_size):
-            segment = spectra[i:i+window_size, :]
+            segment = spectra[i : i + window_size, :]
             segment_std = np.std(segment)
             if segment_std < min_std:
                 min_std = segment_std
@@ -69,8 +70,7 @@ class RamanNoiseProcessor:
         start_wn = wavenumber[min_idx]
         end_wn = wavenumber[min_idx + window_size - 1]
 
-        console_log(
-            f"Auto-detected baseline region: {start_wn:.2f}–{end_wn:.2f} cm⁻¹")
+        console_log(f"Auto-detected baseline region: {start_wn:.2f}–{end_wn:.2f} cm⁻¹")
 
         # Return the sliced baseline DataFrame
         baseline_df = self.df.loc[start_wn:end_wn]

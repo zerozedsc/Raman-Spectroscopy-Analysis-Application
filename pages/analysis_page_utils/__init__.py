@@ -11,8 +11,8 @@ from .thread import AnalysisThread
 from .widgets import create_parameter_widgets
 
 __all__ = [
-    'ANALYSIS_METHODS',
-    'AnalysisResult',
-    'AnalysisThread',
-    'create_parameter_widgets'
+    "ANALYSIS_METHODS",
+    "AnalysisResult",
+    "AnalysisThread",
+    "create_parameter_widgets",
 ]

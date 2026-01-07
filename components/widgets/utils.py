@@ -6,12 +6,35 @@ import ramanspy as rp
 import traceback
 from typing import Dict, List, Any, Optional, Tuple
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton,
-    QLabel, QLineEdit, QGroupBox, QListWidget, QListWidgetItem,
-    QStackedWidget, QComboBox, QDoubleSpinBox, QSpinBox, QMessageBox,
-    QCheckBox, QSlider, QTextEdit, QScrollArea, QFrame, QSplitter,
-    QProgressBar, QApplication, QDialog, QDialogButtonBox, QTreeWidget,
-    QTreeWidgetItem, QFormLayout, QTabWidget
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QGridLayout,
+    QPushButton,
+    QLabel,
+    QLineEdit,
+    QGroupBox,
+    QListWidget,
+    QListWidgetItem,
+    QStackedWidget,
+    QComboBox,
+    QDoubleSpinBox,
+    QSpinBox,
+    QMessageBox,
+    QCheckBox,
+    QSlider,
+    QTextEdit,
+    QScrollArea,
+    QFrame,
+    QSplitter,
+    QProgressBar,
+    QApplication,
+    QDialog,
+    QDialogButtonBox,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QFormLayout,
+    QTabWidget,
 )
 from PySide6.QtCore import Signal, Qt, QSize, QThread, QTimer
 from PySide6.QtGui import QIcon

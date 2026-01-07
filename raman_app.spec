@@ -44,6 +44,11 @@ assets_path = os.path.join(spec_root, 'assets')
 if os.path.exists(assets_path):
     datas.append((assets_path, 'assets'))
 
+# Add Configs - CRITICAL for metadata fields display
+configs_path = os.path.join(spec_root, 'configs')
+if os.path.exists(configs_path):
+    datas.append((configs_path, 'configs'))
+
 # Collect essential data
 datas += collect_data_files('PySide6')
 datas += collect_data_files('matplotlib')

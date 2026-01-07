@@ -12,6 +12,7 @@ try:
     import ramanspy as rp
     from scipy import ndimage
     from scipy.ndimage import grey_opening
+
     SCIPY_AVAILABLE = True
 except ImportError:
     SCIPY_AVAILABLE = False
@@ -20,6 +21,7 @@ try:
     import torch
     import torch.nn as nn
     from torch.nn import TransformerEncoder, TransformerEncoderLayer
+
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
@@ -28,7 +30,7 @@ try:
     from ..utils import create_logs
 except ImportError:
     # Fallback logging function
-    def create_logs(log_id, source, message, status='info'):
+    def create_logs(log_id, source, message, status="info"):
         print(f"[{status.upper()}] {source}: {message}")
 
 
@@ -58,11 +60,23 @@ class BaselineCorrection:
         try:
             # Import all ramanspy baseline methods
             from ramanspy.preprocessing.baseline import (
-                ASLS, ARPLS, AIRPLS, ASPLS, IASLS, DRPLS, IARPLS,
-                Poly, ModPoly, PenalisedPoly, IModPoly, Goldindec,
-                IRSQR, CornerCutting, FABC
+                ASLS,
+                ARPLS,
+                AIRPLS,
+                ASPLS,
+                IASLS,
+                DRPLS,
+                IARPLS,
+                Poly,
+                ModPoly,
+                PenalisedPoly,
+                IModPoly,
+                Goldindec,
+                IRSQR,
+                CornerCutting,
+                FABC,
             )
-            
+
             registry = {
                 # Asymmetric Least Squares methods
                 "ASLS": {
@@ -71,23 +85,23 @@ class BaselineCorrection:
                     "description": "Asymmetric Least Squares baseline correction",
                     "default_params": {"lam": 1e6, "p": 0.01},
                     "suitable_for": ["general", "biological", "fluorescence"],
-                    "computational_cost": "medium"
+                    "computational_cost": "medium",
                 },
                 "ARPLS": {
                     "class": ARPLS,
-                    "category": "least_squares", 
+                    "category": "least_squares",
                     "description": "Asymptotically Reweighted Penalized Least Squares",
                     "default_params": {"lam": 1e6},
                     "suitable_for": ["biological", "fluorescence", "robust"],
-                    "computational_cost": "medium"
+                    "computational_cost": "medium",
                 },
                 "AIRPLS": {
                     "class": AIRPLS,
                     "category": "least_squares",
-                    "description": "Adaptive Iteratively Reweighted Penalized Least Squares", 
+                    "description": "Adaptive Iteratively Reweighted Penalized Least Squares",
                     "default_params": {"lam": 1e6},
                     "suitable_for": ["biological", "automatic", "robust"],
-                    "computational_cost": "medium"
+                    "computational_cost": "medium",
                 },
                 "ASPLS": {
                     "class": ASPLS,
@@ -95,7 +109,7 @@ class BaselineCorrection:
                     "description": "Asymmetric Smoothing Penalized Least Squares",
                     "default_params": {"lam": 1e6, "alpha": 0.5},
                     "suitable_for": ["biological", "peak_preserving"],
-                    "computational_cost": "medium"
+                    "computational_cost": "medium",
                 },
                 "IASLS": {
                     "class": IASLS,
@@ -103,7 +117,7 @@ class BaselineCorrection:
                     "description": "Improved Asymmetric Least Squares",
                     "default_params": {"lam": 1e6, "p": 0.01, "lam_1": 1e4},
                     "suitable_for": ["biological", "fluorescence"],
-                    "computational_cost": "high"
+                    "computational_cost": "high",
                 },
                 "DRPLS": {
                     "class": DRPLS,
@@ -111,7 +125,7 @@ class BaselineCorrection:
                     "description": "Doubly Reweighted Penalized Least Squares",
                     "default_params": {"lam": 1e6, "eta": 0.5},
                     "suitable_for": ["robust", "biological"],
-                    "computational_cost": "high"
+                    "computational_cost": "high",
                 },
                 "IARPLS": {
                     "class": IARPLS,
@@ -119,9 +133,8 @@ class BaselineCorrection:
                     "description": "Improved Asymptotically Reweighted Penalized Least Squares",
                     "default_params": {"lam": 1e6},
                     "suitable_for": ["robust", "biological"],
-                    "computational_cost": "high"
+                    "computational_cost": "high",
                 },
-                
                 # Polynomial methods
                 "Poly": {
                     "class": Poly,
@@ -130,7 +143,7 @@ class BaselineCorrection:
                     "default_params": {"poly_order": 3},
                     "suitable_for": ["simple", "fast"],
                     "computational_cost": "low",
-                    "requires_region": True
+                    "requires_region": True,
                 },
                 "ModPoly": {
                     "class": ModPoly,
@@ -138,7 +151,7 @@ class BaselineCorrection:
                     "description": "Modified Polynomial baseline correction",
                     "default_params": {"poly_order": 3},
                     "suitable_for": ["simple", "fast"],
-                    "computational_cost": "low"
+                    "computational_cost": "low",
                 },
                 "PenalisedPoly": {
                     "class": PenalisedPoly,
@@ -146,7 +159,7 @@ class BaselineCorrection:
                     "description": "Penalized Polynomial baseline correction",
                     "default_params": {"poly_order": 3},
                     "suitable_for": ["robust", "biological"],
-                    "computational_cost": "medium"
+                    "computational_cost": "medium",
                 },
                 "IModPoly": {
                     "class": IModPoly,
@@ -154,9 +167,8 @@ class BaselineCorrection:
                     "description": "Improved Modified Polynomial",
                     "default_params": {"poly_order": 3},
                     "suitable_for": ["simple", "robust"],
-                    "computational_cost": "medium"
+                    "computational_cost": "medium",
                 },
-                
                 # Specialized methods
                 "Goldindec": {
                     "class": Goldindec,
@@ -164,7 +176,7 @@ class BaselineCorrection:
                     "description": "Goldindec baseline correction",
                     "default_params": {"poly_order": 3},
                     "suitable_for": ["specialized"],
-                    "computational_cost": "medium"
+                    "computational_cost": "medium",
                 },
                 "IRSQR": {
                     "class": IRSQR,
@@ -172,7 +184,7 @@ class BaselineCorrection:
                     "description": "Iterative Reweighted Quantile Regression",
                     "default_params": {"lam": 1e6, "quantile": 0.05},
                     "suitable_for": ["robust", "peak_preserving"],
-                    "computational_cost": "high"
+                    "computational_cost": "high",
                 },
                 "CornerCutting": {
                     "class": CornerCutting,
@@ -180,22 +192,25 @@ class BaselineCorrection:
                     "description": "Corner Cutting baseline correction",
                     "default_params": {},
                     "suitable_for": ["fast", "simple"],
-                    "computational_cost": "low"
+                    "computational_cost": "low",
                 },
                 "FABC": {
                     "class": FABC,
-                    "category": "specialized", 
+                    "category": "specialized",
                     "description": "Fully Automated Baseline Correction",
                     "default_params": {"lam": 1e6},
                     "suitable_for": ["automatic", "biological"],
-                    "computational_cost": "medium"
-                }
+                    "computational_cost": "medium",
+                },
             }
-            
+
         except ImportError as e:
-            create_logs("baseline_import_error", "BaselineCorrection",
-                       f"Could not import ramanspy baseline methods: {e}. Using fallback registry.",
-                       status='warning')
+            create_logs(
+                "baseline_import_error",
+                "BaselineCorrection",
+                f"Could not import ramanspy baseline methods: {e}. Using fallback registry.",
+                status="warning",
+            )
             # Fallback registry with basic methods
             registry = {
                 "MultiScaleConv1D": {
@@ -204,10 +219,10 @@ class BaselineCorrection:
                     "description": "Multi-scale convolutional baseline correction",
                     "default_params": {"kernel_sizes": [5, 11, 21, 41]},
                     "suitable_for": ["general", "biological"],
-                    "computational_cost": "medium"
+                    "computational_cost": "medium",
                 }
             }
-            
+
         return registry
 
     def _build_presets(self) -> Dict[str, Dict[str, Dict[str, Any]]]:
@@ -216,30 +231,34 @@ class BaselineCorrection:
             "biological": {
                 "ARPLS": {"lam": 1e6},
                 "AIRPLS": {"lam": 1e6},
-                "ASPLS": {"lam": 1e6, "alpha": 0.5}
+                "ASPLS": {"lam": 1e6, "alpha": 0.5},
             },
             "fluorescence": {
                 "ARPLS": {"lam": 1e7},
                 "ASLS": {"lam": 1e7, "p": 0.001},
-                "IASLS": {"lam": 1e7, "p": 0.001, "lam_1": 1e5}
+                "IASLS": {"lam": 1e7, "p": 0.001, "lam_1": 1e5},
             },
             "fast": {
                 "ASLS": {"lam": 1e5, "p": 0.01},
                 "ModPoly": {"poly_order": 2},
-                "CornerCutting": {}
+                "CornerCutting": {},
             },
             "robust": {
                 "AIRPLS": {"lam": 1e6},
                 "IARPLS": {"lam": 1e6},
-                "IRSQR": {"lam": 1e6, "quantile": 0.05}
-            }
+                "IRSQR": {"lam": 1e6, "quantile": 0.05},
+            },
         }
 
-    def get_method(self, method_name: str, custom_params: Optional[Dict[str, Any]] = None) -> Any:
+    def get_method(
+        self, method_name: str, custom_params: Optional[Dict[str, Any]] = None
+    ) -> Any:
         """Get a baseline correction method with specified parameters."""
         if method_name not in self._methods_registry:
             available = list(self._methods_registry.keys())
-            raise ValueError(f"Method '{method_name}' not available. Available: {available}")
+            raise ValueError(
+                f"Method '{method_name}' not available. Available: {available}"
+            )
 
         method_info = self._methods_registry[method_name]
         method_class = method_info["class"]
@@ -258,9 +277,12 @@ class BaselineCorrection:
         try:
             return method_class(**params)
         except Exception as e:
-            create_logs("baseline_method_error", "BaselineCorrection",
-                       f"Error initializing {method_name}: {e}. Using defaults.",
-                       status='error')
+            create_logs(
+                "baseline_method_error",
+                "BaselineCorrection",
+                f"Error initializing {method_name}: {e}. Using defaults.",
+                status="error",
+            )
             return method_class(**method_info["default_params"])
 
     def list_methods(self) -> List[str]:
@@ -279,15 +301,13 @@ class MultiScaleConv1D:
     Multi-scale 1D Convolutional baseline correction for Raman spectra.
 
     This method uses multiple convolutional filters with different kernel sizes
-    to capture baseline features at different scales, then subtracts the 
+    to capture baseline features at different scales, then subtracts the
     reconstructed baseline from the original spectrum.
     """
 
-    def __init__(self,
-                 kernel_sizes=[5, 11, 21, 41],
-                 weights=None,
-                 mode='reflect',
-                 iterations=1):
+    def __init__(
+        self, kernel_sizes=[5, 11, 21, 41], weights=None, mode="reflect", iterations=1
+    ):
         """
         Initialize MultiScaleConv1D baseline correction.
 
@@ -320,16 +340,18 @@ class MultiScaleConv1D:
 
     def apply(self, spectra):
         """Apply baseline correction to ramanspy SpectralContainer format."""
-        if not hasattr(spectra, 'spectral_data'):
+        if not hasattr(spectra, "spectral_data"):
             # Handle numpy arrays
             return self(spectra)
-            
+
         data = spectra.spectral_data
 
         if data.ndim == 1:
             corrected_data = self._correct_spectrum(data)
         else:
-            corrected_data = np.array([self._correct_spectrum(spectrum) for spectrum in data])
+            corrected_data = np.array(
+                [self._correct_spectrum(spectrum) for spectrum in data]
+            )
 
         return rp.SpectralContainer(corrected_data, spectra.spectral_axis)
 
@@ -369,43 +391,48 @@ class MultiScaleConv1D:
         pad_width = len(kernel) // 2
 
         # Pad the signal
-        if self.mode == 'reflect':
-            padded_signal = np.pad(signal, pad_width, mode='reflect')
-        elif self.mode == 'constant':
-            padded_signal = np.pad(signal, pad_width, mode='constant', constant_values=0)
-        elif self.mode == 'nearest':
-            padded_signal = np.pad(signal, pad_width, mode='edge')
-        elif self.mode == 'wrap':
-            padded_signal = np.pad(signal, pad_width, mode='wrap')
+        if self.mode == "reflect":
+            padded_signal = np.pad(signal, pad_width, mode="reflect")
+        elif self.mode == "constant":
+            padded_signal = np.pad(
+                signal, pad_width, mode="constant", constant_values=0
+            )
+        elif self.mode == "nearest":
+            padded_signal = np.pad(signal, pad_width, mode="edge")
+        elif self.mode == "wrap":
+            padded_signal = np.pad(signal, pad_width, mode="wrap")
         else:
             raise ValueError(f"Unknown padding mode: {self.mode}")
 
         # Apply convolution
-        convolved = np.convolve(padded_signal, kernel, mode='valid')
+        convolved = np.convolve(padded_signal, kernel, mode="valid")
         return convolved
 
 
 # PyTorch-based baseline methods (only available if PyTorch is installed)
 if TORCH_AVAILABLE:
+
     class Transformer1DBaseline:
         """
         Transformer-based baseline correction for Raman spectra using PyTorch.
-        
+
         This method uses a transformer architecture to learn and predict
         baseline patterns in Raman spectra.
         """
 
-        def __init__(self,
-                    d_model=64,
-                    nhead=8,
-                    num_layers=3,
-                    dim_feedforward=256,
-                    dropout=0.1,
-                    window_size=128,
-                    overlap=0.5,
-                    learning_rate=1e-3,
-                    epochs=50,
-                    device=None):
+        def __init__(
+            self,
+            d_model=64,
+            nhead=8,
+            num_layers=3,
+            dim_feedforward=256,
+            dropout=0.1,
+            window_size=128,
+            overlap=0.5,
+            learning_rate=1e-3,
+            epochs=50,
+            device=None,
+        ):
             """Initialize Transformer1DBaseline correction."""
             self.d_model = d_model
             self.nhead = nhead
@@ -419,7 +446,9 @@ if TORCH_AVAILABLE:
 
             # Set device
             if device is None:
-                self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+                self.device = torch.device(
+                    "cuda" if torch.cuda.is_available() else "cpu"
+                )
             else:
                 self.device = torch.device(device)
 
@@ -430,7 +459,9 @@ if TORCH_AVAILABLE:
             if spectra.ndim == 1:
                 return self._correct_spectrum(spectra)
             else:
-                return np.array([self._correct_spectrum(spectrum) for spectrum in spectra])
+                return np.array(
+                    [self._correct_spectrum(spectrum) for spectrum in spectra]
+                )
 
         def apply(self, spectra):
             """Apply baseline correction to ramanspy SpectralContainer format."""
@@ -439,7 +470,9 @@ if TORCH_AVAILABLE:
             if data.ndim == 1:
                 corrected_data = self._correct_spectrum(data)
             else:
-                corrected_data = np.array([self._correct_spectrum(spectrum) for spectrum in data])
+                corrected_data = np.array(
+                    [self._correct_spectrum(spectrum) for spectrum in data]
+                )
 
             return rp.SpectralContainer(corrected_data, spectra.spectral_axis)
 
@@ -467,7 +500,7 @@ if TORCH_AVAILABLE:
                 num_layers=self.num_layers,
                 dim_feedforward=self.dim_feedforward,
                 dropout=self.dropout,
-                window_size=self.window_size
+                window_size=self.window_size,
             ).to(self.device)
 
         def _train_model(self, spectrum):
@@ -477,7 +510,9 @@ if TORCH_AVAILABLE:
 
             # Convert to tensors
             input_tensor = torch.FloatTensor(spectrum).unsqueeze(0).to(self.device)
-            target_tensor = torch.FloatTensor(baseline_target).unsqueeze(0).to(self.device)
+            target_tensor = (
+                torch.FloatTensor(baseline_target).unsqueeze(0).to(self.device)
+            )
 
             # Setup optimizer
             optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
@@ -507,25 +542,36 @@ if TORCH_AVAILABLE:
             if kernel_size % 2 == 0:
                 kernel_size += 1
 
-            baseline1 = np.convolve(spectrum, np.ones(kernel_size)/kernel_size, mode='same')
+            baseline1 = np.convolve(
+                spectrum, np.ones(kernel_size) / kernel_size, mode="same"
+            )
 
             if SCIPY_AVAILABLE:
                 # Percentile-based smoothing
-                baseline2 = ndimage.percentile_filter(spectrum, percentile=10, size=kernel_size)
+                baseline2 = ndimage.percentile_filter(
+                    spectrum, percentile=10, size=kernel_size
+                )
                 # Morphological opening
-                baseline3 = grey_opening(spectrum, size=kernel_size//3)
+                baseline3 = grey_opening(spectrum, size=kernel_size // 3)
                 baseline = (baseline1 + baseline2 + baseline3) / 3
             else:
                 baseline = baseline1
 
             return baseline
 
-
     class BaselineTransformer(nn.Module):
         """Transformer model for baseline prediction."""
 
-        def __init__(self, spectrum_length, d_model=64, nhead=8, num_layers=3,
-                    dim_feedforward=256, dropout=0.1, window_size=128):
+        def __init__(
+            self,
+            spectrum_length,
+            d_model=64,
+            nhead=8,
+            num_layers=3,
+            dim_feedforward=256,
+            dropout=0.1,
+            window_size=128,
+        ):
             super(BaselineTransformer, self).__init__()
 
             self.spectrum_length = spectrum_length
@@ -545,7 +591,7 @@ if TORCH_AVAILABLE:
                 nhead=nhead,
                 dim_feedforward=dim_feedforward,
                 dropout=dropout,
-                batch_first=True
+                batch_first=True,
             )
             self.transformer = TransformerEncoder(encoder_layer, num_layers=num_layers)
 
@@ -572,7 +618,6 @@ if TORCH_AVAILABLE:
 
             return x
 
-
     class PositionalEncoding(nn.Module):
         """Positional encoding for transformer."""
 
@@ -582,48 +627,52 @@ if TORCH_AVAILABLE:
 
             pe = torch.zeros(max_len, d_model)
             position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-            div_term = torch.exp(torch.arange(0, d_model, 2).float() * 
-                               (-np.log(10000.0) / d_model))
+            div_term = torch.exp(
+                torch.arange(0, d_model, 2).float() * (-np.log(10000.0) / d_model)
+            )
             pe[:, 0::2] = torch.sin(position * div_term)
             pe[:, 1::2] = torch.cos(position * div_term)
             pe = pe.unsqueeze(0).transpose(0, 1)
-            self.register_buffer('pe', pe)
+            self.register_buffer("pe", pe)
 
         def forward(self, x):
-            x = x + self.pe[:x.size(1), :].transpose(0, 1)
+            x = x + self.pe[: x.size(1), :].transpose(0, 1)
             return self.dropout(x)
-
 
     class LightweightTransformer1D:
         """Lightweight transformer-based baseline correction."""
-        
+
         def __init__(self, d_model=32, nhead=4, num_layers=2, epochs=20):
             """Initialize lightweight transformer."""
             if not TORCH_AVAILABLE:
                 raise ImportError("PyTorch is required for LightweightTransformer1D")
-                
+
             self.d_model = d_model
             self.nhead = nhead
             self.num_layers = num_layers
             self.epochs = epochs
-            self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             self.model = None
-        
+
         def __call__(self, spectra):
             """Apply lightweight transformer baseline correction."""
             if spectra.ndim == 1:
                 return self._correct_spectrum(spectra)
             else:
-                return np.array([self._correct_spectrum(spectrum) for spectrum in spectra])
-        
+                return np.array(
+                    [self._correct_spectrum(spectrum) for spectrum in spectra]
+                )
+
         def _correct_spectrum(self, spectrum):
             """Correct a single spectrum using lightweight transformer."""
             # Simple implementation - use heavy smoothing as baseline
             kernel_size = max(15, len(spectrum) // 30)
             if kernel_size % 2 == 0:
                 kernel_size += 1
-            
-            baseline = np.convolve(spectrum, np.ones(kernel_size)/kernel_size, mode='same')
+
+            baseline = np.convolve(
+                spectrum, np.ones(kernel_size) / kernel_size, mode="same"
+            )
             return spectrum - baseline
 
 else:
@@ -631,7 +680,7 @@ else:
     class Transformer1DBaseline:
         def __init__(self, *args, **kwargs):
             raise ImportError("PyTorch is required for Transformer1DBaseline")
-    
+
     class LightweightTransformer1D:
         def __init__(self, *args, **kwargs):
             raise ImportError("PyTorch is required for LightweightTransformer1D")

@@ -1,5 +1,6 @@
 from enum import IntEnum
 
+
 class StatusCode(IntEnum):
     DRV_SUCCESS = 20002
     DRV_VXDNOTINSTALLED = 20003
@@ -16,12 +17,14 @@ class StatusCode(IntEnum):
     DRV_TEMP_NOT_REACHED = 20034
     DRV_TEMP_DRIFT = 20035
 
+
 class AcquisitionMode(IntEnum):
     SINGLE_SCAN = 1
     ACCUMULATE = 2
     KINETIC = 3
     FAST_KINETIC = 4
     RUN_TILL_ABORT = 5
+
 
 class ReadMode(IntEnum):
     FVB = 0
@@ -30,6 +33,7 @@ class ReadMode(IntEnum):
     RANDOM_TRACK = 3
     FULL_IMAGE = 4
 
+
 class TriggerMode(IntEnum):
     INTERNAL = 0
     EXTERNAL = 1
@@ -37,10 +41,12 @@ class TriggerMode(IntEnum):
     EXTERNAL_EXPOSURE = 7
     SOFTWARE = 10
 
+
 class ShutterMode(IntEnum):
     SHUTTER_CLOSED = 0
     SHUTTER_OPEN = 1
     SHUTTER_AUTO = 2
+
 
 class ExposureError(IntEnum):
     EXPOSURE_TIME_INVALID = 20020

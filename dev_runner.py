@@ -4,6 +4,7 @@ import subprocess
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
+
 class RestartHandler(FileSystemEventHandler):
     def __init__(self):
         self.restart_triggered = False
@@ -12,10 +13,11 @@ class RestartHandler(FileSystemEventHandler):
         if event.src_path.endswith(".py"):
             self.restart_triggered = True
 
+
 def run_app():
     # The command to run your app
     cmd = ["uv", "run", "main.py"]
-    
+
     handler = RestartHandler()
     observer = Observer()
     observer.schedule(handler, path=".", recursive=True)
@@ -30,8 +32,8 @@ def run_app():
             if handler.restart_triggered:
                 print("\n♻️  Change detected. Restarting...")
                 process.terminate()  # Kill current app
-                process.wait()       # Wait for cleanup
-                process = subprocess.Popen(cmd) # Start new
+                process.wait()  # Wait for cleanup
+                process = subprocess.Popen(cmd)  # Start new
                 handler.restart_triggered = False
 
             # 2. Check if App exited naturally (User clicked X)
@@ -43,15 +45,16 @@ def run_app():
                     sys.exit(0)
                 else:
                     # App crashed. Keep watching for fixes.
-                    pass 
+                    pass
 
             time.sleep(0.5)
-            
+
     except KeyboardInterrupt:
         observer.stop()
         process.terminate()
 
     observer.join()
+
 
 if __name__ == "__main__":
     run_app()

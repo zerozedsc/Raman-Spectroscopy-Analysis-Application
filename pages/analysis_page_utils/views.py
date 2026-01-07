@@ -11,9 +11,18 @@ This module contains UI view creation functions for the card-based analysis page
 from typing import Dict, Any, Callable
 import os
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QFrame, QScrollArea, QGridLayout, QListWidget, QListWidgetItem,
-    QGroupBox, QTextEdit
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QFrame,
+    QScrollArea,
+    QGridLayout,
+    QListWidget,
+    QListWidgetItem,
+    QGroupBox,
+    QTextEdit,
 )
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFont, QPixmap
@@ -30,161 +39,166 @@ METHOD_IMAGES = {
     "tsne": "t-sne.png",
     "hierarchical_clustering": "hierarchical_clustering.png",
     "kmeans": "k-means.png",  # Fixed: was "kmeans_clustering"
-    
     # Statistical methods
     "spectral_comparison": "spectral_comparison.png",
     "peak_analysis": "peak_analysis.png",
     "correlation_analysis": "correlation_analysis.png",
     "anova_test": "ANOVA.png",  # Fixed: was "anova"
-    
     # Visualization methods
     "heatmap": "spectral_heatmap.png",  # Fixed: was "spectral_heatmap"
     "mean_spectra_overlay": "mean_spectra_overlay.png",
     "waterfall_plot": "waterfall.png",
     "correlation_heatmap": "correlation_heatmap.png",
-    "peak_intensity_scatter": "peak_intensity_scatter.png"
+    "peak_intensity_scatter": "peak_intensity_scatter.png",
 }
 
 
-def create_startup_view(localize_func: Callable, on_method_selected: Callable) -> QWidget:
+def create_startup_view(
+    localize_func: Callable, on_method_selected: Callable
+) -> QWidget:
     """
     Create startup view with categorized method cards in a cleaner layout.
-    
+
     Args:
         localize_func: Localization function
         on_method_selected: Callback when method card is clicked (category, method_key)
-    
+
     Returns:
         Startup view widget
     """
     startup_widget = QWidget()
     startup_widget.setObjectName("startupView")
-    startup_widget.setStyleSheet("""
+    startup_widget.setStyleSheet(
+        """
         QWidget#startupView {
             background-color: #f8f9fa;
         }
-    """)
-    
+    """
+    )
+
     layout = QVBoxLayout(startup_widget)
     layout.setContentsMargins(20, 8, 20, 16)  # Minimal top margin: 8px
     layout.setSpacing(8)  # Minimal spacing
-    
+
     # Compact header - single line only
-    header_label = QLabel(localize_func("ANALYSIS_PAGE.welcome_subtitle"))  # Use subtitle as main text
-    header_label.setStyleSheet("""
+    header_label = QLabel(
+        localize_func("ANALYSIS_PAGE.welcome_subtitle")
+    )  # Use subtitle as main text
+    header_label.setStyleSheet(
+        """
         font-size: 14px;
         font-weight: 500;
         color: #495057;
         padding: 4px 0px;
-    """)
+    """
+    )
     layout.addWidget(header_label)
-    
+
     # Scroll area for cards
     scroll_area = QScrollArea()
     scroll_area.setWidgetResizable(True)
     scroll_area.setFrameShape(QFrame.NoFrame)
-    scroll_area.setStyleSheet("""
+    scroll_area.setStyleSheet(
+        """
         QScrollArea {
             background-color: transparent;
             border: none;
         }
-    """)
-    
+    """
+    )
+
     cards_container = QWidget()
     cards_container.setStyleSheet("background-color: transparent;")
     cards_layout = QVBoxLayout(cards_container)
     cards_layout.setSpacing(16)  # Compact section spacing
     cards_layout.setContentsMargins(0, 0, 0, 0)
-    
+
     # Create category sections with method cards
     for category_key in ["exploratory", "statistical", "visualization"]:
         category_section = create_category_section(
             category_key, localize_func, on_method_selected
         )
         cards_layout.addWidget(category_section)
-    
+
     cards_layout.addStretch()
     scroll_area.setWidget(cards_container)
     layout.addWidget(scroll_area)
-    
+
     return startup_widget
 
 
 def create_category_section(
-    category_key: str, 
-    localize_func: Callable, 
-    on_method_selected: Callable
+    category_key: str, localize_func: Callable, on_method_selected: Callable
 ) -> QWidget:
     """
     Create a category section with method cards in a better layout.
-    
+
     Args:
         category_key: Category identifier
         localize_func: Localization function
         on_method_selected: Callback for card clicks
-    
+
     Returns:
         Category section widget
     """
     section = QFrame()
     section.setObjectName("categorySection")
-    section.setStyleSheet("""
+    section.setStyleSheet(
+        """
         QFrame#categorySection {
             background-color: transparent;
             border: none;
         }
-    """)
-    
+    """
+    )
+
     layout = QVBoxLayout(section)
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(8)  # Minimal spacing between header and grid
-    
+
     # Category header with icon
-    category_icons = {
-        "exploratory": "🔍",
-        "statistical": "📊", 
-        "visualization": "📈"
-    }
-    
+    category_icons = {"exploratory": "🔍", "statistical": "📊", "visualization": "📈"}
+
     icon = category_icons.get(category_key, "📊")
     # Use localization for category names
     category_name = localize_func(f"ANALYSIS_PAGE.CATEGORIES.{category_key}")
-    
+
     header_label = QLabel(f"{icon} {category_name}")
-    header_label.setStyleSheet("""
+    header_label.setStyleSheet(
+        """
         font-size: 15px;
         font-weight: 600;
         color: #2c3e50;
         padding: 4px 0px;
-    """)
+    """
+    )
     layout.addWidget(header_label)
-    
+
     # Grid layout for method cards (responsive 3-column)
     grid_widget = QWidget()
     grid_layout = QGridLayout(grid_widget)
     grid_layout.setSpacing(12)  # Reduced from 16
     grid_layout.setContentsMargins(0, 0, 0, 0)
-    
+
     # Get methods for this category
     methods = ANALYSIS_METHODS.get(category_key, {})
-    
+
     # Add method cards to grid (3 columns)
     row = 0
     col = 0
     for method_key, method_info in methods.items():
         card = create_method_card(
-            category_key, method_key, method_info,
-            localize_func, on_method_selected
+            category_key, method_key, method_info, localize_func, on_method_selected
         )
         grid_layout.addWidget(card, row, col)
-        
+
         col += 1
         if col >= 3:  # 3 cards per row
             col = 0
             row += 1
-    
+
     layout.addWidget(grid_widget)
-    
+
     return section
 
 
@@ -193,30 +207,31 @@ def create_method_card(
     method_key: str,
     method_info: Dict,
     localize_func: Callable,
-    on_method_selected: Callable
+    on_method_selected: Callable,
 ) -> QFrame:
     """
     Create modern method card with hover effects.
-    
+
     Styling matches technical guide specifications:
     - Background: #ffffff
     - Border: 1px solid #e0e0e0
     - Border Radius: 8px
     - Hover: Border #0078d4 + shadow
-    
+
     Args:
         category: Method category
         method_key: Method identifier
         method_info: Method configuration
         localize_func: Localization function
         on_method_selected: Callback for card clicks
-    
+
     Returns:
         Method card widget
     """
     card = QFrame()
     card.setObjectName("methodCard")
-    card.setStyleSheet("""
+    card.setStyleSheet(
+        """
         QFrame#methodCard {
             background-color: #ffffff;
             border: 1px solid #e0e0e0;
@@ -225,76 +240,89 @@ def create_method_card(
         }
         QFrame#methodCard:hover {
             border-color: #0078d4;
-            box-shadow: 0 2px 8px rgba(0, 120, 212, 0.12);
+            background-color: #f8fcff;
         }
-    """)
+    """
+    )
     card.setMinimumWidth(260)  # Slightly smaller
     card.setMaximumWidth(380)  # Slightly smaller
     card.setMinimumHeight(200)  # Increased to fit image
     card.setCursor(Qt.PointingHandCursor)
-    
+
     layout = QVBoxLayout(card)
     layout.setSpacing(8)  # Tighter spacing
     layout.setContentsMargins(0, 0, 0, 0)
-    
+
     # Add method image if available
     if method_key in METHOD_IMAGES:
         image_label = QLabel()
         image_label.setAlignment(Qt.AlignCenter)
-        
+
         # Get image path
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        image_path = os.path.join(base_dir, "assets", "image", METHOD_IMAGES[method_key])
-        
+        base_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+        image_path = os.path.join(
+            base_dir, "assets", "image", METHOD_IMAGES[method_key]
+        )
+
         if os.path.exists(image_path):
             pixmap = QPixmap(image_path)
             if not pixmap.isNull():
                 # Scale to fit card width while maintaining aspect ratio
                 scaled_pixmap = pixmap.scaled(
-                    240, 120,  # Max width 240px, height 120px
+                    240,
+                    120,  # Max width 240px, height 120px
                     Qt.KeepAspectRatio,
-                    Qt.SmoothTransformation
+                    Qt.SmoothTransformation,
                 )
                 image_label.setPixmap(scaled_pixmap)
-                image_label.setStyleSheet("""
+                image_label.setStyleSheet(
+                    """
                     QLabel {
                         background-color: #f8f9fa;
                         border-radius: 4px;
                         padding: 4px;
                     }
-                """)
+                """
+                )
                 layout.addWidget(image_label)
-    
+
     # Method name - use localization
     method_name = localize_func(f"ANALYSIS_PAGE.METHODS.{method_key}")
     name_label = QLabel(method_name)
-    name_label.setStyleSheet("""
+    name_label.setStyleSheet(
+        """
         font-size: 14px;
         font-weight: 600;
         color: #2c3e50;
-    """)
+    """
+    )
     name_label.setWordWrap(True)
     layout.addWidget(name_label)
-    
+
     # Description - use localization
     desc_text = localize_func(f"ANALYSIS_PAGE.METHOD_DESC.{method_key}")
     desc_label = QLabel(desc_text)
-    desc_label.setStyleSheet("""
+    desc_label.setStyleSheet(
+        """
         font-size: 11px;
         color: #6c757d;
         line-height: 1.3;
-    """)
+    """
+    )
     desc_label.setWordWrap(True)
     desc_label.setMinimumHeight(40)  # Reduced from 50
     layout.addWidget(desc_label)
-    
+
     layout.addStretch()
-    
+
     # Start button
     start_btn = QPushButton(localize_func("ANALYSIS_PAGE.start_analysis_button"))
     start_btn.setObjectName("cardStartButton")
     start_btn.setMinimumHeight(32)  # Reduced from 36
-    start_btn.setStyleSheet("""
+    start_btn.setStyleSheet(
+        """
         QPushButton#cardStartButton {
             background-color: #0078d4;
             color: white;
@@ -310,55 +338,61 @@ def create_method_card(
         QPushButton#cardStartButton:pressed {
             background-color: #005a9e;
         }
-    """)
+    """
+    )
     start_btn.clicked.connect(lambda: on_method_selected(category, method_key))
     layout.addWidget(start_btn)
-    
+
     # Make entire card clickable
     card.mousePressEvent = lambda event: on_method_selected(category, method_key)
-    
+
     return card
 
 
 def create_history_sidebar(localize_func: Callable) -> QWidget:
     """
     Create collapsible history sidebar for analysis session tracking.
-    
+
     Args:
         localize_func: Localization function
-    
+
     Returns:
         History sidebar widget
     """
     sidebar = QWidget()
     sidebar.setObjectName("historySidebar")
-    sidebar.setStyleSheet("""
+    sidebar.setStyleSheet(
+        """
         QWidget#historySidebar {
             background-color: #f8f9fa;
             border-right: 1px solid #e0e0e0;
         }
-    """)
+    """
+    )
     sidebar.setMaximumWidth(280)
     sidebar.setMinimumWidth(200)
-    
+
     layout = QVBoxLayout(sidebar)
     layout.setContentsMargins(12, 12, 12, 12)
     layout.setSpacing(12)
-    
+
     # Header
     header_label = QLabel("📜 " + localize_func("ANALYSIS_PAGE.history_title"))
-    header_label.setStyleSheet("""
+    header_label.setStyleSheet(
+        """
         font-size: 14px;
         font-weight: 600;
         color: #2c3e50;
         padding: 8px 0;
-    """)
+    """
+    )
     layout.addWidget(header_label)
-    
+
     # History list
     history_list = QListWidget()
     history_list.setObjectName("historyList")
-    history_list.setStyleSheet("""
+    history_list.setStyleSheet(
+        """
         QListWidget#historyList {
             background-color: #ffffff;
             border: 1px solid #e0e0e0;
@@ -375,51 +409,55 @@ def create_history_sidebar(localize_func: Callable) -> QWidget:
         QListWidget#historyList::item:hover {
             background-color: #f0f0f0;
         }
-    """)
+    """
+    )
     layout.addWidget(history_list)
-    
+
     # Clear history button
     clear_btn = QPushButton(localize_func("ANALYSIS_PAGE.clear_history"))
     clear_btn.setObjectName("secondaryButton")
     clear_btn.setMinimumHeight(32)
     layout.addWidget(clear_btn)
-    
+
     # Store reference for external access
     sidebar.history_list = history_list
     sidebar.clear_btn = clear_btn
-    
+
     return sidebar
 
 
 def create_top_bar(localize_func: Callable, on_new_analysis: Callable) -> QWidget:
     """
     Create top navigation bar with New Analysis button.
-    
+
     Args:
         localize_func: Localization function
         on_new_analysis: Callback for new analysis button
-    
+
     Returns:
         Top bar widget with new_analysis_btn attribute
     """
     top_bar = QWidget()
     top_bar.setObjectName("topBar")
-    top_bar.setStyleSheet("""
+    top_bar.setStyleSheet(
+        """
         QWidget#topBar {
             background-color: #ffffff;
             border-bottom: 1px solid #dee2e6;
         }
-    """)
-    
+    """
+    )
+
     layout = QHBoxLayout(top_bar)
     layout.setContentsMargins(12, 4, 12, 4)  # Reduced from 6 to 4 - very tight
     layout.setSpacing(2)  # Reduced from 10 to 8
-    
+
     # Title with back button
     back_btn = QPushButton("←")
     back_btn.setObjectName("backButton")
     back_btn.setFixedSize(26, 26)  # Reduced from 28x28
-    back_btn.setStyleSheet("""
+    back_btn.setStyleSheet(
+        """
         QPushButton#backButton {
             background-color: transparent;
             border: 1px solid #e0e0e0;
@@ -431,18 +469,21 @@ def create_top_bar(localize_func: Callable, on_new_analysis: Callable) -> QWidge
             background-color: #e7f3ff;
             border-color: #0078d4;
         }
-    """)
+    """
+    )
     back_btn.setCursor(Qt.PointingHandCursor)
     back_btn.clicked.connect(on_new_analysis)
     back_btn.setVisible(False)  # Hidden by default
     layout.addWidget(back_btn)
-    
+
     title_label = QLabel("📊 " + localize_func("ANALYSIS_PAGE.title"))
-    title_label.setStyleSheet("font-weight: 600; font-size: 13px; color: #2c3e50;")  # Reduced from 14px
+    title_label.setStyleSheet(
+        "font-weight: 600; font-size: 13px; color: #2c3e50;"
+    )  # Reduced from 14px
     layout.addWidget(title_label)
-    
+
     layout.addStretch()
-    
+
     # New Analysis button (plus icon)
     new_analysis_btn = QPushButton()
     new_analysis_btn.setObjectName("newAnalysisButton")
@@ -452,7 +493,8 @@ def create_top_bar(localize_func: Callable, on_new_analysis: Callable) -> QWidge
     new_analysis_btn.setFixedSize(32, 32)  # Reduced from 36x36
     new_analysis_btn.setToolTip(localize_func("ANALYSIS_PAGE.new_analysis_tooltip"))
     new_analysis_btn.setCursor(Qt.PointingHandCursor)
-    new_analysis_btn.setStyleSheet("""
+    new_analysis_btn.setStyleSheet(
+        """
         QPushButton#newAnalysisButton {
             background-color: #0078d4;
             border: none;
@@ -464,14 +506,15 @@ def create_top_bar(localize_func: Callable, on_new_analysis: Callable) -> QWidge
         QPushButton#newAnalysisButton:pressed {
             background-color: #005a9e;
         }
-    """)
+    """
+    )
     new_analysis_btn.clicked.connect(on_new_analysis)
     new_analysis_btn.setVisible(False)  # Hidden in startup view
     layout.addWidget(new_analysis_btn)
-    
+
     # Store references for external access
     top_bar.new_analysis_btn = new_analysis_btn
     top_bar.back_btn = back_btn
     top_bar.title_label = title_label
-    
+
     return top_bar

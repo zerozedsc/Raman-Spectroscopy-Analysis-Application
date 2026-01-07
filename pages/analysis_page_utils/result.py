@@ -15,7 +15,7 @@ from matplotlib.figure import Figure
 class AnalysisResult:
     """
     Container for analysis results with comprehensive metadata.
-    
+
     Attributes:
         category: Analysis category (exploratory, statistical, visualization)
         method_key: Unique method identifier
@@ -33,7 +33,7 @@ class AnalysisResult:
         raw_results: Raw analysis output for further processing
         dataset_data: Original dataset data for spectrum visualization (optional)
     """
-    
+
     category: str
     method_key: str
     method_name: str
@@ -48,7 +48,7 @@ class AnalysisResult:
     data_table: Optional[pd.DataFrame] = None
     raw_results: Dict[str, Any] = field(default_factory=dict)
     dataset_data: Optional[Dict[str, pd.DataFrame]] = None
-    
+
     def __post_init__(self):
         """Validate result data after initialization."""
         if not self.category:

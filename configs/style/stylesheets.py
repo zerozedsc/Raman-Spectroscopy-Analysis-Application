@@ -5,7 +5,7 @@ Organized by page/component for better maintainability.
 
 # Base styles used across components
 BASE_STYLES = {
-    'group_box': """
+    "group_box": """
         QGroupBox {
             font-size: 14px;
             font-weight: 600;
@@ -22,8 +22,7 @@ BASE_STYLES = {
             background-color: #f8f9fa;
         }
     """,
-    
-    'input_field': """
+    "input_field": """
         QLineEdit, QDoubleSpinBox, QSpinBox {
             padding: 8px;
             border: 1px solid #ced4da;
@@ -36,8 +35,7 @@ BASE_STYLES = {
             outline: none;
         }
     """,
-    
-    'combo_box': """
+    "combo_box": """
         QComboBox {
             padding: 8px;
             border: 1px solid #ced4da;
@@ -54,8 +52,7 @@ BASE_STYLES = {
             height: 12px;
         }
     """,
-    
-    'primary_button': """
+    "primary_button": """
         QPushButton {
             background-color: #0078d4;
             color: white;
@@ -72,8 +69,7 @@ BASE_STYLES = {
             background-color: #005a9e;
         }
     """,
-    
-    'secondary_button': """
+    "secondary_button": """
         QPushButton {
             background-color: #ffffff;
             color: #6c757d;
@@ -87,8 +83,7 @@ BASE_STYLES = {
             border-color: #adb5bd;
         }
     """,
-    
-    'success_button': """
+    "success_button": """
         QPushButton {
             background-color: #28a745;
             color: white;
@@ -109,8 +104,7 @@ BASE_STYLES = {
             cursor: not-allowed;
         }
     """,
-    
-    'danger_button': """
+    "danger_button": """
         QPushButton {
             background-color: #dc3545;
             color: white;
@@ -127,8 +121,7 @@ BASE_STYLES = {
             background-color: #bd2130;
         }
     """,
-    
-    'list_widget': """
+    "list_widget": """
         QListWidget {
             border: 1px solid #ced4da;
             border-radius: 4px;
@@ -144,8 +137,7 @@ BASE_STYLES = {
             color: #1976d2;
         }
     """,
-    
-    'scroll_area': """
+    "scroll_area": """
         QScrollArea {
             border: none;
             background-color: white;
@@ -164,8 +156,7 @@ BASE_STYLES = {
             background-color: #a8a8a8;
         }
     """,
-    
-    'progress_bar': """
+    "progress_bar": """
         QProgressBar {
             border: 1px solid #ced4da;
             border-radius: 4px;
@@ -178,8 +169,7 @@ BASE_STYLES = {
             border-radius: 3px;
         }
     """,
-    
-    'info_label': """
+    "info_label": """
         QLabel {
             color: #666;
             font-size: 12px;
@@ -188,25 +178,23 @@ BASE_STYLES = {
             border-radius: 4px;
         }
     """,
-    
-    'parameter_label': """
+    "parameter_label": """
         QLabel {
             font-weight: 500;
             color: #2c3e50;
         }
     """,
-    
-    'status_label': """
+    "status_label": """
         QLabel {
             color: #666;
             font-size: 12px;
         }
-    """
+    """,
 }
 
 # Preprocessing Page specific styles
 PREPROCESS_PAGE_STYLES = {
-    'main_splitter': """
+    "main_splitter": """
         QSplitter::handle {
             background-color: #ddd;
             border: 1px solid #bbb;
@@ -215,15 +203,13 @@ PREPROCESS_PAGE_STYLES = {
             background-color: #0078d4;
         }
     """,
-    
-    'left_panel': """
+    "left_panel": """
         #leftPanel {
             background-color: #f8f9fa;
             border-right: 1px solid #dee2e6;
         }
     """,
-    
-    'pipeline_list': """
+    "pipeline_list": """
         QListWidget {
             border: 1px solid #ced4da;
             border-radius: 4px;
@@ -243,8 +229,7 @@ PREPROCESS_PAGE_STYLES = {
             border: 1px solid #1976d2;
         }
     """,
-    
-    'dataset_list': """
+    "dataset_list": """
         QListWidget {
             border: 1px solid #ced4da;
             border-radius: 4px;
@@ -271,34 +256,31 @@ PREPROCESS_PAGE_STYLES = {
             background-color: #1976d2;
         }
     """,
-    
-    'visualization_widget': """
+    "visualization_widget": """
         MatplotlibWidget {
             border: 1px solid #dee2e6;
             border-radius: 4px;
             background-color: white;
         }
     """,
-    
-    'parameter_input': """
+    "parameter_input": """
         QLineEdit, QDoubleSpinBox, QSpinBox {
             padding: 6px;
         }
         QComboBox {
             padding: 6px;
         }
-    """
+    """,
 }
 
 # Workspace Page specific styles
 WORKSPACE_PAGE_STYLES = {
-    'main_container': """
+    "main_container": """
         QWidget {
             background-color: #f8f9fa;
         }
     """,
-    
-    'project_card': """
+    "project_card": """
         QFrame {
             background-color: white;
             border: 1px solid #dee2e6;
@@ -307,14 +289,14 @@ WORKSPACE_PAGE_STYLES = {
         }
         QFrame:hover {
             border-color: #0078d4;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background-color: #f8fcff;
         }
-    """
+    """,
 }
 
 # Data Package Page specific styles
 DATA_PACKAGE_PAGE_STYLES = {
-    'dataset_item': """
+    "dataset_item": """
         QFrame {
             background-color: white;
             border: 1px solid #dee2e6;
@@ -325,8 +307,7 @@ DATA_PACKAGE_PAGE_STYLES = {
             border-color: #0078d4;
         }
     """,
-    
-    'import_button': """
+    "import_button": """
         QPushButton {
             background-color: #17a2b8;
             color: white;
@@ -338,12 +319,12 @@ DATA_PACKAGE_PAGE_STYLES = {
         QPushButton:hover {
             background-color: #138496;
         }
-    """
+    """,
 }
 
 # ML Training Page specific styles
 ML_TRAINING_PAGE_STYLES = {
-    'model_card': """
+    "model_card": """
         QFrame {
             background-color: white;
             border: 1px solid #dee2e6;
@@ -355,8 +336,7 @@ ML_TRAINING_PAGE_STYLES = {
             border-color: #28a745;
         }
     """,
-    
-    'training_progress': """
+    "training_progress": """
         QProgressBar {
             border: 2px solid #28a745;
             border-radius: 6px;
@@ -369,20 +349,19 @@ ML_TRAINING_PAGE_STYLES = {
             background-color: #28a745;
             border-radius: 4px;
         }
-    """
+    """,
 }
 
 # Real-time Analysis Page specific styles
 REALTIME_PAGE_STYLES = {
-    'control_panel': """
+    "control_panel": """
         QFrame {
             background-color: #343a40;
             border-radius: 8px;
             padding: 16px;
         }
     """,
-    
-    'start_button': """
+    "start_button": """
         QPushButton {
             background-color: #28a745;
             color: white;
@@ -399,8 +378,7 @@ REALTIME_PAGE_STYLES = {
             background-color: #1e7e34;
         }
     """,
-    
-    'stop_button': """
+    "stop_button": """
         QPushButton {
             background-color: #dc3545;
             color: white;
@@ -417,8 +395,7 @@ REALTIME_PAGE_STYLES = {
             background-color: #bd2130;
         }
     """,
-    
-    'status_indicator': """
+    "status_indicator": """
         QLabel {
             background-color: #28a745;
             color: white;
@@ -427,8 +404,7 @@ REALTIME_PAGE_STYLES = {
             font-weight: 500;
         }
     """,
-    
-    'selection_card': """
+    "selection_card": """
         #selectionCard {
             background-color: white;
             border: 1px solid #e1e4e8;
@@ -436,8 +412,7 @@ REALTIME_PAGE_STYLES = {
             padding: 12px;
         }
     """,
-    
-    'modern_pipeline_group': """
+    "modern_pipeline_group": """
         QGroupBox#modernPipelineGroup {
             background-color: white;
             border: 1px solid #dee2e6;
@@ -453,7 +428,7 @@ REALTIME_PAGE_STYLES = {
             padding: 0px 8px;
             color: #2c3e50;
         }
-    """
+    """,
 }
 
 PREPROCESS_PAGE_STYLES_2 = """
@@ -478,7 +453,6 @@ PREPROCESS_PAGE_STYLES_2 = """
                     stop:0 #f8f8f8, stop:1 #e8e8e8);
                 border: 2px solid #0078d4;
                 color: #0078d4;
-                transform: scale(1.05);
             }
             
             QPushButton#iconButton:pressed {
@@ -486,7 +460,6 @@ PREPROCESS_PAGE_STYLES_2 = """
                     stop:0 #e0e0e0, stop:1 #d0d0d0);
                 border: 2px solid #005a9e;
                 color: #005a9e;
-                transform: scale(0.95);
             }
             
             QPushButton#iconButton:disabled {
@@ -511,14 +484,11 @@ PREPROCESS_PAGE_STYLES_2 = """
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #bbdefb, stop:1 #90caf9);
                 border-color: #42a5f5;
-                transform: translateY(-1px);
-                box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
             }
             
             QPushButton#refreshButton:pressed {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #90caf9, stop:1 #64b5f6);
-                transform: translateY(0px);
             }
             
             QPushButton#ctaButton {
@@ -537,14 +507,11 @@ PREPROCESS_PAGE_STYLES_2 = """
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #106ebe, stop:1 #004578);
                 border-color: #106ebe;
-                transform: translateY(-1px);
-                box-shadow: 0 4px 12px rgba(0, 120, 212, 0.4);
             }
             
             QPushButton#ctaButton:pressed {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #005a9e, stop:1 #004578);
-                transform: translateY(0px);
             }
             
             QPushButton#ctaButton:disabled {
@@ -569,14 +536,11 @@ PREPROCESS_PAGE_STYLES_2 = """
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #ffcdd2, stop:1 #ef9a9a);
                 border-color: #d32f2f;
-                transform: translateY(-1px);
-                box-shadow: 0 4px 8px rgba(244, 67, 54, 0.3);
             }
             
             QPushButton#cancelButton:pressed {
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
                     stop:0 #ef9a9a, stop:1 #e57373);
-                transform: translateY(0px);
             }
         """
 
@@ -586,20 +550,22 @@ def get_main_stylesheet(font_family: str) -> str:
     Generates the main application stylesheet with a dynamically provided font family.
     Combines all base styles and page-specific styles into a single comprehensive stylesheet.
     """
-    
+
     # Combine all base styles
     base_styles = "\n".join(BASE_STYLES.values())
-    
+
     # Combine all page-specific styles
-    page_styles = "\n".join([
-        "\n".join(PREPROCESS_PAGE_STYLES.values()),
-         PREPROCESS_PAGE_STYLES_2,
-        "\n".join(WORKSPACE_PAGE_STYLES.values()),
-        "\n".join(DATA_PACKAGE_PAGE_STYLES.values()),
-        "\n".join(ML_TRAINING_PAGE_STYLES.values()),
-        "\n".join(REALTIME_PAGE_STYLES.values()),
-    ])
-    
+    page_styles = "\n".join(
+        [
+            "\n".join(PREPROCESS_PAGE_STYLES.values()),
+            PREPROCESS_PAGE_STYLES_2,
+            "\n".join(WORKSPACE_PAGE_STYLES.values()),
+            "\n".join(DATA_PACKAGE_PAGE_STYLES.values()),
+            "\n".join(ML_TRAINING_PAGE_STYLES.values()),
+            "\n".join(REALTIME_PAGE_STYLES.values()),
+        ]
+    )
+
     # Main application stylesheet
     main_stylesheet = f"""
         QWidget {{
@@ -654,8 +620,7 @@ def get_main_stylesheet(font_family: str) -> str:
         
         #actionCard[hover="true"] {{
             border-color: #0078d4;
-            box-shadow: 0 4px 12px rgba(0, 120, 212, 0.15);
-            transform: translateY(-2px);
+            background-color: #f8fcff;
         }}
         
         #actionCard #cardTitle {{
@@ -849,18 +814,18 @@ def get_main_stylesheet(font_family: str) -> str:
         }}
         
     """
-    
+
     return main_stylesheet
 
 
 def get_page_style(page_name, style_name):
     """Get a page-specific style by page and style name."""
     page_styles = {
-        'preprocess': PREPROCESS_PAGE_STYLES,
-        'workspace': WORKSPACE_PAGE_STYLES,
-        'data_package': DATA_PACKAGE_PAGE_STYLES,
-        'ml_training': ML_TRAINING_PAGE_STYLES,
-        'realtime': REALTIME_PAGE_STYLES
+        "preprocess": PREPROCESS_PAGE_STYLES,
+        "workspace": WORKSPACE_PAGE_STYLES,
+        "data_package": DATA_PACKAGE_PAGE_STYLES,
+        "ml_training": ML_TRAINING_PAGE_STYLES,
+        "realtime": REALTIME_PAGE_STYLES,
     }
     return page_styles.get(page_name, {}).get(style_name, "")
 
@@ -868,6 +833,7 @@ def get_page_style(page_name, style_name):
 def combine_styles(*styles):
     """Combine multiple styles into one."""
     return "\n".join(filter(None, styles))
+
 
 # Utility functions to get styles
 def get_base_style(style_name):

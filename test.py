@@ -6,7 +6,7 @@
 
 import pickle
 
-with open(r'J:\Coding\研究\raman-app\20221215 Mgus10 B.pkl', 'rb') as f:
+with open(r"J:\Coding\研究\raman-app\20221215 Mgus10 B.pkl", "rb") as f:
     data = pickle.load(f)
 
 print(data.keys())

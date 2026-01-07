@@ -24,49 +24,52 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                 "n_components": {
                     "type": "spinbox",
                     "default": 3,
-                    "range": (2, 100),  # Removed arbitrary limit - users should be free to choose based on their data
-                    "label": "Number of Components"
+                    "range": (
+                        2,
+                        100,
+                    ),  # Removed arbitrary limit - users should be free to choose based on their data
+                    "label": "Number of Components",
                 },
                 "scaling": {
                     "type": "combo",
                     "options": ["StandardScaler", "MinMaxScaler", "None"],
                     "default": "StandardScaler",
-                    "label": "Scaling Method"
+                    "label": "Scaling Method",
                 },
                 "show_ellipses": {
                     "type": "checkbox",
                     "default": False,
-                    "label": "Show 95% Confidence Ellipses"
+                    "label": "Show 95% Confidence Ellipses",
                 },
                 "show_loadings": {
                     "type": "checkbox",
                     "default": False,
-                    "label": "Show Loading Plot"
+                    "label": "Show Loading Plot",
                 },
                 "max_loadings_components": {
                     "type": "spinbox",
                     "default": 3,
                     "range": (1, 5),
-                    "label": "Loading Components to Plot (max 5)"
+                    "label": "Loading Components to Plot (max 5)",
                 },
                 "show_scree": {
                     "type": "checkbox",
                     "default": False,
-                    "label": "Show Scree Plot"
+                    "label": "Show Scree Plot",
                 },
                 "show_distributions": {
                     "type": "checkbox",
                     "default": True,
-                    "label": "Show Score Distributions"
+                    "label": "Show Score Distributions",
                 },
                 "n_distribution_components": {
                     "type": "spinbox",
                     "default": 3,
                     "range": (1, 6),
-                    "label": "Distribution Components (max 6)"
-                }
+                    "label": "Distribution Components (max 6)",
+                },
             },
-            "function": "perform_pca_analysis"
+            "function": "perform_pca_analysis",
         },
         "umap": {
             "name": "UMAP (Uniform Manifold Approximation)",
@@ -79,35 +82,35 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                     "type": "spinbox",
                     "default": 15,
                     "range": (5, 100),
-                    "label": "Number of Neighbors"
+                    "label": "Number of Neighbors",
                 },
                 "min_dist": {
                     "type": "double_spinbox",
                     "default": 0.1,
                     "range": (0.0, 1.0),
                     "step": 0.05,
-                    "label": "Minimum Distance"
+                    "label": "Minimum Distance",
                 },
                 "n_components": {
                     "type": "spinbox",
                     "default": 2,
                     "range": (2, 3),
-                    "label": "Number of Dimensions"
+                    "label": "Number of Dimensions",
                 },
                 "metric": {
                     "type": "combo",
                     "options": ["euclidean", "cosine", "manhattan", "correlation"],
                     "default": "euclidean",
-                    "label": "Distance Metric"
+                    "label": "Distance Metric",
                 },
                 "random_seed": {
                     "type": "spinbox",
                     "default": 42,
                     "range": (0, 2147483647),
-                    "label": "Random Seed (for reproducibility)"
-                }
+                    "label": "Random Seed (for reproducibility)",
+                },
             },
-            "function": "perform_umap_analysis"
+            "function": "perform_umap_analysis",
         },
         "tsne": {
             "name": "t-SNE (t-Distributed Stochastic Neighbor Embedding)",
@@ -120,29 +123,29 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                     "type": "spinbox",
                     "default": 30,
                     "range": (5, 100),
-                    "label": "Perplexity"
+                    "label": "Perplexity",
                 },
                 "learning_rate": {
                     "type": "double_spinbox",
                     "default": 200.0,
                     "range": (10.0, 1000.0),
                     "step": 10.0,
-                    "label": "Learning Rate"
+                    "label": "Learning Rate",
                 },
                 "n_iter": {
                     "type": "spinbox",
                     "default": 1000,
                     "range": (250, 5000),
-                    "label": "Max Iterations"
+                    "label": "Max Iterations",
                 },
                 "random_seed": {
                     "type": "spinbox",
                     "default": 42,
                     "range": (0, 2147483647),
-                    "label": "Random Seed (for reproducibility)"
-                }
+                    "label": "Random Seed (for reproducibility)",
+                },
             },
-            "function": "perform_tsne_analysis"
+            "function": "perform_tsne_analysis",
         },
         "hierarchical_clustering": {
             "name": "Hierarchical Clustering with Dendrogram",
@@ -155,27 +158,27 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                     "type": "spinbox",
                     "default": 3,
                     "range": (2, 20),
-                    "label": "Number of Clusters"
+                    "label": "Number of Clusters",
                 },
                 "linkage_method": {
                     "type": "combo",
                     "options": ["ward", "complete", "average", "single"],
                     "default": "ward",
-                    "label": "Linkage Method"
+                    "label": "Linkage Method",
                 },
                 "distance_metric": {
                     "type": "combo",
                     "options": ["euclidean", "cosine", "manhattan", "correlation"],
                     "default": "euclidean",
-                    "label": "Distance Metric"
+                    "label": "Distance Metric",
                 },
                 "show_labels": {
                     "type": "checkbox",
                     "default": False,
-                    "label": "Show Sample Labels"
-                }
+                    "label": "Show Sample Labels",
+                },
             },
-            "function": "perform_hierarchical_clustering"
+            "function": "perform_hierarchical_clustering",
         },
         "kmeans": {
             "name": "K-Means Clustering",
@@ -188,34 +191,34 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                     "type": "spinbox",
                     "default": 3,
                     "range": (2, 20),
-                    "label": "Number of Clusters"
+                    "label": "Number of Clusters",
                 },
                 "n_init": {
                     "type": "spinbox",
                     "default": 10,
                     "range": (1, 50),
-                    "label": "Number of Initializations"
+                    "label": "Number of Initializations",
                 },
                 "max_iter": {
                     "type": "spinbox",
                     "default": 300,
                     "range": (10, 1000),
-                    "label": "Max Iterations"
+                    "label": "Max Iterations",
                 },
                 "show_elbow": {
                     "type": "checkbox",
                     "default": True,
-                    "label": "Show Elbow Plot"
+                    "label": "Show Elbow Plot",
                 },
                 "random_seed": {
                     "type": "spinbox",
                     "default": 42,
                     "range": (0, 2147483647),
-                    "label": "Random Seed (for reproducibility)"
-                }
+                    "label": "Random Seed (for reproducibility)",
+                },
             },
-            "function": "perform_kmeans_clustering"
-        }
+            "function": "perform_kmeans_clustering",
+        },
     },
     "statistical": {
         "spectral_comparison": {
@@ -230,25 +233,25 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                     "default": 0.95,
                     "range": (0.80, 0.99),
                     "step": 0.01,
-                    "label": "Confidence Level"
+                    "label": "Confidence Level",
                 },
                 "fdr_correction": {
                     "type": "checkbox",
                     "default": True,
-                    "label": "Apply FDR Correction"
+                    "label": "Apply FDR Correction",
                 },
                 "show_ci": {
                     "type": "checkbox",
                     "default": True,
-                    "label": "Show Confidence Intervals"
+                    "label": "Show Confidence Intervals",
                 },
                 "highlight_significant": {
                     "type": "checkbox",
                     "default": True,
-                    "label": "Highlight Significant Regions"
-                }
+                    "label": "Highlight Significant Regions",
+                },
             },
-            "function": "perform_spectral_comparison"
+            "function": "perform_spectral_comparison",
         },
         "peak_analysis": {
             "name": "Peak Detection and Analysis",
@@ -262,27 +265,27 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                     "default": 0.1,
                     "range": (0.01, 1.0),
                     "step": 0.01,
-                    "label": "Prominence Threshold"
+                    "label": "Prominence Threshold",
                 },
                 "width_min": {
                     "type": "spinbox",
                     "default": 5,
                     "range": (1, 50),
-                    "label": "Minimum Peak Width"
+                    "label": "Minimum Peak Width",
                 },
                 "top_n_peaks": {
                     "type": "spinbox",
                     "default": 20,
                     "range": (5, 100),
-                    "label": "Top N Peaks to Display"
+                    "label": "Top N Peaks to Display",
                 },
                 "show_assignments": {
                     "type": "checkbox",
                     "default": True,
-                    "label": "Show Biochemical Assignments"
-                }
+                    "label": "Show Biochemical Assignments",
+                },
             },
-            "function": "perform_peak_analysis"
+            "function": "perform_peak_analysis",
         },
         "correlation_analysis": {
             "name": "Spectral Correlation Analysis",
@@ -295,22 +298,22 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                     "type": "combo",
                     "options": ["pearson", "spearman", "kendall"],
                     "default": "pearson",
-                    "label": "Correlation Method"
+                    "label": "Correlation Method",
                 },
                 "show_heatmap": {
                     "type": "checkbox",
                     "default": True,
-                    "label": "Show Correlation Heatmap"
+                    "label": "Show Correlation Heatmap",
                 },
                 "threshold": {
                     "type": "double_spinbox",
                     "default": 0.7,
                     "range": (0.0, 1.0),
                     "step": 0.05,
-                    "label": "Correlation Threshold"
-                }
+                    "label": "Correlation Threshold",
+                },
             },
-            "function": "perform_correlation_analysis"
+            "function": "perform_correlation_analysis",
         },
         "anova_test": {
             "name": "ANOVA Statistical Test",
@@ -324,22 +327,22 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                     "default": 0.05,
                     "range": (0.01, 0.1),
                     "step": 0.01,
-                    "label": "Significance Level (α)"
+                    "label": "Significance Level (α)",
                 },
                 "post_hoc": {
                     "type": "combo",
                     "options": ["tukey", "bonferroni", "none"],
                     "default": "tukey",
-                    "label": "Post-hoc Test"
+                    "label": "Post-hoc Test",
                 },
                 "show_boxplot": {
                     "type": "checkbox",
                     "default": True,
-                    "label": "Show Box Plot"
-                }
+                    "label": "Show Box Plot",
+                },
             },
-            "function": "perform_anova_test"
-        }
+            "function": "perform_anova_test",
+        },
     },
     "visualization": {
         "heatmap": {
@@ -352,31 +355,39 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                 "cluster_rows": {
                     "type": "checkbox",
                     "default": True,
-                    "label": "Cluster Rows (Samples)"
+                    "label": "Cluster Rows (Samples)",
                 },
                 "cluster_cols": {
                     "type": "checkbox",
                     "default": False,
-                    "label": "Cluster Columns (Wavenumbers)"
+                    "label": "Cluster Columns (Wavenumbers)",
                 },
                 "colormap": {
                     "type": "combo",
-                    "options": ["viridis", "plasma", "inferno", "magma", "cividis", "coolwarm", "RdYlBu"],
+                    "options": [
+                        "viridis",
+                        "plasma",
+                        "inferno",
+                        "magma",
+                        "cividis",
+                        "coolwarm",
+                        "RdYlBu",
+                    ],
                     "default": "viridis",
-                    "label": "Colormap"
+                    "label": "Colormap",
                 },
                 "normalize": {
                     "type": "checkbox",
                     "default": True,
-                    "label": "Normalize Intensities"
+                    "label": "Normalize Intensities",
                 },
                 "show_dendrograms": {
                     "type": "checkbox",
                     "default": True,
-                    "label": "Show Dendrograms"
-                }
+                    "label": "Show Dendrograms",
+                },
             },
-            "function": "create_spectral_heatmap"
+            "function": "create_spectral_heatmap",
         },
         "mean_spectra_overlay": {
             "name": "Mean Spectra Overlay Plot",
@@ -388,29 +399,29 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                 "show_std": {
                     "type": "checkbox",
                     "default": True,
-                    "label": "Show Standard Deviation"
+                    "label": "Show Standard Deviation",
                 },
                 "show_ci": {
                     "type": "checkbox",
                     "default": False,
-                    "label": "Show Confidence Intervals"
+                    "label": "Show Confidence Intervals",
                 },
                 "alpha_fill": {
                     "type": "double_spinbox",
                     "default": 0.2,
                     "range": (0.0, 1.0),
                     "step": 0.05,
-                    "label": "Fill Transparency"
+                    "label": "Fill Transparency",
                 },
                 "line_width": {
                     "type": "double_spinbox",
                     "default": 1.5,
                     "range": (0.5, 5.0),
                     "step": 0.5,
-                    "label": "Line Width"
-                }
+                    "label": "Line Width",
+                },
             },
-            "function": "create_mean_spectra_overlay"
+            "function": "create_mean_spectra_overlay",
         },
         "waterfall_plot": {
             "name": "Waterfall Plot",
@@ -422,34 +433,41 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                 "use_3d": {
                     "type": "checkbox",
                     "default": False,
-                    "label": "3D Waterfall Plot"
+                    "label": "3D Waterfall Plot",
                 },
                 "offset_scale": {
                     "type": "double_spinbox",
                     "default": 1.0,
                     "range": (0.1, 5.0),
                     "step": 0.1,
-                    "label": "Offset Scale"
+                    "label": "Offset Scale",
                 },
                 "max_spectra": {
                     "type": "spinbox",
                     "default": 50,
                     "range": (10, 200),
-                    "label": "Maximum Spectra to Display"
+                    "label": "Maximum Spectra to Display",
                 },
                 "colormap": {
                     "type": "combo",
-                    "options": ["viridis", "plasma", "coolwarm", "rainbow", "jet", "turbo"],
+                    "options": [
+                        "viridis",
+                        "plasma",
+                        "coolwarm",
+                        "rainbow",
+                        "jet",
+                        "turbo",
+                    ],
                     "default": "viridis",
-                    "label": "Colormap"
+                    "label": "Colormap",
                 },
                 "show_grid": {
                     "type": "checkbox",
                     "default": True,
-                    "label": "Show Grid Lines"
-                }
+                    "label": "Show Grid Lines",
+                },
             },
-            "function": "create_waterfall_plot"
+            "function": "create_waterfall_plot",
         },
         "correlation_heatmap": {
             "name": "Correlation Heatmap",
@@ -462,26 +480,26 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                     "type": "combo",
                     "options": ["pearson", "spearman"],
                     "default": "pearson",
-                    "label": "Correlation Method"
+                    "label": "Correlation Method",
                 },
                 "colormap": {
                     "type": "combo",
                     "options": ["coolwarm", "RdYlBu", "RdBu", "seismic"],
                     "default": "coolwarm",
-                    "label": "Colormap"
+                    "label": "Colormap",
                 },
                 "show_values": {
                     "type": "checkbox",
                     "default": False,
-                    "label": "Show Correlation Values"
+                    "label": "Show Correlation Values",
                 },
                 "cluster": {
                     "type": "checkbox",
                     "default": True,
-                    "label": "Cluster Samples"
-                }
+                    "label": "Cluster Samples",
+                },
             },
-            "function": "create_correlation_heatmap"
+            "function": "create_correlation_heatmap",
         },
         "peak_intensity_scatter": {
             "name": "Peak Intensity Scatter Plot",
@@ -494,80 +512,88 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                     "type": "spinbox",
                     "default": 1000,
                     "range": (400, 4000),
-                    "label": "Peak 1 Position (cm⁻¹)"
+                    "label": "Peak 1 Position (cm⁻¹)",
                 },
                 "peak_2_position": {
                     "type": "spinbox",
                     "default": 1650,
                     "range": (400, 4000),
-                    "label": "Peak 2 Position (cm⁻¹)"
+                    "label": "Peak 2 Position (cm⁻¹)",
                 },
                 "peak_3_position": {
                     "type": "spinbox",
                     "default": 2900,
                     "range": (400, 4000),
-                    "label": "Peak 3 Position (cm⁻¹)"
+                    "label": "Peak 3 Position (cm⁻¹)",
                 },
                 "tolerance": {
                     "type": "spinbox",
                     "default": 10,
                     "range": (1, 50),
-                    "label": "Peak Tolerance (cm⁻¹)"
+                    "label": "Peak Tolerance (cm⁻¹)",
                 },
                 "use_3d": {
                     "type": "checkbox",
                     "default": False,
-                    "label": "3D Scatter (3 peaks)"
+                    "label": "3D Scatter (3 peaks)",
                 },
                 "show_statistics": {
                     "type": "checkbox",
                     "default": True,
-                    "label": "Show Statistics"
+                    "label": "Show Statistics",
                 },
                 "show_legend": {
                     "type": "checkbox",
                     "default": True,
-                    "label": "Show Legend"
+                    "label": "Show Legend",
                 },
                 "colormap": {
                     "type": "combo",
                     "default": "tab10",
-                    "options": ["tab10", "Set1", "Set2", "Dark2", "Paired", "viridis", "plasma"],
-                    "label": "Color Scheme"
+                    "options": [
+                        "tab10",
+                        "Set1",
+                        "Set2",
+                        "Dark2",
+                        "Paired",
+                        "viridis",
+                        "plasma",
+                    ],
+                    "label": "Color Scheme",
                 },
                 "marker_size": {
                     "type": "spinbox",
                     "default": 60,
                     "range": (20, 200),
-                    "label": "Marker Size"
-                }
+                    "label": "Marker Size",
+                },
             },
-            "function": "create_peak_scatter"
-        }
-    }
+            "function": "create_peak_scatter",
+        },
+    },
 }
 
 
 def get_method_info(category: str, method_key: str) -> Dict[str, Any]:
     """
     Get information about a specific analysis method.
-    
+
     Args:
         category: Analysis category
         method_key: Unique method identifier
-    
+
     Returns:
         Method information dictionary
-    
+
     Raises:
         KeyError: If category or method not found
     """
     if category not in ANALYSIS_METHODS:
         raise KeyError(f"Category '{category}' not found in registry")
-    
+
     if method_key not in ANALYSIS_METHODS[category]:
         raise KeyError(f"Method '{method_key}' not found in category '{category}'")
-    
+
     return ANALYSIS_METHODS[category][method_key]
 
 
@@ -579,14 +605,14 @@ def get_all_categories() -> list:
 def get_methods_in_category(category: str) -> Dict[str, Dict[str, Any]]:
     """
     Get all methods in a specific category.
-    
+
     Args:
         category: Analysis category
-    
+
     Returns:
         Dictionary of methods in the category
     """
     if category not in ANALYSIS_METHODS:
         raise KeyError(f"Category '{category}' not found in registry")
-    
+
     return ANALYSIS_METHODS[category]

@@ -1,10 +1,29 @@
 from typing import Dict, Any, Callable, Optional
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QFrame, QScrollArea, QTabWidget, QGroupBox, QComboBox,
-    QSplitter, QTextEdit, QTableWidget, QTableWidgetItem, QListWidget,
-    QAbstractItemView, QStackedWidget, QButtonGroup, QRadioButton, QCheckBox, 
-    QTreeView, QTreeWidget, QTreeWidgetItem, QInputDialog
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QFrame,
+    QScrollArea,
+    QTabWidget,
+    QGroupBox,
+    QComboBox,
+    QSplitter,
+    QTextEdit,
+    QTableWidget,
+    QTableWidgetItem,
+    QListWidget,
+    QAbstractItemView,
+    QStackedWidget,
+    QButtonGroup,
+    QRadioButton,
+    QCheckBox,
+    QTreeView,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QInputDialog,
 )
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFont, QIcon
@@ -15,12 +34,13 @@ class GroupTreeManager(QWidget):
     A professional Tree-based widget for managing dataset groups.
     Features: Drag & Drop, Auto-Assign, Context Menus.
     """
+
     def __init__(self, dataset_names, localize_func, parent=None):
         super().__init__(parent)
         self.dataset_names = dataset_names
         self.localize = localize_func
         self._setup_ui()
-        self.reset() # Initialize with all items in Unassigned
+        self.reset()  # Initialize with all items in Unassigned
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -29,7 +49,8 @@ class GroupTreeManager(QWidget):
 
         # 1. Unified Toolbar (User Request #1)
         toolbar = QFrame()
-        toolbar.setStyleSheet("""
+        toolbar.setStyleSheet(
+            """
             QFrame { 
                 background-color: #f9f9f9; 
                 border: 1px solid #ccc; 
@@ -37,7 +58,8 @@ class GroupTreeManager(QWidget):
                 border-top-left-radius: 4px; 
                 border-top-right-radius: 4px; 
             }
-        """)
+        """
+        )
         tb_layout = QHBoxLayout(toolbar)
         tb_layout.setContentsMargins(8, 4, 8, 4)
         tb_layout.setSpacing(10)
@@ -50,7 +72,7 @@ class GroupTreeManager(QWidget):
             }
             QPushButton:hover { background-color: #e0e0e0; color: #000; }
         """
-        
+
         self.btn_create = QPushButton("➕ Create Group")
         self.btn_create.setStyleSheet(btn_style)
         self.btn_create.clicked.connect(self.create_group_dialog)
@@ -78,9 +100,10 @@ class GroupTreeManager(QWidget):
         self.tree.setDropIndicatorShown(True)
         self.tree.setDragDropMode(QAbstractItemView.InternalMove)
         self.tree.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        
+
         # Styling the Tree to look professional
-        self.tree.setStyleSheet("""
+        self.tree.setStyleSheet(
+            """
             QTreeWidget {
                 border: 1px solid #ccc;
                 border-bottom-left-radius: 4px;
@@ -93,35 +116,47 @@ class GroupTreeManager(QWidget):
             }
             QTreeWidget::item:hover { background-color: #f0f0f0; }
             QTreeWidget::item:selected { background-color: #e7f3ff; color: #0078d4; }
-        """)
-        
+        """
+        )
+
         layout.addWidget(self.tree)
 
     def reset(self):
         """Reset tree: Clear all groups, put everything in 'Unassigned'."""
         self.tree.clear()
-        
+
         # Create immutable "Unassigned" group
         self.unassigned_root = QTreeWidgetItem(self.tree)
         self.unassigned_root.setText(0, "📂 Unassigned Datasets")
-        self.unassigned_root.setFlags(Qt.ItemIsEnabled | Qt.ItemIsDropEnabled) # Not selectable/draggable itself, just a container
+        self.unassigned_root.setFlags(
+            Qt.ItemIsEnabled | Qt.ItemIsDropEnabled
+        )  # Not selectable/draggable itself, just a container
         self.unassigned_root.setForeground(0, Qt.darkGray)
-        
+
         # Add datasets
-        icon_dataset = QIcon() # You can add a file icon here if available
+        icon_dataset = QIcon()  # You can add a file icon here if available
         for name in self.dataset_names:
             item = QTreeWidgetItem(self.unassigned_root)
             item.setText(0, name)
             item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled)
-        
+
         self.tree.expandAll()
 
     def create_group_dialog(self):
         """Prompt user for group name and create it."""
         dialog = QInputDialog(self)
-        dialog.setWindowTitle(self.localize("ANALYSIS_PAGE.create_group_title") if self.localize else "Create Group")
-        dialog.setLabelText(self.localize("ANALYSIS_PAGE.group_name_label") if self.localize else "Group Name:")
-        dialog.setStyleSheet("""
+        dialog.setWindowTitle(
+            self.localize("ANALYSIS_PAGE.create_group_title")
+            if self.localize
+            else "Create Group"
+        )
+        dialog.setLabelText(
+            self.localize("ANALYSIS_PAGE.group_name_label")
+            if self.localize
+            else "Group Name:"
+        )
+        dialog.setStyleSheet(
+            """
             QInputDialog {
                 background-color: #ffffff;
             }
@@ -163,11 +198,12 @@ class GroupTreeManager(QWidget):
             QPushButton[text="Cancel"]:hover {
                 background-color: #f8f9fa;
             }
-        """)
-        
+        """
+        )
+
         ok = dialog.exec()
         text = dialog.textValue()
-        
+
         if ok and text:
             self.add_group(text)
 
@@ -175,7 +211,12 @@ class GroupTreeManager(QWidget):
         """Add a new group folder to the tree."""
         group_root = QTreeWidgetItem(self.tree)
         group_root.setText(0, f"🧪 {name}")
-        group_root.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDropEnabled | Qt.ItemIsEditable)
+        group_root.setFlags(
+            Qt.ItemIsEnabled
+            | Qt.ItemIsSelectable
+            | Qt.ItemIsDropEnabled
+            | Qt.ItemIsEditable
+        )
         # Insert before 'Unassigned' (which is usually last index or 0 depending on logic, let's just append)
         self.tree.addTopLevelItem(group_root)
         group_root.setExpanded(True)
@@ -184,7 +225,7 @@ class GroupTreeManager(QWidget):
     def auto_assign(self):
         """
         Auto-assign datasets to existing groups based on name matching.
-        
+
         Logic:
         1. Check if groups exist (excluding Unassigned)
         2. If no groups, show dialog prompting user to create groups first
@@ -193,7 +234,7 @@ class GroupTreeManager(QWidget):
         """
         from PySide6.QtWidgets import QMessageBox
         import re
-        
+
         # 1. Get all existing groups (exclude Unassigned)
         existing_groups = []
         root = self.tree.invisibleRootItem()
@@ -203,15 +244,23 @@ class GroupTreeManager(QWidget):
                 # Remove emoji prefix if present
                 group_name = group_item.text(0).replace("🧪 ", "")
                 existing_groups.append((group_name, group_item))
-        
+
         # 2. Check if any groups exist
         if not existing_groups:
             msg = QMessageBox(self)
-            msg.setWindowTitle(self.localize("ANALYSIS_PAGE.auto_assign_no_groups_title") if self.localize else "No Groups Available")
-            msg.setText(self.localize("ANALYSIS_PAGE.auto_assign_no_groups_message") if self.localize else 
-                       "Please create at least one group before using Auto-Assign.\n\nClick 'Create Group' to get started.")
+            msg.setWindowTitle(
+                self.localize("ANALYSIS_PAGE.auto_assign_no_groups_title")
+                if self.localize
+                else "No Groups Available"
+            )
+            msg.setText(
+                self.localize("ANALYSIS_PAGE.auto_assign_no_groups_message")
+                if self.localize
+                else "Please create at least one group before using Auto-Assign.\n\nClick 'Create Group' to get started."
+            )
             msg.setIcon(QMessageBox.Information)
-            msg.setStyleSheet("""
+            msg.setStyleSheet(
+                """
                 QMessageBox {
                     background-color: white;
                 }
@@ -232,45 +281,46 @@ class GroupTreeManager(QWidget):
                 QPushButton:hover {
                     background-color: #006abc;
                 }
-            """)
+            """
+            )
             msg.exec()
             return
-        
+
         # 3. Gather unassigned items
         items_to_process = []
         for i in range(self.unassigned_root.childCount()):
             items_to_process.append(self.unassigned_root.child(i))
-        
+
         if not items_to_process:
             return  # Nothing to assign
-        
+
         # 4. Match datasets to groups
         assigned_count = 0
         for item in items_to_process:
             dataset_name = item.text(0)
             dataset_name_lower = dataset_name.lower()
-            
+
             # Try to match with existing groups
             best_match = None
             best_match_length = 0
-            
+
             for group_name, group_item in existing_groups:
                 group_name_lower = group_name.lower()
-                
+
                 # Check if group name appears in dataset name (case-insensitive)
                 if group_name_lower in dataset_name_lower:
                     # Prefer longer matches (e.g., "MGUS" over "MM" if both match)
                     if len(group_name) > best_match_length:
                         best_match = group_item
                         best_match_length = len(group_name)
-            
+
             # Assign to best matching group
             if best_match:
                 cloned_item = item.clone()
                 self.unassigned_root.removeChild(item)
                 best_match.addChild(cloned_item)
                 assigned_count += 1
-        
+
         # Optional: Show summary message if useful
         # print(f"Auto-assigned {assigned_count} dataset(s) to existing groups")
 
@@ -281,22 +331,21 @@ class GroupTreeManager(QWidget):
         """
         result = {}
         root = self.tree.invisibleRootItem()
-        
+
         for i in range(root.childCount()):
             group_item = root.child(i)
-            
+
             # Skip the Unassigned folder
             if group_item == self.unassigned_root:
                 continue
-                
-            group_name = group_item.text(0).replace("🧪 ", "") # Remove emoji
+
+            group_name = group_item.text(0).replace("🧪 ", "")  # Remove emoji
             datasets = []
-            
+
             for j in range(group_item.childCount()):
                 datasets.append(group_item.child(j).text(0))
-                
+
             if datasets:
                 result[group_name] = datasets
-                
-        return result
 
+        return result

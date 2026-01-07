@@ -3,8 +3,9 @@ import logging, platform, json
 from typing import Dict, List, Any
 
 CURRENT_DIR = os.getcwd()
-DATETIME_FT = '%d-%m-%Y %H:%M:%S'
+DATETIME_FT = "%d-%m-%Y %H:%M:%S"
 DEBUG = True
+
 
 class LocalizationManager:
     """
@@ -15,7 +16,12 @@ class LocalizationManager:
     JSON values and caches loaded language files to avoid redundant disk I/O.
     """
 
-    def __init__(self, locale_dir: str = 'assets/locales', default_lang: str = 'en', initial_lang: str = None):
+    def __init__(
+        self,
+        locale_dir: str = "assets/locales",
+        default_lang: str = "en",
+        initial_lang: str = None,
+    ):
         """
         Initializes the LocalizationManager.
 
@@ -25,7 +31,7 @@ class LocalizationManager:
             initial_lang (str): The initial language to set. Defaults to `default_lang`.
         """
         # Support both frozen (.exe) and development modes
-        if getattr(sys, 'frozen', False):
+        if getattr(sys, "frozen", False):
             # Running in PyInstaller bundle
             base_path = sys._MEIPASS
             self.locale_dir = os.path.join(base_path, locale_dir)
@@ -35,10 +41,15 @@ class LocalizationManager:
             if not os.path.isdir(self.locale_dir):
                 # Try to resolve path relative to the current file
                 base_dir = os.path.dirname(os.path.abspath(__file__))
-                self.locale_dir = os.path.join(base_dir, '..', locale_dir)
-        
+                self.locale_dir = os.path.join(base_dir, "..", locale_dir)
+
         if not os.path.isdir(self.locale_dir):
-            create_logs("LocalizationManager", "localization", f"Locale directory not found: {self.locale_dir}", status='error')
+            create_logs(
+                "LocalizationManager",
+                "localization",
+                f"Locale directory not found: {self.locale_dir}",
+                status="error",
+            )
             raise FileNotFoundError(f"Locale directory not found: {self.locale_dir}")
 
         self.translations: Dict[str, Dict[str, Any]] = {}
@@ -65,15 +76,30 @@ class LocalizationManager:
 
         file_path = os.path.join(self.locale_dir, f"{lang_code}.json")
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 self.translations[lang_code] = json.load(f)
-                create_logs("LocalizationManager", "localization", f"Successfully loaded language: {lang_code}", status='info')
+                create_logs(
+                    "LocalizationManager",
+                    "localization",
+                    f"Successfully loaded language: {lang_code}",
+                    status="info",
+                )
                 return True
         except FileNotFoundError:
-            create_logs("LocalizationManager", "localization", f"Language file not found: {file_path}", status='warning')
+            create_logs(
+                "LocalizationManager",
+                "localization",
+                f"Language file not found: {file_path}",
+                status="warning",
+            )
             return False
         except json.JSONDecodeError as e:
-            create_logs("LocalizationManager", "localization", f"Error decoding JSON from {file_path}: {e}", status='error')
+            create_logs(
+                "LocalizationManager",
+                "localization",
+                f"Error decoding JSON from {file_path}: {e}",
+                status="error",
+            )
             return False
 
     def set_language(self, lang_code: str):
@@ -86,7 +112,12 @@ class LocalizationManager:
         if self._load_language(lang_code):
             self.current_lang = lang_code
         else:
-            create_logs("LocalizationManager", "localization", f"Failed to set language to '{lang_code}'. It may not exist.", status='error')
+            create_logs(
+                "LocalizationManager",
+                "localization",
+                f"Failed to set language to '{lang_code}'. It may not exist.",
+                status="error",
+            )
 
     def get(self, key: str, **kwargs) -> str:
         """
@@ -102,7 +133,7 @@ class LocalizationManager:
         Returns:
             str: The translated and formatted string.
         """
-        keys = key.split('.')
+        keys = key.split(".")
 
         # Try to get from the current language
         translation = self._find_translation(self.current_lang, keys)
@@ -113,15 +144,25 @@ class LocalizationManager:
 
         # If still not found, return the key itself as a fallback
         if translation is None:
-            create_logs("LocalizationManager", "localization", f"Translation key not found: '{key}'", status='warning')
-            return keys[1].replace('_', ' ')
+            create_logs(
+                "LocalizationManager",
+                "localization",
+                f"Translation key not found: '{key}'",
+                status="warning",
+            )
+            return keys[1].replace("_", " ")
 
         # Format the string with any provided keyword arguments
         try:
             return translation.format(**kwargs)
         except KeyError as e:
-            create_logs("LocalizationManager", "localization", f"Missing format argument {e} for key '{key}'", status='warning')
-            return translation # Return unformatted string
+            create_logs(
+                "LocalizationManager",
+                "localization",
+                f"Missing format argument {e} for key '{key}'",
+                status="warning",
+            )
+            return translation  # Return unformatted string
 
     def _find_translation(self, lang_code: str, keys: List[str]) -> str | None:
         """
@@ -149,7 +190,7 @@ class LocalizationManager:
         try:
             files = os.listdir(self.locale_dir)
             # Return the filename without the .json extension
-            return [f.split('.')[0] for f in files if f.endswith('.json')]
+            return [f.split(".")[0] for f in files if f.endswith(".json")]
         except FileNotFoundError:
             return []
 
@@ -159,36 +200,55 @@ class LocalizationManager:
         """
         return self.get(key, **kwargs)
 
+
 def load_config(file_path: str = "configs/app_configs.json") -> dict:
     """
     Load a JSON configuration file and return its contents as a dictionary.
     Supports both frozen (.exe) and development modes.
-    
+
     Args:
         file_path (str): Path to the JSON configuration file.
-        
+
     Returns:
         dict: Contents of the JSON file.
     """
     # Support frozen mode
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         # Running in PyInstaller bundle
         file_path = os.path.join(sys._MEIPASS, file_path)
-    
+
     if not os.path.exists(file_path):
-        create_logs("ConfigLoader", "config", f"Configuration file not found: {file_path}", status='error')
+        create_logs(
+            "ConfigLoader",
+            "config",
+            f"Configuration file not found: {file_path}",
+            status="error",
+        )
         return {}
 
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             config = json.load(f)
-            create_logs("ConfigLoader", "config", f"Successfully loaded configuration from {file_path}", status='info')
+            create_logs(
+                "ConfigLoader",
+                "config",
+                f"Successfully loaded configuration from {file_path}",
+                status="info",
+            )
             return config
     except json.JSONDecodeError as e:
-        create_logs("ConfigLoader", "config", f"Error decoding JSON from {file_path}: {e}", status='error')
+        create_logs(
+            "ConfigLoader",
+            "config",
+            f"Error decoding JSON from {file_path}: {e}",
+            status="error",
+        )
         return {}
 
-def create_logs(log_name="LOGS", filename="logs", log_message="", status='info', show_console=False):
+
+def create_logs(
+    log_name="LOGS", filename="logs", log_message="", status="info", show_console=False
+):
     """
     Create a log file with the specified name and message.
     Args:
@@ -197,12 +257,12 @@ def create_logs(log_name="LOGS", filename="logs", log_message="", status='info',
         log_message (str): Message to log.
         status (str): Log level ('info', 'error', 'warning', 'debug').
     """
-    
+
     if status == "console" and show_console:
         print(log_message)
         return  # Exit if only console output is needed
-    
-    log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+
+    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     foldername = "logs"
     if not os.path.exists(foldername):
         foldername = os.path.join(os.getcwd(), foldername)
@@ -210,10 +270,9 @@ def create_logs(log_name="LOGS", filename="logs", log_message="", status='info',
             os.makedirs(foldername)
     else:
         foldername = os.path.abspath(foldername)
-        
-    filename = filename if filename.endswith('.log') else filename + '.log'
+
+    filename = filename if filename.endswith(".log") else filename + ".log"
     full_filename = os.path.join(foldername, filename)
-    
 
     # Check if logs directory exists, if not create it
     try:
@@ -237,31 +296,31 @@ def create_logs(log_name="LOGS", filename="logs", log_message="", status='info',
     if not logger.handlers:
         try:
             # Create file handler with UTF-8 encoding to handle Unicode characters
-            file_handler = logging.FileHandler(full_filename, encoding='utf-8')
+            file_handler = logging.FileHandler(full_filename, encoding="utf-8")
             file_handler.setFormatter(formatter)
 
             # Create stream handler for terminal output with UTF-8 encoding
             stream_handler = logging.StreamHandler()
             stream_handler.setFormatter(formatter)
-            
+
             # Set stream encoding to UTF-8 if possible
-            if hasattr(stream_handler.stream, 'reconfigure'):
+            if hasattr(stream_handler.stream, "reconfigure"):
                 try:
-                    stream_handler.stream.reconfigure(encoding='utf-8')
+                    stream_handler.stream.reconfigure(encoding="utf-8")
                 except Exception:
                     pass  # Fallback to default encoding
 
             # Set the level for handlers based on the status
-            if status == 'info':
+            if status == "info":
                 file_handler.setLevel(logging.INFO)
                 stream_handler.setLevel(logging.INFO)
-            elif status == 'error':
+            elif status == "error":
                 file_handler.setLevel(logging.ERROR)
                 stream_handler.setLevel(logging.ERROR)
-            elif status == 'warning':
+            elif status == "warning":
                 file_handler.setLevel(logging.WARNING)
                 stream_handler.setLevel(logging.WARNING)
-            elif status == 'debug':
+            elif status == "debug":
                 file_handler.setLevel(logging.DEBUG)
                 stream_handler.setLevel(logging.DEBUG)
 
@@ -273,16 +332,17 @@ def create_logs(log_name="LOGS", filename="logs", log_message="", status='info',
 
     # Log the message
     try:
-        if status == 'info':
+        if status == "info":
             logger.info(log_message)
-        elif status == 'error':
+        elif status == "error":
             logger.error(log_message)
-        elif status == 'warning':
+        elif status == "warning":
             logger.warning(log_message)
-        elif status == 'debug':
+        elif status == "debug":
             logger.debug(log_message)
     except Exception as e:
         pass  # Silently ignore logging errors
+
 
 def load_application_fonts():
     """
@@ -291,23 +351,25 @@ def load_application_fonts():
     Supports both frozen (.exe) and development modes.
     """
     from PySide6.QtGui import QFontDatabase
-    
+
     # Support frozen mode
-    if getattr(sys, 'frozen', False):
+    if getattr(sys, "frozen", False):
         # Running in PyInstaller bundle
-        fonts_dir = os.path.join(sys._MEIPASS, 'assets', 'fonts')
+        fonts_dir = os.path.join(sys._MEIPASS, "assets", "fonts")
     else:
         # Try to resolve fonts directory relative to the project root if not found in current dir
-        fonts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'assets', 'fonts')
+        fonts_dir = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "assets", "fonts"
+        )
         if not os.path.exists(fonts_dir):
             # Fallback: try relative to this file (legacy location)
-            fonts_dir = os.path.join(os.path.dirname(__file__), 'assets', 'fonts')
-    
+            fonts_dir = os.path.join(os.path.dirname(__file__), "assets", "fonts")
+
     if not os.path.exists(fonts_dir):
         return
 
     for font_file in os.listdir(fonts_dir):
-        if font_file.endswith('.ttf'):
+        if font_file.endswith(".ttf"):
             font_path = os.path.join(fonts_dir, font_file)
             font_id = QFontDatabase.addApplicationFont(font_path)
             if font_id == -1:
@@ -316,6 +378,6 @@ def load_application_fonts():
                 # You can optionally print the loaded font families
                 families = QFontDatabase.applicationFontFamilies(font_id)
                 # print(f"Successfully loaded font: {families[0]}")
-    
+
     # After loading, it's good practice to log all available families to debug
     # print("All available font families:", QFontDatabase().families())

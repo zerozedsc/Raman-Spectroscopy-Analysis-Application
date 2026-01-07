@@ -21,7 +21,7 @@ Usage:
     >>> from functions.visualization import RamanVisualizer, FigureManager
     >>> viz = RamanVisualizer(df=dataframe)
     >>> viz.visualize_raman_spectra()
-    
+
     >>> # Direct function imports (Phase 1, 2, 3, 4 & 5 refactoring - backward compatible)
     >>> from functions.visualization import get_peak_assignment, visualize_raman_spectra
     >>> from functions.visualization import pca2d  # Phase 2
@@ -30,10 +30,11 @@ Usage:
     >>> from functions.visualization import spectrum_with_highlights_spectrum  # Phase 4B
     >>> from functions.visualization import create_enhanced_table  # Phase 4B
     >>> from functions.visualization import lime_explain  # Phase 5
-    
+
 For backward compatibility, all imports from the original visualization.py
 are available directly from this package.
 """
+
 # Import everything from core for backward compatibility
 from .core import (
     RamanVisualizer,
@@ -47,13 +48,13 @@ from .peak_assignment import (
     get_peak_assignment,
     get_multiple_peak_assignments,
     find_peaks_in_range,
-    clear_cache as clear_peak_cache
+    clear_cache as clear_peak_cache,
 )
 
 from .basic_plots import (
     visualize_raman_spectra,
     visualize_processed_spectra,
-    extract_raman_characteristics
+    extract_raman_characteristics,
 )
 
 from .model_evaluation import (
@@ -100,52 +101,42 @@ from .analysis_plots import (
 # Define public API
 __all__ = [
     # Main class
-    'RamanVisualizer',
-    
+    "RamanVisualizer",
     # Figure management
-    'FigureManager',
-    'add_figure_manager_to_raman_pipeline',
-    
+    "FigureManager",
+    "add_figure_manager_to_raman_pipeline",
     # Peak assignment functions (Phase 1)
-    'get_peak_assignment',
-    'get_multiple_peak_assignments',
-    'find_peaks_in_range',
-    'clear_peak_cache',
-    
+    "get_peak_assignment",
+    "get_multiple_peak_assignments",
+    "find_peaks_in_range",
+    "clear_peak_cache",
     # Basic plotting functions (Phase 1)
-    'visualize_raman_spectra',
-    'visualize_processed_spectra',
-    'extract_raman_characteristics',
-    
+    "visualize_raman_spectra",
+    "visualize_processed_spectra",
+    "extract_raman_characteristics",
     # Model evaluation functions (Phase 1)
-    'confusion_matrix_heatmap',
-    
+    "confusion_matrix_heatmap",
     # ML visualization functions (Phase 2)
-    'pca2d',
-    
+    "pca2d",
     # Explainability functions (Phase 3)
-    'shap_explain',
-    
+    "shap_explain",
     # Interactive inspection functions (Phase 4A)
-    'inspect_spectra',
-    
+    "inspect_spectra",
     # Interactive inspection helper functions (Phase 4B)
-    'spectrum_with_highlights_spectrum',
-    'create_shap_plots',
-    'create_enhanced_table',
-    'plot_institution_distribution',
-    
+    "spectrum_with_highlights_spectrum",
+    "create_shap_plots",
+    "create_enhanced_table",
+    "plot_institution_distribution",
     # LIME explainability functions (Phase 5)
-    'lime_explain',
-    
+    "lime_explain",
     # Analysis plot functions (November 2025 refactoring)
-    'create_spectral_heatmap',
-    'create_mean_spectra_overlay',
-    'create_waterfall_plot',
-    'create_correlation_heatmap',
-    'create_peak_scatter',
+    "create_spectral_heatmap",
+    "create_mean_spectra_overlay",
+    "create_waterfall_plot",
+    "create_correlation_heatmap",
+    "create_peak_scatter",
 ]
 
 # Version info
-__version__ = '2.1.0'
-__author__ = 'Raman Analysis Team'
+__version__ = "2.1.0"
+__author__ = "Raman Analysis Team"

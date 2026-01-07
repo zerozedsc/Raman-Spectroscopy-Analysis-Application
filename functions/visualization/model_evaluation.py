@@ -29,7 +29,7 @@ def confusion_matrix_heatmap(
     class_labels: list,
     title: str = "Confusion Matrix",
     figsize: tuple = (10, 8),
-    cmap: str = 'Blues',
+    cmap: str = "Blues",
     normalize: bool = True,
     show_counts: bool = True,
     fmt: str = None,
@@ -96,15 +96,15 @@ def confusion_matrix_heatmap(
 
     # Normalize if requested
     if normalize and fmt is None:
-        with np.errstate(all='ignore'):
-            cm_display = cm.astype('float') / cm.sum(axis=1, keepdims=True)
+        with np.errstate(all="ignore"):
+            cm_display = cm.astype("float") / cm.sum(axis=1, keepdims=True)
         if fmt is None:
-            fmt = '.2f'
+            fmt = ".2f"
     elif fmt is None:
         cm_display = cm
-        fmt = 'd'
+        fmt = "d"
     else:
-        cm_display = cm.astype('float') / cm.sum(axis=1, keepdims=True)
+        cm_display = cm.astype("float") / cm.sum(axis=1, keepdims=True)
         fmt = fmt
 
     # Prepare annotation labels
@@ -131,11 +131,11 @@ def confusion_matrix_heatmap(
             yticklabels=class_labels,
             cbar=False,
             square=True,
-            linewidths=.5
+            linewidths=0.5,
         )
         plt.title(title)
-        plt.ylabel('True label')
-        plt.xlabel('Predicted label')
+        plt.ylabel("True label")
+        plt.xlabel("Predicted label")
         plt.xticks(rotation=45)
         plt.yticks(rotation=0)
         plt.show()
@@ -158,11 +158,11 @@ def plot_institution_distribution(
     show_legend: bool = True,
     save_plot: bool = False,
     save_path: str = None,
-    color_palette: str = 'tab10',
+    color_palette: str = "tab10",
     interpolate_to_common_axis: bool = True,
     common_axis: np.ndarray = None,
     show_class_info: bool = True,
-    class_labels: List[str] = None
+    class_labels: List[str] = None,
 ) -> dict:
     """
     Plot t-SNE visualization of spectral data distribution across different containers/institutions.
@@ -252,12 +252,14 @@ def plot_institution_distribution(
             container_names = []
             for label in container_labels:
                 # Extract institution name (everything before first underscore)
-                inst_name = label.split('_')[0] if '_' in label else label
+                inst_name = label.split("_")[0] if "_" in label else label
                 container_names.append(inst_name)
 
         # Get unique institutions
         unique_institutions = list(set(container_names))
-        console_log(f"📊 Found {len(unique_institutions)} unique institutions: {unique_institutions}")
+        console_log(
+            f"📊 Found {len(unique_institutions)} unique institutions: {unique_institutions}"
+        )
 
         # Determine common axis for interpolation
         if interpolate_to_common_axis:
@@ -272,7 +274,9 @@ def plot_institution_distribution(
                 common_axis = best_axis
                 console_log(f"🔧 Using common axis with {len(common_axis)} features")
             else:
-                console_log(f"🔧 Using provided common axis with {len(common_axis)} features")
+                console_log(
+                    f"🔧 Using provided common axis with {len(common_axis)} features"
+                )
 
         # Collect all spectral data
         all_data = []
@@ -285,7 +289,9 @@ def plot_institution_distribution(
             zip(spectral_containers, container_labels, container_names)
         ):
             if container.spectral_data is None or len(container.spectral_data) == 0:
-                console_log(f"⚠️  Warning: Container {i} ({label}) has no spectral data, skipping...")
+                console_log(
+                    f"⚠️  Warning: Container {i} ({label}) has no spectral data, skipping..."
+                )
                 continue
 
             # Extract class information if available
@@ -305,7 +311,9 @@ def plot_institution_distribution(
             for spectrum_idx, spectrum in enumerate(container.spectral_data):
                 try:
                     # Interpolate to common axis if needed
-                    if interpolate_to_common_axis and len(container.spectral_axis) != len(common_axis):
+                    if interpolate_to_common_axis and len(
+                        container.spectral_axis
+                    ) != len(common_axis):
                         interpolated_spectrum = np.interp(
                             common_axis, container.spectral_axis, spectrum
                         )
@@ -316,13 +324,15 @@ def plot_institution_distribution(
                     all_labels.append(label)
                     all_institutions.append(inst_name)
                     all_classes.append(class_info)
-                    container_info.append({
-                        'container_idx': i,
-                        'spectrum_idx': spectrum_idx,
-                        'label': label,
-                        'institution': inst_name,
-                        'class': class_info
-                    })
+                    container_info.append(
+                        {
+                            "container_idx": i,
+                            "spectrum_idx": spectrum_idx,
+                            "label": label,
+                            "institution": inst_name,
+                            "class": class_info,
+                        }
+                    )
 
                 except Exception as e:
                     console_log(
@@ -359,13 +369,15 @@ def plot_institution_distribution(
             container_info = [container_info[i] for i in indices]
 
         # Perform t-SNE
-        console_log(f"🧮 Running t-SNE with perplexity={perplexity}, n_iter={n_iter}...")
+        console_log(
+            f"🧮 Running t-SNE with perplexity={perplexity}, n_iter={n_iter}..."
+        )
         tsne = TSNE(
             n_components=2,
             perplexity=perplexity,
             n_iter=n_iter,
             random_state=random_state,
-            verbose=1
+            verbose=1,
         )
         embedded = tsne.fit_transform(all_data)
 
@@ -374,8 +386,12 @@ def plot_institution_distribution(
 
         # Get colors
         cmap = plt.get_cmap(color_palette)
-        colors = [cmap(i / len(unique_institutions)) for i in range(len(unique_institutions))]
-        institution_colors = {inst: colors[i] for i, inst in enumerate(unique_institutions)}
+        colors = [
+            cmap(i / len(unique_institutions)) for i in range(len(unique_institutions))
+        ]
+        institution_colors = {
+            inst: colors[i] for i, inst in enumerate(unique_institutions)
+        }
 
         # Plot by institution
         for inst in unique_institutions:
@@ -385,13 +401,17 @@ def plot_institution_distribution(
             class_counts = {}
             if show_class_info and class_labels:
                 for class_label in class_labels:
-                    class_count = np.sum((all_institutions == inst) & (all_classes == class_label))
+                    class_count = np.sum(
+                        (all_institutions == inst) & (all_classes == class_label)
+                    )
                     if class_count > 0:
                         class_counts[class_label] = class_count
 
             # Create legend label
             if class_counts:
-                class_info_str = ", ".join([f"{cls}:{cnt}" for cls, cnt in class_counts.items()])
+                class_info_str = ", ".join(
+                    [f"{cls}:{cnt}" for cls, cnt in class_counts.items()]
+                )
                 legend_label = f"{inst} ({class_info_str})"
             else:
                 legend_label = f"{inst} (n={np.sum(mask)})"
@@ -402,16 +422,16 @@ def plot_institution_distribution(
                 label=legend_label,
                 alpha=alpha,
                 s=point_size,
-                color=institution_colors[inst]
+                color=institution_colors[inst],
             )
 
         # Customize plot
-        plt.title(title, fontsize=14, fontweight='bold')
-        plt.xlabel('t-SNE Component 1', fontsize=12)
-        plt.ylabel('t-SNE Component 2', fontsize=12)
+        plt.title(title, fontsize=14, fontweight="bold")
+        plt.xlabel("t-SNE Component 1", fontsize=12)
+        plt.ylabel("t-SNE Component 2", fontsize=12)
 
         if show_legend:
-            plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=10)
+            plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=10)
 
         plt.grid(True, alpha=0.3)
         plt.tight_layout()
@@ -420,7 +440,7 @@ def plot_institution_distribution(
         if save_plot:
             if save_path is None:
                 save_path = f"institution_distribution_tsne_{random_state}.png"
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            plt.savefig(save_path, dpi=300, bbox_inches="tight")
             console_log(f"💾 Plot saved to: {save_path}")
 
         plt.show()
@@ -436,30 +456,34 @@ def plot_institution_distribution(
 
             if show_class_info and class_labels:
                 for class_label in class_labels:
-                    class_count = np.sum((all_institutions == inst) & (all_classes == class_label))
+                    class_count = np.sum(
+                        (all_institutions == inst) & (all_classes == class_label)
+                    )
                     if class_count > 0:
                         class_percentage = (class_count / count) * 100
-                        console_log(f"  └─ {class_label}: {class_count} ({class_percentage:.1f}%)")
+                        console_log(
+                            f"  └─ {class_label}: {class_count} ({class_percentage:.1f}%)"
+                        )
 
         # Return results
         results = {
-            'success': True,
-            'embedded_data': embedded,
-            'institutions': all_institutions,
-            'labels': all_labels,
-            'classes': all_classes,
-            'container_info': container_info,
-            'unique_institutions': unique_institutions,
-            'tsne_params': {
-                'perplexity': perplexity,
-                'n_iter': n_iter,
-                'random_state': random_state
+            "success": True,
+            "embedded_data": embedded,
+            "institutions": all_institutions,
+            "labels": all_labels,
+            "classes": all_classes,
+            "container_info": container_info,
+            "unique_institutions": unique_institutions,
+            "tsne_params": {
+                "perplexity": perplexity,
+                "n_iter": n_iter,
+                "random_state": random_state,
             },
-            'data_info': {
-                'total_spectra': len(all_data),
-                'n_features': all_data.shape[1],
-                'sampled': len(all_data) < len(container_info)
-            }
+            "data_info": {
+                "total_spectra": len(all_data),
+                "n_features": all_data.shape[1],
+                "sampled": len(all_data) < len(container_info),
+            },
         }
 
         console_log(f"\n✅ Analysis completed successfully!")
@@ -468,10 +492,7 @@ def plot_institution_distribution(
     except Exception as e:
         console_log(f"❌ Error in plot_institution_distribution: {e}")
         import traceback
+
         traceback.print_exc()
-        
-        return {
-            'success': False,
-            'error': str(e),
-            'traceback': traceback.format_exc()
-        }
+
+        return {"success": False, "error": str(e), "traceback": traceback.format_exc()}

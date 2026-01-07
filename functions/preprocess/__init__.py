@@ -6,7 +6,7 @@ specifically designed for medical applications and disease detection.
 
 This package provides:
 - Cosmic ray and spike removal
-- Wavenumber and intensity calibration  
+- Wavenumber and intensity calibration
 - Baseline correction methods (including advanced Butterworth filtering)
 - Derivative processing
 - Normalization techniques (including advanced cross-platform methods)
@@ -21,8 +21,10 @@ from .spike_removal import Gaussian, MedianDespike
 from .calibration import WavenumberCalibration, IntensityCalibration
 from .normalization import SNV, MSC, MovingAverage
 from .baseline import (
-    BaselineCorrection, MultiScaleConv1D, Transformer1DBaseline,
-    LightweightTransformer1D
+    BaselineCorrection,
+    MultiScaleConv1D,
+    Transformer1DBaseline,
+    LightweightTransformer1D,
 )
 from .derivatives import Derivative
 from .pipeline import RamanPipeline, EnhancedRamanPipeline
@@ -31,7 +33,9 @@ from .smoothing import SavitzkyGolaySmoothing, MeanCentering
 
 # Import advanced methods
 from .advanced_normalization import (
-    QuantileNormalization, RankTransform, ProbabilisticQuotientNormalization
+    QuantileNormalization,
+    RankTransform,
+    ProbabilisticQuotientNormalization,
 )
 from .feature_engineering import PeakRatioFeatures
 from .advanced_baseline import ButterworthHighPass
@@ -39,6 +43,7 @@ from .advanced_baseline import ButterworthHighPass
 # Try to import deep learning module (requires PyTorch)
 try:
     from .deep_learning import ConvolutionalAutoencoder
+
     DL_AVAILABLE = True
 except ImportError:
     DL_AVAILABLE = False
@@ -49,43 +54,45 @@ PREPROCESSING_REGISTRY = PreprocessingStepRegistry()
 # Export all main classes and the registry
 __all__ = [
     # Spike removal
-    'Gaussian', 'MedianDespike',
-    
+    "Gaussian",
+    "MedianDespike",
     # Calibration
-    'WavenumberCalibration', 'IntensityCalibration',
-    
+    "WavenumberCalibration",
+    "IntensityCalibration",
     # Smoothing
-    'SavitzkyGolaySmoothing', 'MeanCentering',
-    
+    "SavitzkyGolaySmoothing",
+    "MeanCentering",
     # Normalization (basic)
-    'SNV', 'MSC', 'MovingAverage',
-    
+    "SNV",
+    "MSC",
+    "MovingAverage",
     # Normalization (advanced)
-    'QuantileNormalization', 'RankTransform', 'ProbabilisticQuotientNormalization',
-    
+    "QuantileNormalization",
+    "RankTransform",
+    "ProbabilisticQuotientNormalization",
     # Baseline correction
-    'BaselineCorrection', 'MultiScaleConv1D', 'Transformer1DBaseline',
-    'LightweightTransformer1D', 'ButterworthHighPass',
-    
+    "BaselineCorrection",
+    "MultiScaleConv1D",
+    "Transformer1DBaseline",
+    "LightweightTransformer1D",
+    "ButterworthHighPass",
     # Derivatives
-    'Derivative',
-    
+    "Derivative",
     # Feature Engineering
-    'PeakRatioFeatures',
-    
+    "PeakRatioFeatures",
     # Pipeline
-    'RamanPipeline', 'EnhancedRamanPipeline',
-    
+    "RamanPipeline",
+    "EnhancedRamanPipeline",
     # Registry
-    'PreprocessingStepRegistry', 'PREPROCESSING_REGISTRY',
-    
+    "PreprocessingStepRegistry",
+    "PREPROCESSING_REGISTRY",
     # Deep learning (if available)
-    'DL_AVAILABLE'
+    "DL_AVAILABLE",
 ]
 
 # Add deep learning to exports if available
 if DL_AVAILABLE:
-    __all__.append('ConvolutionalAutoencoder')
+    __all__.append("ConvolutionalAutoencoder")
 
 # Package metadata
 __version__ = "1.1.0"

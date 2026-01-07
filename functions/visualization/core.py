@@ -46,18 +46,16 @@ class RamanVisualizer:
         DataFrame containing Raman data with wavenumber column and intensity columns
     """
 
-    def __init__(self, df: pd.DataFrame = None,
-                 spectral_container: List[rp.SpectralContainer] = None,
-                 labels: List[str] = None,
-                 common_axis: np.ndarray = None,
-                 n_features: int = None,
-                 ML_PROPERTY: Union[RamanML, MLModel] = None,
-                 ):
-        """
-
-
-
-        """
+    def __init__(
+        self,
+        df: pd.DataFrame = None,
+        spectral_container: List[rp.SpectralContainer] = None,
+        labels: List[str] = None,
+        common_axis: np.ndarray = None,
+        n_features: int = None,
+        ML_PROPERTY: Union[RamanML, MLModel] = None,
+    ):
+        """ """
 
         self.ML_PROPERTY = ML_PROPERTY
         self.df = df
@@ -75,11 +73,11 @@ class RamanVisualizer:
         peak: Union[int, float, str],
         pick_near: bool = False,
         tolerance: int = 5,
-        json_file_path: str = "assets/data/raman_peaks.json"
+        json_file_path: str = "assets/data/raman_peaks.json",
     ) -> dict:
         """
         Get the assignment meaning of a Raman peak based on the raman_peaks.json database.
-        
+
         **NOTE**: This method now delegates to the peak_assignment module.
 
         Parameters:
@@ -104,18 +102,20 @@ class RamanVisualizer:
             - If not found and pick_near=True: nearest match or "Not Found"
         """
         # Delegate to extracted module
-        return peak_assignment.get_peak_assignment(peak, pick_near, tolerance, json_file_path)
+        return peak_assignment.get_peak_assignment(
+            peak, pick_near, tolerance, json_file_path
+        )
 
     def get_multiple_peak_assignments(
         self,
         peaks: List[Union[int, float, str]],
         pick_near: bool = False,
         tolerance: int = 5,
-        json_file_path: str = "assets/data/raman_peaks.json"
+        json_file_path: str = "assets/data/raman_peaks.json",
     ) -> List[dict]:
         """
         Get assignments for multiple peaks at once.
-        
+
         **NOTE**: This method now delegates to the peak_assignment module.
 
         Parameters:
@@ -135,17 +135,19 @@ class RamanVisualizer:
             List of dictionaries containing peak assignment information for each input peak.
         """
         # Delegate to extracted module
-        return peak_assignment.get_multiple_peak_assignments(peaks, pick_near, tolerance, json_file_path)
+        return peak_assignment.get_multiple_peak_assignments(
+            peaks, pick_near, tolerance, json_file_path
+        )
 
     def find_peaks_in_range(
         self,
         min_wavenumber: Union[int, float],
         max_wavenumber: Union[int, float],
-        json_file_path: str = "assets/data/raman_peaks.json"
+        json_file_path: str = "assets/data/raman_peaks.json",
     ) -> List[dict]:
         """
         Find all peaks within a specified wavenumber range.
-        
+
         **NOTE**: This method now delegates to the peak_assignment module.
 
         Parameters:
@@ -163,14 +165,24 @@ class RamanVisualizer:
             List of all peaks within the specified range.
         """
         # Delegate to extracted module
-        return peak_assignment.find_peaks_in_range(min_wavenumber, max_wavenumber, json_file_path)
+        return peak_assignment.find_peaks_in_range(
+            min_wavenumber, max_wavenumber, json_file_path
+        )
 
-    def visualize_raman_spectra(self, wavenumber_colname: str = "wavenumber", title="Raman Spectra", figsize=(12, 6),
-                                xlim=None, ylim=None, legend=True,
-                                legend_loc='best', sample_limit=10) -> plt:
+    def visualize_raman_spectra(
+        self,
+        wavenumber_colname: str = "wavenumber",
+        title="Raman Spectra",
+        figsize=(12, 6),
+        xlim=None,
+        ylim=None,
+        legend=True,
+        legend_loc="best",
+        sample_limit=10,
+    ) -> plt:
         """
         Visualize the Raman spectra data.
-        
+
         **NOTE**: This method now delegates to the basic_plots module.
 
         Parameters:
@@ -207,18 +219,27 @@ class RamanVisualizer:
             ylim=ylim,
             legend=legend,
             legend_loc=legend_loc,
-            sample_limit=sample_limit
+            sample_limit=sample_limit,
         )
 
-    def visualize_processed_spectra(self, spectral_data, spectral_axis,
-                                    title="Processed Raman Spectra", figsize=(12, 6),
-                                    xlim=None, ylim=None, legend=True,
-                                    sample_names=None, legend_loc='best',
-                                    sample_limit=10, cmap='viridis',
-                                    add_mean=False) -> plt:
+    def visualize_processed_spectra(
+        self,
+        spectral_data,
+        spectral_axis,
+        title="Processed Raman Spectra",
+        figsize=(12, 6),
+        xlim=None,
+        ylim=None,
+        legend=True,
+        sample_names=None,
+        legend_loc="best",
+        sample_limit=10,
+        cmap="viridis",
+        add_mean=False,
+    ) -> plt:
         """
         Visualize processed spectral data from ramanspy.
-        
+
         **NOTE**: This method now delegates to the basic_plots module.
 
         Parameters:
@@ -266,15 +287,20 @@ class RamanVisualizer:
             legend_loc=legend_loc,
             sample_limit=sample_limit,
             cmap=cmap,
-            add_mean=add_mean
+            add_mean=add_mean,
         )
 
-    def extract_raman_characteristics(x: np.ndarray, y: np.ndarray, sample_name: str = "Sample", show_plot: bool = False) -> tuple[list[tuple], float]:
+    def extract_raman_characteristics(
+        x: np.ndarray,
+        y: np.ndarray,
+        sample_name: str = "Sample",
+        show_plot: bool = False,
+    ) -> tuple[list[tuple], float]:
         """
         Extract Raman characteristics from the spectrum.
-        
+
         **NOTE**: This method now delegates to the basic_plots module.
-        
+
         Parameters:
         ----------
         x : np.ndarray
@@ -306,11 +332,11 @@ class RamanVisualizer:
         title: str = "PCA",
         figsize: tuple = (12, 6),
         sample_limit: int = 100,
-        cmap: str = 'tab10',
+        cmap: str = "tab10",
         add_centroids: bool = True,
         show_centroid_line: bool = True,
         legend: bool = True,
-        legend_loc: str = 'best',
+        legend_loc: str = "best",
         show_decision_boundary: bool = False,
         decision_boundary_alpha: float = 0.3,
         # Parameters for using pre-calculated boundary data
@@ -369,7 +395,7 @@ class RamanVisualizer:
             labels=labels,
             common_axis=common_axis,
             current_n_features=current_n_features,
-            ml_property=self.ML_PROPERTY if hasattr(self, 'ML_PROPERTY') else None,
+            ml_property=self.ML_PROPERTY if hasattr(self, "ML_PROPERTY") else None,
             title=title,
             figsize=figsize,
             sample_limit=sample_limit,
@@ -380,7 +406,7 @@ class RamanVisualizer:
             legend_loc=legend_loc,
             show_decision_boundary=show_decision_boundary,
             decision_boundary_alpha=decision_boundary_alpha,
-            use_precalculated_boundary=use_precalculated_boundary
+            use_precalculated_boundary=use_precalculated_boundary,
         )
 
     def confusion_matrix_heatmap(
@@ -390,7 +416,7 @@ class RamanVisualizer:
         class_labels: list,
         title: str = "Confusion Matrix",
         figsize: tuple = (10, 8),
-        cmap: str = 'Blues',
+        cmap: str = "Blues",
         normalize: bool = True,
         show_counts: bool = True,
         fmt: str = None,
@@ -398,7 +424,7 @@ class RamanVisualizer:
     ) -> tuple[dict, sns.heatmap]:
         """
         Plot a confusion matrix as a heatmap.
-        
+
         **NOTE**: This method now delegates to the model_evaluation module.
 
         Parameters:
@@ -438,7 +464,7 @@ class RamanVisualizer:
             normalize=normalize,
             show_counts=show_counts,
             fmt=fmt,
-            show_heatmap=show_heatmap
+            show_heatmap=show_heatmap,
         )
 
     def shap_explain(
@@ -486,15 +512,15 @@ class RamanVisualizer:
 
         Returns:
             dict: Comprehensive SHAP analysis results including performance metrics.
-        
+
         **NOTE**: This method now delegates to the explainability module.
         """
-        
+
         # Delegate to extracted module, passing ML_PROPERTY for data extraction
         # Use instance ML_PROPERTY if none provided
         if ML_PROPERTY is None:
             ML_PROPERTY = self.ML_PROPERTY
-        
+
         return explainability.shap_explain(
             ml_property=ML_PROPERTY,
             nsamples=nsamples,
@@ -510,7 +536,7 @@ class RamanVisualizer:
             use_base_estimator=use_base_estimator,
             force_kernel_explainer=force_kernel_explainer,
             shap_output_mode=shap_output_mode,
-            kernel_nsamples_multiplier=kernel_nsamples_multiplier
+            kernel_nsamples_multiplier=kernel_nsamples_multiplier,
         )
 
     def lime_explain(
@@ -534,7 +560,7 @@ class RamanVisualizer:
         # Use feature selection for faster computation
         use_feature_selection: bool = True,
         max_features: int = 300,  # Maximum features to use if feature selection enabled
-        use_kmeans_sampling: bool = False  # Use K-means for background sampling
+        use_kmeans_sampling: bool = False,  # Use K-means for background sampling
     ) -> dict:
         """
         Generate LIME explanations for the model predictions with unified prediction function.
@@ -563,10 +589,22 @@ class RamanVisualizer:
         """
         # Delegator to lime_analysis module (Phase 5 refactoring)
         return lime_analysis.lime_explain(
-            self, ML_PROPERTY, test_spectra, true_labels,
-            num_features, show_plots, num_samples, max_test_samples,
-            sample_indices, seed, figsize, positive_label, negative_label,
-            use_feature_selection, max_features, use_kmeans_sampling
+            self,
+            ML_PROPERTY,
+            test_spectra,
+            true_labels,
+            num_features,
+            show_plots,
+            num_samples,
+            max_test_samples,
+            sample_indices,
+            seed,
+            figsize,
+            positive_label,
+            negative_label,
+            use_feature_selection,
+            max_features,
+            use_kmeans_sampling,
         )
 
     def _visualize_lime_explanation(
@@ -581,7 +619,7 @@ class RamanVisualizer:
         negative_label="benign",
         figsize=(12, 8),
         sample_index=0,
-        wavenumber_axis=None
+        wavenumber_axis=None,
     ):
         """
         Visualize a LIME explanation with customized styling for Raman spectroscopy.
@@ -603,10 +641,18 @@ class RamanVisualizer:
         """
         # Delegator to lime_analysis module (Phase 5 refactoring)
         return lime_analysis._visualize_lime_explanation(
-            self, explanation, class_names, feature_names,
-            true_label, predicted_label, confidence,
-            positive_label, negative_label, figsize,
-            sample_index, wavenumber_axis
+            self,
+            explanation,
+            class_names,
+            feature_names,
+            true_label,
+            predicted_label,
+            confidence,
+            positive_label,
+            negative_label,
+            figsize,
+            sample_index,
+            wavenumber_axis,
         )
 
     def _visualize_lime_comparison(
@@ -615,7 +661,7 @@ class RamanVisualizer:
         class_names,
         positive_label="cancer",
         negative_label="benign",
-        figsize=(14, 10)
+        figsize=(14, 10),
     ):
         """
         Visualize comparison of feature importance between classes.
@@ -631,8 +677,7 @@ class RamanVisualizer:
         """
         # Delegator to lime_analysis module (Phase 5 refactoring)
         return lime_analysis._visualize_lime_comparison(
-            self, top_features, class_names,
-            positive_label, negative_label, figsize
+            self, top_features, class_names, positive_label, negative_label, figsize
         )
 
     def inspect_spectra(
@@ -659,7 +704,7 @@ class RamanVisualizer:
         lime_use_feature_selection: bool = True,
         lime_max_features: int = 300,
         lime_use_kmeans_sampling: bool = False,
-        **kwargs
+        **kwargs,
     ) -> dict:
         """
         Randomly select spectra and show detailed SHAP and/or LIME explanations for why they were
@@ -721,7 +766,7 @@ class RamanVisualizer:
         # Use self.ML_PROPERTY as fallback if ML_PROPERTY is None
         if ML_PROPERTY is None:
             ML_PROPERTY = self.ML_PROPERTY
-        
+
         return interactive_inspection.inspect_spectra(
             ml_property=ML_PROPERTY,
             test_spectra=test_spectra,
@@ -746,13 +791,15 @@ class RamanVisualizer:
             lime_max_features=lime_max_features,
             lime_use_kmeans_sampling=lime_use_kmeans_sampling,
             visualizer_instance=self,
-            **kwargs
+            **kwargs,
         )
 
-    def plot_container_distribution(self,
-                                    spectral_containers: List[rp.SpectralContainer],
-                                    container_labels: List[str],
-                                    **kwargs) -> dict:
+    def plot_container_distribution(
+        self,
+        spectral_containers: List[rp.SpectralContainer],
+        container_labels: List[str],
+        **kwargs,
+    ) -> dict:
         """
         Method version for RamanVisualizer class.
 
@@ -765,13 +812,23 @@ class RamanVisualizer:
             sample_limit=1000
         )
         """
-        return plot_institution_distribution(spectral_containers, container_labels, **kwargs)
+        return plot_institution_distribution(
+            spectral_containers, container_labels, **kwargs
+        )
 
 
 def spectrum_with_highlights_spectrum(
-        spectrum, common_axis_subset, top_positive, top_negative,
-        positive_label, negative_label, spec_info, pred_label,
-        confidence: Union[int, float] = 0, spectrum_idx: int = -1) -> plt:
+    spectrum,
+    common_axis_subset,
+    top_positive,
+    top_negative,
+    positive_label,
+    negative_label,
+    spec_info,
+    pred_label,
+    confidence: Union[int, float] = 0,
+    spectrum_idx: int = -1,
+) -> plt:
     """
     Original spectrum with highlighted regions
 
@@ -791,44 +848,71 @@ def spectrum_with_highlights_spectrum(
         plt: The matplotlib figure object containing the plot.
     """
     fig1 = plt.figure(figsize=(12, 6))
-    plt.plot(common_axis_subset, spectrum[:len(common_axis_subset)],
-             'k-', linewidth=2, label='Spectrum')
+    plt.plot(
+        common_axis_subset,
+        spectrum[: len(common_axis_subset)],
+        "k-",
+        linewidth=2,
+        label="Spectrum",
+    )
 
     # Highlight top positive and negative regions
     # Ensure top_positive and top_negative are not empty before accessing [0][0]
     if top_positive:
         for wn, sv in top_positive:
-            plt.axvline(x=wn, color='red', alpha=0.6,
-                        linestyle='--', linewidth=1.5, label=f'{positive_label} Contributors' if wn == top_positive[0][0] else "")
+            plt.axvline(
+                x=wn,
+                color="red",
+                alpha=0.6,
+                linestyle="--",
+                linewidth=1.5,
+                label=(
+                    f"{positive_label} Contributors" if wn == top_positive[0][0] else ""
+                ),
+            )
     if top_negative:
         for wn, sv in top_negative:
-            plt.axvline(x=wn, color='blue', alpha=0.6,
-                        linestyle='--', linewidth=1.5, label=f'{negative_label} Contributors' if wn == top_negative[0][0] else "")
+            plt.axvline(
+                x=wn,
+                color="blue",
+                alpha=0.6,
+                linestyle="--",
+                linewidth=1.5,
+                label=(
+                    f"{negative_label} Contributors" if wn == top_negative[0][0] else ""
+                ),
+            )
 
     # Enhanced title with spectrum index information
     # Ensure confidence is scalar before formatting
     confidence_scalar = confidence
-    if hasattr(confidence_scalar, 'item'):
+    if hasattr(confidence_scalar, "item"):
         confidence_scalar = confidence_scalar.item()
-    elif isinstance(confidence_scalar, (np.ndarray, list)) and len(confidence_scalar) == 1:
+    elif (
+        isinstance(confidence_scalar, (np.ndarray, list))
+        and len(confidence_scalar) == 1
+    ):
         confidence_scalar = confidence_scalar[0]
-        if hasattr(confidence_scalar, 'item'):
+        if hasattr(confidence_scalar, "item"):
             confidence_scalar = confidence_scalar.item()
 
     try:
         confidence_float = float(confidence_scalar)
     except (TypeError, ValueError):
         console_log(
-            f"Warning: Could not convert confidence '{confidence_scalar}' to float. Using 0.0.")
+            f"Warning: Could not convert confidence '{confidence_scalar}' to float. Using 0.0."
+        )
         confidence_float = 0.0
 
-    title_text = (f"Spectrum {spectrum_idx+1} [Container: {spec_info['container_idx']}, "
-                  f"Index: {spec_info['spectrum_idx']}] - "
-                  f"True: {spec_info['true_label']}, Predicted: {pred_label} "
-                  f"(Confidence: {confidence_float:.3f})")  # Use confidence_float
+    title_text = (
+        f"Spectrum {spectrum_idx+1} [Container: {spec_info['container_idx']}, "
+        f"Index: {spec_info['spectrum_idx']}] - "
+        f"True: {spec_info['true_label']}, Predicted: {pred_label} "
+        f"(Confidence: {confidence_float:.3f})"
+    )  # Use confidence_float
 
-    plt.title(title_text, fontsize=12, fontweight='bold')
-    plt.xlabel('Raman Shift (cm⁻¹)')
+    plt.title(title_text, fontsize=12, fontweight="bold")
+    plt.xlabel("Raman Shift (cm⁻¹)")
     plt.ylabel("Intensity")
     plt.legend()
     plt.grid(True, alpha=0.3)
@@ -837,7 +921,16 @@ def spectrum_with_highlights_spectrum(
     return fig1
 
 
-def create_shap_plots(spectrum_idx, spec_info, shap_values, common_axis_subset, top_positive, top_negative, positive_label, negative_label) -> plt:
+def create_shap_plots(
+    spectrum_idx,
+    spec_info,
+    shap_values,
+    common_axis_subset,
+    top_positive,
+    top_negative,
+    positive_label,
+    negative_label,
+) -> plt:
     """
     Helper function to create SHAP plots.
 
@@ -857,16 +950,30 @@ def create_shap_plots(spectrum_idx, spec_info, shap_values, common_axis_subset, 
     """
     # Delegator to interactive_inspection module (Phase 4B refactoring)
     return interactive_inspection.create_shap_plots(
-        spectrum_idx, spec_info, shap_values, common_axis_subset,
-        top_positive, top_negative, positive_label, negative_label
+        spectrum_idx,
+        spec_info,
+        shap_values,
+        common_axis_subset,
+        top_positive,
+        top_negative,
+        positive_label,
+        negative_label,
     )
 
 
-def create_enhanced_table(self: RamanVisualizer,
-                          spectrum_idx, spec_info, pred_label, shap_result, shap_values,
-                          top_positive, top_negative, positive_label, negative_label,
-                          confidence: Union[int, float] = 0
-                          ) -> plt:
+def create_enhanced_table(
+    self: RamanVisualizer,
+    spectrum_idx,
+    spec_info,
+    pred_label,
+    shap_result,
+    shap_values,
+    top_positive,
+    top_negative,
+    positive_label,
+    negative_label,
+    confidence: Union[int, float] = 0,
+) -> plt:
     """
     Enhanced Top contributors table with peak assignments
 
@@ -889,8 +996,17 @@ def create_enhanced_table(self: RamanVisualizer,
     """
     # Delegator to interactive_inspection module (Phase 4B refactoring)
     return interactive_inspection.create_enhanced_table(
-        self, spectrum_idx, spec_info, pred_label, shap_result, shap_values,
-        top_positive, top_negative, positive_label, negative_label, confidence
+        self,
+        spectrum_idx,
+        spec_info,
+        pred_label,
+        shap_result,
+        shap_values,
+        top_positive,
+        top_negative,
+        positive_label,
+        negative_label,
+        confidence,
     )
 
 
@@ -909,11 +1025,11 @@ def plot_institution_distribution(
     show_legend: bool = True,
     save_plot: bool = False,
     save_path: str = None,
-    color_palette: str = 'tab10',
+    color_palette: str = "tab10",
     interpolate_to_common_axis: bool = True,
     common_axis: np.ndarray = None,
     show_class_info: bool = True,
-    class_labels: List[str] = None
+    class_labels: List[str] = None,
 ) -> dict:
     """
     Plot t-SNE visualization of spectral data distribution across different containers/institutions.
@@ -985,5 +1101,5 @@ def plot_institution_distribution(
         interpolate_to_common_axis=interpolate_to_common_axis,
         common_axis=common_axis,
         show_class_info=show_class_info,
-        class_labels=class_labels
+        class_labels=class_labels,
     )

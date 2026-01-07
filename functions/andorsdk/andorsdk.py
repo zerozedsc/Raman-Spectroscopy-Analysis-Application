@@ -9,6 +9,7 @@ a spectrometer, and a motorized stage.
 
 Need to install andor3 sdk at https://andor.oxinst.com/downloads/
 """
+
 from configs.configs import *
 import numpy as np
 import os
@@ -21,6 +22,7 @@ from ._enumsdk2 import *
 try:
     from pylablib.devices import Andor
     import andor3
+
     CAMERA_AVAILABLE = True
 except ImportError:
     CAMERA_AVAILABLE = False
@@ -31,6 +33,7 @@ class AndorSDK3Handler:
     """
     Andor SDK3 Camera handler.
     """
+
     def __init__(self, camera_index=0):
         self.camera_index = camera_index
         self.cam = None
@@ -45,7 +48,7 @@ class AndorSDK3Handler:
             EnvironmentError: If Andor SDK3 libraries are not available.
             RuntimeError: If camera initialization fails.
         """
-        
+
         if not CAMERA_AVAILABLE:
             raise EnvironmentError(
                 f"Andor SDK3 libraries not available on {self.platform}"
@@ -62,7 +65,7 @@ class AndorSDK3Handler:
                 "AndorSDK3Handler",
                 "ANDORSDK",
                 "Andor SDK3 camera initialized successfully.",
-                status='info'
+                status="info",
             )
         except Exception as e:
             raise RuntimeError(f"Camera initialization failed: {e}")
@@ -73,7 +76,7 @@ class AndorSDK3Handler:
         Raises:
             RuntimeError: If camera is not initialized or frame acquisition fails.
         """
-        
+
         if not self.initialized:
             raise RuntimeError("Camera not initialized.")
         try:
@@ -88,7 +91,7 @@ class AndorSDK3Handler:
         Raises:
             RuntimeError: If camera is not initialized or closing fails.
         """
-        
+
         try:
             if self.cam:
                 self.cam.close()
@@ -101,14 +104,14 @@ class AndorSDK3Handler:
                 "AndorSDK3Handler",
                 "ANDORSDK",
                 "Andor SDK3 camera closed successfully.",
-                status='info'
+                status="info",
             )
         except Exception as e:
             create_logs(
                 "AndorSDK3Handler",
                 "ANDORSDK",
                 f"Failed to close camera: {e}",
-                status='error'
+                status="error",
             )
 
     def set_exposure(self, exposure_time=0.01):
@@ -128,6 +131,7 @@ class AndorSDK3Handler:
             raise RuntimeError("Camera not initialized.")
         self.sdk.send_software_trigger()
 
+
 # Read ASC file function
 def read_asc_file(filepath: str) -> np.ndarray:
     """
@@ -139,9 +143,9 @@ def read_asc_file(filepath: str) -> np.ndarray:
     Raises:
         IOError: If file reading fails.
     """
-    
+
     try:
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             data = []
             for line in f:
                 parts = line.strip().split()
@@ -159,15 +163,17 @@ class LaserController:
     Laser control skeleton. In a real system, this might use serial commands
     to a USB/RS232 interface, for example via pyserial.
     """
-    def __init__(self, port : str="COM3", baudrate: int=9600):
+
+    def __init__(self, port: str = "COM3", baudrate: int = 9600):
         import serial
+
         try:
             self.serial = serial.Serial(port, baudrate, timeout=1)
             create_logs(
                 "LaserController",
                 "ANDORSDK",
                 f"Laser connected on {port}",
-                status='info'
+                status="info",
             )
         except Exception as e:
             self.serial = None
@@ -175,7 +181,7 @@ class LaserController:
                 "LaserController",
                 "ANDORSDK",
                 f"Laser connection failed: {e}",
-                status='error'
+                status="error",
             )
 
     def laser_on(self):
@@ -187,20 +193,17 @@ class LaserController:
         if self.serial:
             self.serial.write(b"ON\n")
             create_logs(
-                "LaserController",
-                "ANDORSDK",
-                "Laser ON command sent.",
-                status='info'
+                "LaserController", "ANDORSDK", "Laser ON command sent.", status="info"
             )
         else:
             create_logs(
                 "LaserController",
                 "ANDORSDK",
                 "Failed to send laser ON command: Serial connection not established.",
-                status='error'
+                status="error",
             )
             raise RuntimeError("Serial connection not established for laser control.")
-        
+
     def laser_off(self):
         """
         Turn the laser off.
@@ -210,21 +213,18 @@ class LaserController:
         if self.serial:
             self.serial.write(b"OFF\n")
             create_logs(
-                "LaserController",
-                "ANDORSDK",
-                "Laser OFF command sent.",
-                status='info'
+                "LaserController", "ANDORSDK", "Laser OFF command sent.", status="info"
             )
         else:
             create_logs(
                 "LaserController",
                 "ANDORSDK",
                 "Failed to send laser OFF command: Serial connection not established.",
-                status='error'
+                status="error",
             )
             raise RuntimeError("Serial connection not established for laser control.")
 
-    def set_power(self, power_mW : float=100):
+    def set_power(self, power_mW: float = 100):
         """
         Set the laser power in milliwatts.
         Args:
@@ -239,14 +239,14 @@ class LaserController:
                 "LaserController",
                 "ANDORSDK",
                 f"Laser power set to {power_mW} mW.",
-                status='info'
+                status="info",
             )
         else:
             create_logs(
                 "LaserController",
                 "ANDORSDK",
                 "Failed to set laser power: Serial connection not established.",
-                status='error'
+                status="error",
             )
             raise RuntimeError("Serial connection not established for laser control.")
 
@@ -255,15 +255,17 @@ class SpectrometerController:
     """
     Spectrometer grating / wavelength control. Typically a USB-RS232 device.
     """
+
     def __init__(self, port="COM4", baudrate=9600):
         import serial
+
         try:
             self.serial = serial.Serial(port, baudrate, timeout=1)
             create_logs(
                 "SpectrometerController",
                 "ANDORSDK",
                 f"Spectrometer connected on {port}",
-                status='info'
+                status="info",
             )
         except Exception as e:
             self.serial = None
@@ -271,7 +273,7 @@ class SpectrometerController:
                 "SpectrometerController",
                 "ANDORSDK",
                 f"Spectrometer connection failed: {e}",
-                status='error'
+                status="error",
             )
 
     def set_wavelength(self, wavelength_nm):
@@ -282,7 +284,7 @@ class SpectrometerController:
                 "SpectrometerController",
                 "ANDORSDK",
                 f"Wavelength set to {wavelength_nm} nm.",
-                status='info'
+                status="info",
             )
 
     def get_wavelength(self):
@@ -293,7 +295,7 @@ class SpectrometerController:
                 "SpectrometerController",
                 "ANDORSDK",
                 f"Current wavelength: {result}",
-                status='info'
+                status="info",
             )
             return result
 
@@ -303,15 +305,17 @@ class StageController:
     Motorized x-y-z stage controller.
     Typically controlled over serial (RS232/USB).
     """
+
     def __init__(self, port="COM5", baudrate=9600):
         import serial
+
         try:
             self.serial = serial.Serial(port, baudrate, timeout=1)
             create_logs(
                 "StageController",
                 "ANDORSDK",
                 f"Stage connected on {port}",
-                status='info'
+                status="info",
             )
         except Exception as e:
             self.serial = None
@@ -319,7 +323,7 @@ class StageController:
                 "StageController",
                 "ANDORSDK",
                 f"Stage connection failed: {e}",
-                status='error'
+                status="error",
             )
 
     def move_to(self, x, y, z):
@@ -330,18 +334,13 @@ class StageController:
                 "StageController",
                 "ANDORSDK",
                 f"Stage moved to position ({x}, {y}, {z}).",
-                status='info'
+                status="info",
             )
 
     def home(self):
         if self.serial:
             self.serial.write(b"HOME\n")
-            create_logs(
-                "StageController",
-                "ANDORSDK",
-                "Stage homed.",
-                status='info'
-            )
+            create_logs("StageController", "ANDORSDK", "Stage homed.", status="info")
 
 
 class RamanMeasurementManager:
@@ -349,6 +348,7 @@ class RamanMeasurementManager:
     Raman measurement manager that coordinates
     laser, camera, spectrometer, stage
     """
+
     def __init__(self):
         self.camera = AndorSDK3Handler()
         self.laser = LaserController()
@@ -379,7 +379,7 @@ class RamanMeasurementManager:
             "RamanMeasurementManager",
             "ANDORSDK",
             f"Single point measurement at ({x}, {y}, {z}) with wavelength {wavelength} nm.",
-            status='info'
+            status="info",
         )
         return frame
 
@@ -390,8 +390,9 @@ class RamanMeasurementManager:
             "RamanMeasurementManager",
             "ANDORSDK",
             "All devices shut down successfully.",
-            status='info'
+            status="info",
         )
+
 
 # AndorSDK2 constants
 DRV_SUCCESS = 20002
@@ -403,12 +404,14 @@ DRV_TEMPERATURE_STABILIZED = 20036
 DRV_TEMPERATURE_NOT_REACHED = 20037
 DRV_TEMPERATURE_DRIFT = 20040
 
+
 class AndorSDK2Handler:
     """
     Andor SDK2 Camera handler for older cameras.
     This class provides an interface to Andor cameras using the V2 SDK (atmcd32d.dll or atmcd64d.dll).
     It handles camera initialization, data acquisition, and shutdown.
     """
+
     def __init__(self, driver_path=r"C:\helmi\研究\raman-app\drivers"):
         """
         Initializes the handler by loading the correct SDK2 DLL based on the OS architecture.
@@ -428,7 +431,7 @@ class AndorSDK2Handler:
         if platform.system() != "Windows":
             raise EnvironmentError("Andor SDK2 is only supported on Windows.")
 
-        is_64bit = platform.machine().endswith('64')
+        is_64bit = platform.machine().endswith("64")
         dll_name = "atmcd64d.dll" if is_64bit else "atmcd32d.dll"
         dll_path = os.path.join(driver_path, dll_name)
 
@@ -441,23 +444,25 @@ class AndorSDK2Handler:
                 "AndorSDK2Handler",
                 "ANDORSDK2",
                 f"Loaded Andor SDK2 driver: {dll_name}",
-                status='info'
+                status="info",
             )
         except OSError as e:
             create_logs(
                 "AndorSDK2Handler",
                 "ANDORSDK2",
                 f"Failed to load Andor SDK2 driver: {e}",
-                status='error'
+                status="error",
             )
             raise OSError(f"Failed to load Andor SDK2 driver: {e}")
 
     def _check_error(self, error_code, function_name):
         """Helper function to check for SDK errors."""
         if error_code != DRV_SUCCESS:
-            raise RuntimeError(f"Andor SDK2 Error in {function_name}: code {error_code}")
+            raise RuntimeError(
+                f"Andor SDK2 Error in {function_name}: code {error_code}"
+            )
 
-    def initialize_camera(self, camera_index: int=0):
+    def initialize_camera(self, camera_index: int = 0):
         """
         Initialize the Andor SDK2 camera.
         Connects to the camera, gets detector info, and sets default modes.
@@ -465,7 +470,12 @@ class AndorSDK2Handler:
             camera_index (int): The index of the camera to use (0-based).
         """
         if self.initialized:
-            create_logs("AndorSDK2Handler", "ANDORSDK2", "Camera already initialized.", status='warning')
+            create_logs(
+                "AndorSDK2Handler",
+                "ANDORSDK2",
+                "Camera already initialized.",
+                status="warning",
+            )
             return
 
         ret = self.sdk.Initialize(None)
@@ -475,7 +485,9 @@ class AndorSDK2Handler:
         self.sdk.GetAvailableCameras(ctypes.byref(num_cameras))
         if num_cameras.value <= camera_index:
             self.sdk.ShutDown()
-            raise IndexError(f"Camera index {camera_index} out of range. Found {num_cameras.value} cameras.")
+            raise IndexError(
+                f"Camera index {camera_index} out of range. Found {num_cameras.value} cameras."
+            )
 
         # Get detector size
         width = ctypes.c_int()
@@ -486,15 +498,17 @@ class AndorSDK2Handler:
 
         # Set default modes for spectroscopy
         self.sdk.SetAcquisitionMode(1)  # 1: Single Scan
-        self.sdk.SetReadMode(4)         # 4: Image (use 0 for Full Vertical Binning if applicable)
-        self.sdk.SetTriggerMode(0)      # 0: Internal trigger
+        self.sdk.SetReadMode(
+            4
+        )  # 4: Image (use 0 for Full Vertical Binning if applicable)
+        self.sdk.SetTriggerMode(0)  # 0: Internal trigger
 
         self.initialized = True
         create_logs(
             "AndorSDK2Handler",
             "ANDORSDK2",
             f"Andor SDK2 camera initialized. Detector: {self.detector_width}x{self.detector_height}",
-            status='info'
+            status="info",
         )
 
     def shutdown(self):
@@ -503,7 +517,7 @@ class AndorSDK2Handler:
         """
         if not self.initialized:
             return
-        self.set_cooler(False) # Turn off cooler before shutdown
+        self.set_cooler(False)  # Turn off cooler before shutdown
         ret = self.sdk.ShutDown()
         self._check_error(ret, "ShutDown")
         self.initialized = False
@@ -511,7 +525,7 @@ class AndorSDK2Handler:
             "AndorSDK2Handler",
             "ANDORSDK2",
             "Andor SDK2 camera shut down.",
-            status='info'
+            status="info",
         )
 
     def set_exposure(self, exposure_time_s: float):
@@ -532,9 +546,11 @@ class AndorSDK2Handler:
         if not self.initialized:
             raise RuntimeError("Camera not initialized.")
         if self.acquiring:
-            create_logs("AndorSDK2Handler", "ANDORSDK2", "Already acquiring.", status='warning')
+            create_logs(
+                "AndorSDK2Handler", "ANDORSDK2", "Already acquiring.", status="warning"
+            )
             return
-        
+
         self.sdk.PrepareAcquisition()
         ret = self.sdk.StartAcquisition()
         self._check_error(ret, "StartAcquisition")
@@ -557,7 +573,7 @@ class AndorSDK2Handler:
                 self.acquiring = False
                 return
             time.sleep(0.05)
-        
+
         self.acquiring = False
         self.sdk.AbortAcquisition()
         raise TimeoutError(f"Timeout ({timeout_s}s) waiting for acquisition to finish.")
@@ -571,14 +587,18 @@ class AndorSDK2Handler:
         if not self.initialized:
             raise RuntimeError("Camera not initialized.")
         if self.acquiring:
-            raise RuntimeError("Cannot get data while acquiring. Call wait_for_acquisition() first.")
+            raise RuntimeError(
+                "Cannot get data while acquiring. Call wait_for_acquisition() first."
+            )
 
         size = self.detector_width * self.detector_height
         buffer = (ctypes.c_long * size)()
         ret = self.sdk.GetAcquiredData(ctypes.byref(buffer), size)
         self._check_error(ret, "GetAcquiredData")
 
-        return np.array(buffer, dtype=np.int32).reshape((self.detector_height, self.detector_width))
+        return np.array(buffer, dtype=np.int32).reshape(
+            (self.detector_height, self.detector_width)
+        )
 
     def acquire_frame(self, exposure_time_s=0.1):
         """
@@ -590,7 +610,7 @@ class AndorSDK2Handler:
         """
         if not self.initialized:
             raise RuntimeError("Camera not initialized.")
-        
+
         self.set_exposure(exposure_time_s)
         self.start_acquisition()
         self.wait_for_acquisition(timeout_s=exposure_time_s + 10)
@@ -605,14 +625,19 @@ class AndorSDK2Handler:
         """
         if not self.initialized:
             raise RuntimeError("Camera not initialized.")
-        
+
         if enable:
             self.sdk.SetTemperature(ctypes.c_int(target_temp_c))
             self.sdk.CoolerON()
-            create_logs("AndorSDK2Handler", "ANDORSDK2", f"Cooler ON, target: {target_temp_c} C.", status='info')
+            create_logs(
+                "AndorSDK2Handler",
+                "ANDORSDK2",
+                f"Cooler ON, target: {target_temp_c} C.",
+                status="info",
+            )
         else:
             self.sdk.CoolerOFF()
-            create_logs("AndorSDK2Handler", "ANDORSDK2", "Cooler OFF.", status='info')
+            create_logs("AndorSDK2Handler", "ANDORSDK2", "Cooler OFF.", status="info")
 
     def get_temperature(self):
         """
@@ -622,7 +647,7 @@ class AndorSDK2Handler:
         """
         if not self.initialized:
             raise RuntimeError("Camera not initialized.")
-        
+
         temp = ctypes.c_int()
         ret = self.sdk.GetTemperature(ctypes.byref(temp))
 
@@ -631,7 +656,7 @@ class AndorSDK2Handler:
             DRV_TEMPERATURE_OFF: "Off",
             DRV_TEMPERATURE_STABILIZED: "Stabilized",
             DRV_TEMPERATURE_NOT_REACHED: "Cooling",
-            DRV_TEMPERATURE_DRIFT: "Drift"
+            DRV_TEMPERATURE_DRIFT: "Drift",
         }
         if ret in status_map:
             status_str = status_map[ret]
@@ -640,6 +665,7 @@ class AndorSDK2Handler:
             status_str = "Unknown"
 
         return temp.value, status_str
+
 
 # --- Test Run ---
 if __name__ == "__main__":

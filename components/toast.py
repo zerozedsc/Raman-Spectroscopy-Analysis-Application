@@ -3,13 +3,19 @@ from PySide6.QtWidgets import QApplication, QWidget, QLabel, QVBoxLayout
 from PySide6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QPoint
 from PySide6.QtGui import QFont
 
+
 class Toast(QWidget):
     """
     A non-blocking toast/bubble notification widget that overlays its parent.
     """
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint)
+        self.setWindowFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.Tool
+            | Qt.WindowType.WindowStaysOnTopHint
+        )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
 
@@ -42,14 +48,14 @@ class Toast(QWidget):
 
         self.label.setText(message)
         self.label.setProperty("level", level)
-        self.style().polish(self.label) # Apply new property style
+        self.style().polish(self.label)  # Apply new property style
 
         self.adjustSize()
         self._reposition()
 
         self.timer.start(duration)
         self._show_animation()
-    
+
     def _reposition(self):
         """Positions the toast at the bottom-center of the parent widget."""
         parent_geo = self.parent().geometry()
