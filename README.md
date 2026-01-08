@@ -46,7 +46,7 @@ An open-source, cross-platform desktop application designed for **real-time Rama
 **Institution:** University of Toyama (富山大学)  
 **Laboratory:** [Clinical Photonics and Information Engineering](http://www3.u-toyama.ac.jp/medphoto/)  
 **Student ID:** 12270294  
-**Student:** Muhamad Helmi bin Rozaini (ムハマドヘルミビンロザイン)
+**Student:** Muhamad Helmi bin Rozain (ムハマドヘルミビンロザイン)
 
 ### Supervisors
 
@@ -210,7 +210,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 ```
 MIT License
 
-Copyright (c) 2024-2026 Muhamad Helmi bin Rozaini
+Copyright (c) 2024-2026 Muhamad Helmi bin Rozain
 Laboratory for Clinical Photonics and Information Engineering
 University of Toyama
 
@@ -246,7 +246,7 @@ This project implements methods from:
 ## 📞 Contact & Support
 
 ### Project Maintainer
-- **Muhamad Helmi bin Rozaini**
+- **Muhamad Helmi bin Rozain**
 - **Email:** [Contact via GitHub](https://github.com/zerozedsc)
 - **Laboratory:** [Clinical Photonics and Information Engineering](http://www3.u-toyama.ac.jp/medphoto/)
 
