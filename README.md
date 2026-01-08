@@ -46,7 +46,7 @@ An open-source, cross-platform desktop application designed for **real-time Rama
 **Institution:** University of Toyama (富山大学)  
 **Laboratory:** [Clinical Photonics and Information Engineering](http://www3.u-toyama.ac.jp/medphoto/)  
 **Student ID:** 12270294  
-**Student:** Muhamad Helmi bin Rozain (ムハマドヘルミビンロザイン)
+**Student:** Muhamad Helmi bin Rozain
 
 ### Supervisors
 
