@@ -50,8 +50,8 @@ An open-source, cross-platform desktop application designed for **real-time Rama
 
 ### Supervisors
 
-- **大嶋　佑介** (Yusuke Oshima)
-- **竹谷　皓規** (Hironori Taketani)
+- **大嶋　佑介** (Oshima Yusuke)
+- **竹谷　皓規** (Taketani Akinori)
 
 ### Project Background
 
