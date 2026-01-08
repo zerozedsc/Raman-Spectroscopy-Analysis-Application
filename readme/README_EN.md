@@ -86,8 +86,8 @@ This project aims to address these challenges by:
 **Laboratory:** [Clinical Photonics and Information Engineering](http://www3.u-toyama.ac.jp/medphoto/)
 
 **Supervisors:**
-- 大嶋　佑介 (Yusuke Oshima)
-- 竹谷　皓規 (Hironori Taketani)
+- 大嶋　佑介 (Oshima Yusuke)
+- 竹谷　皓規 (Taketani Akinori)
 
 ### Key Features
 
@@ -113,7 +113,6 @@ This project aims to address these challenges by:
 
 **Optional Requirements:**
 - **GPU:** NVIDIA GPU with CUDA support (for deep learning features)
-- **Spectrometer:** Andor-compatible spectrometer (for real-time acquisition)
 
 ### Installation Methods
 
@@ -1084,7 +1083,7 @@ raman-app/
 ├── functions/              # Core processing logic
 │   ├── preprocess/        # Preprocessing methods
 │   ├── visualization/     # Plotting utilities
-│   └── andorsdk/         # Hardware integration
+│   
 ├── pages/                  # Application pages
 │   ├── home_page.py
 │   ├── data_package_page.py
@@ -1098,7 +1097,7 @@ raman-app/
 
 ### Coding Standards
 
-Follow the guidelines in [.AGI-BANKS/DEVELOPMENT_GUIDELINES.md](../.AGI-BANKS/DEVELOPMENT_GUIDELINES.md):
+Follow the guidelines in [readme/DEVELOPMENT_GUIDELINES.md](readme/DEVELOPMENT_GUIDELINES.md):
 
 - **PEP 8** style guide
 - **Type hints** for function signatures
@@ -1717,8 +1716,8 @@ See [THIRD_PARTY_LICENSES.md](../THIRD_PARTY_LICENSES.md) for complete details.
 - Research collaboration
 
 **Supervisors:**
-- **大嶋　佑介** (Yusuke Oshima) - Technical guidance and project supervision
-- **竹谷　皓規** (Hironori Taketani) - Clinical insights and validation
+- **大嶋　佑介** (Oshima Yusuke) - Technical guidance and project supervision
+- **竹谷　皓規** (Taketani Akinori) - Clinical insights and validation
 
 ### Open Source Community
 
@@ -1793,10 +1792,10 @@ Laboratory for Clinical Photonics and Information Engineering
 
 ### Supervisors
 
-**大嶋　佑介** (Yusuke Oshima)  
+**大嶋　佑介** (Oshima Yusuke)  
 Laboratory for Clinical Photonics and Information Engineering
 
-**竹谷　皓規** (Hironori Taketani)  
+**竹谷　皓規** (Taketani Akinori)  
 Laboratory for Clinical Photonics and Information Engineering
 
 ### Reporting Issues
