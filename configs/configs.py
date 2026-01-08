@@ -4,7 +4,23 @@ from typing import Dict, List, Any
 
 CURRENT_DIR = os.getcwd()
 DATETIME_FT = "%d-%m-%Y %H:%M:%S"
+
+# Global DEBUG flag - controlled by command-line --debug argument
+# Default: True (development mode with verbose logging)
+# Production: False (set via --debug false for minimal logging)
 DEBUG = True
+
+
+def set_debug_mode(enabled: bool):
+    """
+    Set global DEBUG mode. Called from main.py with --debug argument.
+    
+    Args:
+        enabled (bool): True for development (verbose logging, console output)
+                       False for production (minimal logging, no console spam)
+    """
+    global DEBUG
+    DEBUG = enabled
 
 
 class LocalizationManager:
@@ -247,20 +263,43 @@ def load_config(file_path: str = "configs/app_configs.json") -> dict:
 
 
 def create_logs(
-    log_name="LOGS", filename="logs", log_message="", status="info", show_console=False
+    log_name="LOGS", filename="logs", log_message="", status="info", show_console=None
 ):
     """
     Create a log file with the specified name and message.
+    
     Args:
         log_name (str): Name of the logger.
         filename (str): Name of the log file (without extension).
         log_message (str): Message to log.
-        status (str): Log level ('info', 'error', 'warning', 'debug').
+        status (str): Log level ('info', 'error', 'warning', 'debug', 'console').
+        show_console (bool|None): Override global DEBUG for console output.
+                                   None = respect global DEBUG flag.
     """
-
-    if status == "console" and show_console:
-        print(log_message)
-        return  # Exit if only console output is needed
+    global DEBUG
+    
+    # Determine whether to show console output
+    should_show_console = DEBUG if show_console is None else show_console
+    
+    # Handle console-only output with UTF-8 encoding to prevent UnicodeEncodeError
+    if status == "console":
+        if should_show_console:
+            try:
+                # Use UTF-8 encoding for console output
+                sys.stdout.buffer.write((log_message + '\n').encode('utf-8'))
+                sys.stdout.flush()
+            except (AttributeError, IOError):
+                # Fallback if buffer is not available
+                try:
+                    print(log_message)
+                except UnicodeEncodeError:
+                    # Last resort: replace non-ASCII characters
+                    print(log_message.encode('ascii', 'replace').decode('ascii'))
+        return  # Exit early for console-only messages
+    
+    # Skip debug-level logs in production mode (when DEBUG=False)
+    if status == "debug" and not DEBUG:
+        return
 
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     foldername = "logs"
@@ -292,43 +331,46 @@ def create_logs(
     # Create formatter
     formatter = logging.Formatter(log_format)
 
-    # Check if logger already has handlers to prevent duplicate messages
-    if not logger.handlers:
-        try:
-            # Create file handler with UTF-8 encoding to handle Unicode characters
+    # Attach handlers in an idempotent way.
+    # (Previous behavior only attached a StreamHandler if the *first* call happened
+    # with console enabled; and it fixed the console level based on the first call's
+    # status. That made later INFO/DEBUG appear to be "missing" from the terminal.)
+    try:
+        has_file_handler = any(
+            isinstance(h, logging.FileHandler) and getattr(h, "baseFilename", None) == os.path.abspath(full_filename)
+            for h in logger.handlers
+        )
+
+        if not has_file_handler:
             file_handler = logging.FileHandler(full_filename, encoding="utf-8")
             file_handler.setFormatter(formatter)
+            # Always capture everything to file
+            file_handler.setLevel(logging.DEBUG)
+            logger.addHandler(file_handler)
 
-            # Create stream handler for terminal output with UTF-8 encoding
-            stream_handler = logging.StreamHandler()
+        # Stream handler for terminal output (only when enabled)
+        has_stdout_stream = any(
+            isinstance(h, logging.StreamHandler) and getattr(h, "stream", None) is sys.stdout
+            for h in logger.handlers
+        )
+
+        if should_show_console and not has_stdout_stream:
+            stream_handler = logging.StreamHandler(sys.stdout)
             stream_handler.setFormatter(formatter)
 
-            # Set stream encoding to UTF-8 if possible
+            # Best-effort UTF-8 console
             if hasattr(stream_handler.stream, "reconfigure"):
                 try:
                     stream_handler.stream.reconfigure(encoding="utf-8")
                 except Exception:
-                    pass  # Fallback to default encoding
+                    pass
 
-            # Set the level for handlers based on the status
-            if status == "info":
-                file_handler.setLevel(logging.INFO)
-                stream_handler.setLevel(logging.INFO)
-            elif status == "error":
-                file_handler.setLevel(logging.ERROR)
-                stream_handler.setLevel(logging.ERROR)
-            elif status == "warning":
-                file_handler.setLevel(logging.WARNING)
-                stream_handler.setLevel(logging.WARNING)
-            elif status == "debug":
-                file_handler.setLevel(logging.DEBUG)
-                stream_handler.setLevel(logging.DEBUG)
-
-            # Add handlers to the logger
-            logger.addHandler(file_handler)
+            # In dev mode we want to see everything; the caller still controls verbosity
+            # by choosing which statuses to emit.
+            stream_handler.setLevel(logging.DEBUG)
             logger.addHandler(stream_handler)
-        except Exception as e:
-            return
+    except Exception:
+        return
 
     # Log the message
     try:

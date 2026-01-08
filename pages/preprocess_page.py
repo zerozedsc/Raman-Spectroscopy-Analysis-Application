@@ -5,7 +5,7 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from components.widgets import *
 from .preprocess_page_utils import *
-
+from configs.configs import create_logs
 
 class PreprocessPage(QWidget):
     """Enhanced preprocessing page with dynamic pipeline building and comprehensive parameter controls."""
@@ -1741,6 +1741,12 @@ class PreprocessPage(QWidget):
                 # Validate location
                 if not export_path:
                     from PySide6.QtWidgets import QMessageBox
+                    create_logs(
+                        "export_no_location",
+                        "PreprocessPage",
+                        "No export location specified by user.",
+                        status="warning",
+                    )
 
                     QMessageBox.warning(
                         self,

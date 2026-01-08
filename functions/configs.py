@@ -15,6 +15,9 @@ import traceback
 import re
 import random
 
+# Import create_logs from configs.configs
+from configs.configs import create_logs
+
 DEBUG = True
 
 # Global Constants
@@ -22,80 +25,6 @@ CURRENT_DIR = os.getcwd()
 DATETIME_FT = "%d-%m-%Y %H:%M:%S"
 DATE_FT = "%d-%m-%Y"
 LOCAL_DATA = {}
-
-
-# logs function
-def create_logs(log_name, filename, log_message, status="info"):
-    """
-    Create log entries with configurable log level filtering.
-
-    Log level can be controlled via RAMAN_LOG_LEVEL environment variable.
-    Supported values: DEBUG, INFO, WARNING, ERROR
-    Default: WARNING (logs warnings and errors only)
-    """
-    # Get log level from environment variable (default to WARNING)
-    env_log_level = os.getenv("RAMAN_LOG_LEVEL", "WARNING").upper()
-    log_level_map = {
-        "DEBUG": logging.DEBUG,
-        "INFO": logging.INFO,
-        "WARNING": logging.WARNING,
-        "ERROR": logging.ERROR,
-    }
-    min_level = log_level_map.get(env_log_level, logging.WARNING)
-
-    # Map status to logging level
-    status_level_map = {
-        "debug": logging.DEBUG,
-        "info": logging.INFO,
-        "warning": logging.WARNING,
-        "error": logging.ERROR,
-    }
-    message_level = status_level_map.get(status.lower(), logging.INFO)
-
-    # Skip if message level is below minimum level
-    if message_level < min_level:
-        return
-
-    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    foldername = "logs"
-    full_filename = os.path.join(foldername, filename + ".log")
-
-    # Ensure the logs directory exists
-    os.makedirs(foldername, exist_ok=True)
-
-    # Create a logger
-    logger = logging.getLogger(log_name)
-    # Set logger to debug level to catch all messages
-    logger.setLevel(logging.DEBUG)
-
-    # Create formatter
-    formatter = logging.Formatter(log_format)
-
-    # Check if logger already has handlers to prevent duplicate messages
-    if not logger.handlers:
-        # Create file handler (always log everything to file)
-        file_handler = logging.FileHandler(full_filename)
-        file_handler.setFormatter(formatter)
-        file_handler.setLevel(logging.DEBUG)  # File gets all logs
-
-        # Create stream handler for terminal output (respects min_level)
-        stream_handler = logging.StreamHandler()
-        stream_handler.setFormatter(formatter)
-        stream_handler.setLevel(min_level)  # Console respects environment setting
-
-        # Add handlers to the logger
-        logger.addHandler(file_handler)
-        logger.addHandler(stream_handler)
-
-    # Log the message
-    if status == "info":
-        logger.info(log_message)
-    elif status == "error":
-        logger.error(log_message)
-    elif status == "warning":
-        logger.warning(log_message)
-    elif status == "debug":
-        logger.debug(log_message)
 
 
 def console_log(

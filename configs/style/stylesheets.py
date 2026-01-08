@@ -190,6 +190,65 @@ BASE_STYLES = {
             font-size: 12px;
         }
     """,
+
+    # Theme-consistent table styling for dialogs and views
+    "table_widget": """
+        QTableWidget {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background-color: white;
+            alternate-background-color: #f8f9fa;
+            selection-background-color: #e3f2fd;
+            selection-color: #2c3e50;
+            font-size: 13px;
+        }
+        QTableWidget::item {
+            padding: 8px;
+            border: none;
+        }
+        QTableWidget::item:selected {
+            background-color: #e3f2fd;
+            color: #2c3e50;
+        }
+        QHeaderView::section {
+            background-color: #f8f9fa;
+            padding: 10px 8px;
+            border: none;
+            border-bottom: 2px solid #dee2e6;
+            font-weight: 600;
+            color: #495057;
+            font-size: 13px;
+        }
+    """,
+
+    "tree_widget": """
+        QTreeWidget {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background-color: white;
+            font-size: 13px;
+        }
+        QTreeWidget::item {
+            padding: 8px 6px;
+            border-bottom: 1px solid #f1f3f5;
+        }
+        QTreeWidget::item:hover {
+            background-color: #f8f9fa;
+        }
+        QTreeWidget::item:selected {
+            background-color: #e3f2fd;
+            color: #2c3e50;
+        }
+        QHeaderView::section {
+            background-color: #f8f9fa;
+            padding: 10px 8px;
+            border: none;
+            border-bottom: 2px solid #dee2e6;
+            font-weight: 600;
+            color: #495057;
+            font-size: 13px;
+        }
+    """,
 }
 
 # Preprocessing Page specific styles

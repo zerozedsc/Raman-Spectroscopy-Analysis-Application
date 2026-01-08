@@ -34,7 +34,12 @@ excluded_modules = [
     'PIL.ImageTk', 'curses',
     'pip',
     'xmlrpc', 'xml.etree.cElementTree',
-    'multiprocessing.dummy', 'pydoc_data'
+    'multiprocessing.dummy', 'pydoc_data',
+    # Exclude unused PySide6 SQL drivers to suppress build warnings
+    'PySide6.QtSql',
+    # Exclude unused Qt3D modules
+    'PySide6.Qt3DCore', 'PySide6.Qt3DRender', 'PySide6.Qt3DLogic',
+    'PySide6.Qt3DInput', 'PySide6.Qt3DAnimation', 'PySide6.Qt3DExtras'
 ]
 
 # ============== DATA FILES ==============

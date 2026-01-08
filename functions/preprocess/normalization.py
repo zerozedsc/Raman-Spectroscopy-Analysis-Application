@@ -14,12 +14,7 @@ try:
 except ImportError:
     RAMANSPY_AVAILABLE = False
 
-try:
-    from ..utils import create_logs
-except ImportError:
-    # Fallback logging function
-    def create_logs(log_id, source, message, status="info"):
-        print(f"[{status.upper()}] {source}: {message}")
+from configs.configs import create_logs
 
 
 class SNV:

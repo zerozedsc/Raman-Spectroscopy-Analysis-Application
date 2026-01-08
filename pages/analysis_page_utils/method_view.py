@@ -5,7 +5,7 @@ This module handles the method-specific view with input forms and results displa
 Includes dynamic parameter widget generation and results visualization.
 """
 
-import logging
+import traceback
 
 from typing import Dict, Any, Callable, Optional
 from PySide6.QtWidgets import (
@@ -48,8 +48,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy import stats
 
+from configs.configs import create_logs
 
-logger = logging.getLogger(__name__)
+
 
 
 # =============================================================================
@@ -601,16 +602,28 @@ def _v1_create_method_view(
         # Load saved groups from ProjectManager
         saved_groups = PROJECT_MANAGER.get_analysis_groups()
         if saved_groups:
-            logger.debug("Loading %s saved groups from project", len(saved_groups))
+            create_logs(
+                "MethodView",
+                "method_view",
+                f"Loading {len(saved_groups)} saved groups from project",
+                status="debug",
+            )
             group_widget.set_groups(saved_groups)
         else:
-            logger.debug("No saved groups found in project")
+            create_logs(
+                "MethodView",
+                "method_view",
+                "No saved groups found in project",
+                status="debug",
+            )
 
         # Connect groups_changed signal to save groups to ProjectManager
         def on_groups_changed(groups: Dict[str, list]):
-            logger.debug(
-                "Groups changed, saving %s groups to ProjectManager",
-                len(groups),
+            create_logs(
+                "MethodView",
+                "method_view",
+                f"Groups changed, saving {len(groups)} groups to ProjectManager",
+                status="debug",
             )
             PROJECT_MANAGER.set_analysis_groups(groups)
 
@@ -618,26 +631,66 @@ def _v1_create_method_view(
 
         # Connect mode toggle to switch between modes
         def toggle_mode(button):
-            logger.debug("toggle_mode called")
-            logger.debug("Button clicked: %s", button)
-            logger.debug("Button objectName: %s", button.objectName())
-            logger.debug("comparison_radio: %s", comparison_radio)
-            logger.debug("classification_radio: %s", classification_radio)
-            logger.debug("Current stack index BEFORE: %s", dataset_stack.currentIndex())
+            create_logs("MethodView", "method_view", "toggle_mode called", status="debug")
+            create_logs("MethodView", "method_view", f"Button clicked: {button}", status="debug")
+            create_logs(
+                "MethodView",
+                "method_view",
+                f"Button objectName: {button.objectName()}",
+                status="debug",
+            )
+            create_logs("MethodView", "method_view", f"comparison_radio: {comparison_radio}", status="debug")
+            create_logs("MethodView", "method_view", f"classification_radio: {classification_radio}", status="debug")
+            create_logs(
+                "MethodView",
+                "method_view",
+                f"Current stack index BEFORE: {dataset_stack.currentIndex()}",
+                status="debug",
+            )
 
             # Check which button was clicked and switch pages
             if button == comparison_radio:
-                logger.debug("Switching to Comparison Mode (page 0)")
+                create_logs(
+                    "MethodView",
+                    "method_view",
+                    "Switching to Comparison Mode (page 0)",
+                    status="debug",
+                )
                 dataset_stack.setCurrentIndex(0)  # Show simple selection
-                logger.debug("Stack index AFTER: %s", dataset_stack.currentIndex())
+                create_logs(
+                    "MethodView",
+                    "method_view",
+                    f"Stack index AFTER: {dataset_stack.currentIndex()}",
+                    status="debug",
+                )
             elif button == classification_radio:
-                logger.debug("Switching to Classification Mode (page 1)")
+                create_logs(
+                    "MethodView",
+                    "method_view",
+                    "Switching to Classification Mode (page 1)",
+                    status="debug",
+                )
                 dataset_stack.setCurrentIndex(1)  # Show group assignment table
-                logger.debug("Stack index AFTER: %s", dataset_stack.currentIndex())
+                create_logs(
+                    "MethodView",
+                    "method_view",
+                    f"Stack index AFTER: {dataset_stack.currentIndex()}",
+                    status="debug",
+                )
             else:
-                logger.warning("Button not recognized in toggle_mode")
+                create_logs(
+                    "MethodView",
+                    "method_view",
+                    "Button not recognized in toggle_mode",
+                    status="warning",
+                )
 
-            logger.debug("Current visible widget: %s", dataset_stack.currentWidget())
+            create_logs(
+                "MethodView",
+                "method_view",
+                f"Current visible widget: {dataset_stack.currentWidget()}",
+                status="debug",
+            )
 
         # CRITICAL FIX: Connect individual button toggled signals instead of buttonClicked
         # buttonClicked sometimes fails silently, toggled is more reliable
@@ -651,26 +704,75 @@ def _v1_create_method_view(
         # Also try buttonClicked as backup
         mode_toggle.buttonClicked.connect(toggle_mode)
 
-        logger.debug("Mode toggle signals connected (toggled + buttonClicked)")
-        logger.debug("comparison_radio.toggled: %s", comparison_radio.toggled)
-        logger.debug("classification_radio.toggled: %s", classification_radio.toggled)
-        logger.debug("mode_toggle.buttonClicked: %s", mode_toggle.buttonClicked)
-        logger.debug("Toggle function object: %s", toggle_mode)
-        logger.debug("Initial stack index: %s", dataset_stack.currentIndex())
-        logger.debug("Initial visible widget: %s", dataset_stack.currentWidget())
-        logger.debug("comparison_radio checked: %s", comparison_radio.isChecked())
-        logger.debug(
-            "classification_radio checked: %s",
-            classification_radio.isChecked(),
+        create_logs(
+            "MethodView",
+            "method_view",
+            "Mode toggle signals connected (toggled + buttonClicked)",
+            status="debug",
+        )
+        create_logs(
+            "MethodView",
+            "method_view",
+            f"comparison_radio.toggled: {comparison_radio.toggled}",
+            status="debug",
+        )
+        create_logs(
+            "MethodView",
+            "method_view",
+            f"classification_radio.toggled: {classification_radio.toggled}",
+            status="debug",
+        )
+        create_logs(
+            "MethodView",
+            "method_view",
+            f"mode_toggle.buttonClicked: {mode_toggle.buttonClicked}",
+            status="debug",
+        )
+        create_logs(
+            "MethodView",
+            "method_view",
+            f"Toggle function object: {toggle_mode}",
+            status="debug",
+        )
+        create_logs(
+            "MethodView",
+            "method_view",
+            f"Initial stack index: {dataset_stack.currentIndex()}",
+            status="debug",
+        )
+        create_logs(
+            "MethodView",
+            "method_view",
+            f"Initial visible widget: {dataset_stack.currentWidget()}",
+            status="debug",
+        )
+        create_logs(
+            "MethodView",
+            "method_view",
+            f"comparison_radio checked: {comparison_radio.isChecked()}",
+            status="debug",
+        )
+        create_logs(
+            "MethodView",
+            "method_view",
+            f"classification_radio checked: {classification_radio.isChecked()}",
+            status="debug",
         )
 
         # Set initial page to Comparison Mode
         dataset_stack.setCurrentIndex(0)
         comparison_radio.setChecked(True)
-        logger.debug("Set initial mode to Comparison (index 0)")
-        logger.debug(
-            "After init - comparison_radio checked: %s",
-            comparison_radio.isChecked(),
+        create_logs(
+            "MethodView",
+            "method_view",
+            "Set initial mode to Comparison (index 0)",
+            status="debug",
+        )
+        create_logs(
+            "MethodView",
+            "method_view",
+            f"After init - comparison_radio checked: {comparison_radio.isChecked()}",
+            status="debug",
         )
 
     dataset_layout.addWidget(dataset_stack)
@@ -1713,6 +1815,7 @@ def populate_results_tabs(
     result: Any,
     localize_func: Callable,
     matplotlib_widget_class: type,
+    method_name: str = "",
 ) -> None:
     """
     Populate results tabs with analysis output.
@@ -1722,6 +1825,7 @@ def populate_results_tabs(
         result: AnalysisResult object
         localize_func: Localization function
         matplotlib_widget_class: MatplotlibWidget class for plot rendering
+        method_name: Name of the analysis method (for conditional UI behavior)
     """
     tab_widget = results_panel.tab_widget
     
@@ -1735,9 +1839,21 @@ def populate_results_tabs(
     # Show CSV export button (plot export via matplotlib toolbar)
     results_panel.export_data_btn.setVisible(True)
     
+    # ✅ Phase 3.5: Methods that don't need spectrum preview (user requested)
+    methods_without_preview = [
+        "Peak Detection and Analysis",
+        "Group Mean Spectral Comparison"
+    ]
+    show_spectrum_preview = method_name not in methods_without_preview
+    
     # === Tab 0: Spectrum Preview with Collapsible Display Options Sidebar ===
-    if result.dataset_data:
+    if result.dataset_data and show_spectrum_preview:
         try:
+            # ✅ CRITICAL FIX: Move imports to top of try block before any usage
+            from PySide6.QtGui import QIcon
+            from PySide6.QtCore import Qt, QSize
+            import os
+            
             # Create main container
             spectrum_container = QWidget()
             spectrum_main_layout = QVBoxLayout(spectrum_container)
@@ -1863,27 +1979,81 @@ def populate_results_tabs(
             dataset_list_layout.setContentsMargins(8, 8, 8, 8)
             dataset_list_layout.setSpacing(6)
             
-            # Create checkboxes for each dataset
-            dataset_checkboxes = []
+            # ✅ Phase 3.4: Eye icon toggle buttons for each dataset
+            # Load eye icons
+            eye_open_icon = QIcon(os.path.join("assets", "icons", "eye-open.svg"))
+            eye_close_icon = QIcon(os.path.join("assets", "icons", "eye-close.svg"))
+            
+            dataset_checkboxes = []  # Keep name for compatibility, but now contains buttons
             for ds_name, df in result.dataset_data.items():
                 n_spectra = df.shape[1]
-                cb = QCheckBox(f"{ds_name} ({n_spectra} spectra)")
-                cb.setChecked(True)  # All checked by default
-                cb.setStyleSheet("""
-                    QCheckBox { 
-                        font-size: 10px; 
-                        color: #495057; 
-                        border: none; 
+                
+                # Create horizontal layout for each row
+                row_layout = QHBoxLayout()
+                row_layout.setSpacing(8)
+                row_layout.setContentsMargins(0, 0, 0, 0)
+                
+                # Eye icon toggle button
+                eye_btn = QPushButton()
+                eye_btn.setIcon(eye_open_icon)
+                eye_btn.setCheckable(True)
+                eye_btn.setChecked(True)  # Visible by default
+                eye_btn.setFixedSize(28, 28)
+                eye_btn.setIconSize(QSize(18, 18))
+                eye_btn.setStyleSheet("""
+                    QPushButton {
+                        border: 1px solid #ced4da;
+                        border-radius: 4px;
+                        background-color: white;
                         padding: 4px;
                     }
-                    QCheckBox:checked {
+                    QPushButton:hover {
+                        border-color: #0078d4;
+                        background-color: #f0f7ff;
+                    }
+                    QPushButton:checked {
                         background-color: #e3f2fd;
+                        border-color: #0078d4;
+                    }
+                """)
+                
+                # Toggle icon on state change
+                def make_toggle_handler(btn):
+                    def toggle_icon(checked):
+                        btn.setIcon(eye_open_icon if checked else eye_close_icon)
+                    return toggle_icon
+                
+                eye_btn.toggled.connect(make_toggle_handler(eye_btn))
+                eye_btn.dataset_name = ds_name  # Store dataset name
+                eye_btn.isChecked = lambda btn=eye_btn: btn.isChecked()  # Compatibility
+                eye_btn.setChecked = lambda state, btn=eye_btn: btn.setChecked(state)  # Compatibility
+                
+                # Dataset label
+                ds_label = QLabel(f"{ds_name} ({n_spectra} spectra)")
+                ds_label.setStyleSheet("""
+                    QLabel {
+                        font-size: 10px;
+                        color: #495057;
+                        border: none;
+                    }
+                """)
+                ds_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+                
+                row_layout.addWidget(eye_btn)
+                row_layout.addWidget(ds_label, 1)  # Stretch label
+                
+                # Create container widget for the row
+                row_widget = QWidget()
+                row_widget.setLayout(row_layout)
+                row_widget.setStyleSheet("""
+                    QWidget:hover {
+                        background-color: #f8f9fa;
                         border-radius: 3px;
                     }
                 """)
-                cb.dataset_name = ds_name  # Store dataset name for later use
-                dataset_checkboxes.append(cb)
-                dataset_list_layout.addWidget(cb)
+                
+                dataset_checkboxes.append(eye_btn)  # Store button for compatibility
+                dataset_list_layout.addWidget(row_widget)
             
             dataset_list_layout.addStretch()
             dataset_scroll.setWidget(dataset_list_widget)
@@ -1910,12 +2080,22 @@ def populate_results_tabs(
             def on_select_all_changed(state):
                 # Use explicit CheckState comparison for robustness
                 is_checked = (state == Qt.CheckState.Checked) or (int(state) == 2)
-                print(f"[DEBUG] Select All changed: state={state}, state_type={type(state)}, state_int={int(state)}, is_checked={is_checked}, num_checkboxes={len(dataset_checkboxes)}")
+                create_logs(
+                    "MethodView",
+                    "method_view",
+                    f"Select All changed: state={state}, state_type={type(state)}, state_int={int(state)}, is_checked={is_checked}, num_checkboxes={len(dataset_checkboxes)}",
+                    status="debug",
+                )
                 for cb in dataset_checkboxes:
                     cb.setChecked(is_checked)
                 # Verify result
                 checked_count = sum(1 for cb in dataset_checkboxes if cb.isChecked())
-                print(f"[DEBUG] After Select All: {checked_count}/{len(dataset_checkboxes)} datasets selected")
+                create_logs(
+                    "MethodView",
+                    "method_view",
+                    f"After Select All: {checked_count}/{len(dataset_checkboxes)} datasets selected",
+                    status="debug",
+                )
             
             select_all_cb.stateChanged.connect(on_select_all_changed)
             
@@ -1956,7 +2136,12 @@ def populate_results_tabs(
                     plt.close(fig)
                     
                 except Exception as e:
-                    logger.exception("Failed to update spectrum preview")
+                    create_logs(
+                        "MethodView",
+                        "method_view",
+                        f"Failed to update spectrum preview: {e}\n{traceback.format_exc()}",
+                        status="error",
+                    )
 
             # Connect all checkboxes
             for cb in dataset_checkboxes:
@@ -1966,13 +2151,23 @@ def populate_results_tabs(
 
             tab_widget.addTab(spectrum_container, "📈 " + localize_func("ANALYSIS_PAGE.spectrum_preview_tab"))
         except Exception as e:
-            logger.exception("Failed to create spectrum preview")
+            create_logs(
+                "MethodView",
+                "method_view",
+                f"Failed to create spectrum preview: {e}\n{traceback.format_exc()}",
+                status="error",
+            )
 
     # === Special handling for PCA Analysis: Create 5-tab visualization ===
     is_pca = hasattr(result, "raw_results") and "pca_model" in result.raw_results
 
     if is_pca:
-        logger.debug("PCA Analysis detected - creating 5-tab visualization")
+        create_logs(
+            "MethodView",
+            "method_view",
+            "PCA Analysis detected - creating 5-tab visualization",
+            status="debug",
+        )
 
         # Extract figures from raw_results
         scree_figure = result.raw_results.get("scree_figure")
@@ -1983,15 +2178,37 @@ def populate_results_tabs(
         )
         distributions_figure = result.raw_results.get("distributions_figure")
 
-        logger.debug("PCA figures found:")
-        logger.debug("  scree_figure: %s", scree_figure is not None)
-        logger.debug("  loadings_figure: %s", loadings_figure is not None)
-        logger.debug("  biplot_figure: %s", biplot_figure is not None)
-        logger.debug(
-            "  cumulative_variance_figure: %s",
-            cumulative_variance_figure is not None,
+        create_logs("MethodView", "method_view", "PCA figures found:", status="debug")
+        create_logs(
+            "MethodView",
+            "method_view",
+            f"  scree_figure: {scree_figure is not None}",
+            status="debug",
         )
-        logger.debug("  distributions_figure: %s", distributions_figure is not None)
+        create_logs(
+            "MethodView",
+            "method_view",
+            f"  loadings_figure: {loadings_figure is not None}",
+            status="debug",
+        )
+        create_logs(
+            "MethodView",
+            "method_view",
+            f"  biplot_figure: {biplot_figure is not None}",
+            status="debug",
+        )
+        create_logs(
+            "MethodView",
+            "method_view",
+            f"  cumulative_variance_figure: {cumulative_variance_figure is not None}",
+            status="debug",
+        )
+        create_logs(
+            "MethodView",
+            "method_view",
+            f"  distributions_figure: {distributions_figure is not None}",
+            status="debug",
+        )
 
         # Tab 1: Score Plot (PC1 vs PC2)
         if result.primary_figure:
@@ -2174,21 +2391,46 @@ def populate_results_tabs(
             def on_loading_select_all_changed(state):
                 # Use explicit CheckState comparison for robustness
                 is_checked = (state == Qt.CheckState.Checked) or (int(state) == 2)
-                print(f"[DEBUG] Loading Select All: state={state}, state_type={type(state)}, state_int={int(state)}, is_checked={is_checked}, total_components={len(loading_checkboxes)}")
+                create_logs(
+                    "MethodView",
+                    "method_view",
+                    f"Loading Select All: state={state}, state_type={type(state)}, state_int={int(state)}, is_checked={is_checked}, total_components={len(loading_checkboxes)}",
+                    status="debug",
+                )
                 # Only select all if within limit
                 if is_checked and len(loading_checkboxes) <= 8:
-                    print(f"[DEBUG] Selecting all {len(loading_checkboxes)} loading components")
+                    create_logs(
+                        "MethodView",
+                        "method_view",
+                        f"Selecting all {len(loading_checkboxes)} loading components",
+                        status="debug",
+                    )
                     for cb in loading_checkboxes:
                         cb.setChecked(True)
                 elif not is_checked:
-                    print(f"[DEBUG] Deselecting all loading components")
+                    create_logs(
+                        "MethodView",
+                        "method_view",
+                        "Deselecting all loading components",
+                        status="debug",
+                    )
                     for cb in loading_checkboxes:
                         cb.setChecked(False)
                 else:
-                    print(f"[DEBUG] Cannot select all - too many components ({len(loading_checkboxes)} > 8)")
+                    create_logs(
+                        "MethodView",
+                        "method_view",
+                        f"Cannot select all - too many components ({len(loading_checkboxes)} > 8)",
+                        status="debug",
+                    )
                 # Verify result
                 checked_count = sum(1 for cb in loading_checkboxes if cb.isChecked())
-                print(f"[DEBUG] After Loading Select All: {checked_count}/{len(loading_checkboxes)} selected")
+                create_logs(
+                    "MethodView",
+                    "method_view",
+                    f"After Loading Select All: {checked_count}/{len(loading_checkboxes)} selected",
+                    status="debug",
+                )
             
             select_all_loading_cb.stateChanged.connect(on_loading_select_all_changed)
             
@@ -2339,7 +2581,12 @@ def populate_results_tabs(
                     plt.close(fig)
 
                 except Exception as e:
-                    print(f"[ERROR] Failed to update loadings grid: {e}")
+                    create_logs(
+                        "MethodView",
+                        "method_view",
+                        f"Failed to update loadings grid: {e}\n{traceback.format_exc()}",
+                        status="error",
+                    )
             
             # Connect all checkboxes
             for cb in loading_checkboxes:
@@ -2532,21 +2779,46 @@ def populate_results_tabs(
             def on_dist_select_all_changed(state):
                 # Use explicit CheckState comparison for robustness
                 is_checked = (state == Qt.CheckState.Checked) or (int(state) == 2)
-                print(f"[DEBUG] Distributions Select All: state={state}, state_type={type(state)}, state_int={int(state)}, is_checked={is_checked}, total_components={len(dist_checkboxes)}")
+                create_logs(
+                    "MethodView",
+                    "method_view",
+                    f"Distributions Select All: state={state}, state_type={type(state)}, state_int={int(state)}, is_checked={is_checked}, total_components={len(dist_checkboxes)}",
+                    status="debug",
+                )
                 # Only select all if within limit
                 if is_checked and len(dist_checkboxes) <= 6:
-                    print(f"[DEBUG] Selecting all {len(dist_checkboxes)} distribution components")
+                    create_logs(
+                        "MethodView",
+                        "method_view",
+                        f"Selecting all {len(dist_checkboxes)} distribution components",
+                        status="debug",
+                    )
                     for cb in dist_checkboxes:
                         cb.setChecked(True)
                 elif not is_checked:
-                    print(f"[DEBUG] Deselecting all distribution components")
+                    create_logs(
+                        "MethodView",
+                        "method_view",
+                        "Deselecting all distribution components",
+                        status="debug",
+                    )
                     for cb in dist_checkboxes:
                         cb.setChecked(False)
                 else:
-                    print(f"[DEBUG] Cannot select all - too many components ({len(dist_checkboxes)} > 6)")
+                    create_logs(
+                        "MethodView",
+                        "method_view",
+                        f"Cannot select all - too many components ({len(dist_checkboxes)} > 6)",
+                        status="debug",
+                    )
                 # Verify result
                 checked_count = sum(1 for cb in dist_checkboxes if cb.isChecked())
-                print(f"[DEBUG] After Distributions Select All: {checked_count}/{len(dist_checkboxes)} selected")
+                create_logs(
+                    "MethodView",
+                    "method_view",
+                    f"After Distributions Select All: {checked_count}/{len(dist_checkboxes)} selected",
+                    status="debug",
+                )
             
             select_all_dist_cb.stateChanged.connect(on_dist_select_all_changed)
             
@@ -2665,9 +2937,12 @@ def populate_results_tabs(
                     plt.close(fig)
                     
                 except Exception as e:
-                    print(f"[ERROR] Failed to update distributions: {e}")
-                    import traceback
-                    traceback.print_exc()
+                    create_logs(
+                        "MethodView",
+                        "method_view",
+                        f"Failed to update distributions: {e}\n{traceback.format_exc()}",
+                        status="error",
+                    )
             
             # Connect all checkboxes
             for cb in dist_checkboxes:
@@ -2701,29 +2976,48 @@ def populate_results_tabs(
             )
 
         # === Loadings Tab (for dimensionality reduction) ===
-        logger.debug("Checking loadings_figure...")
-        logger.debug(
-            "  hasattr(result, 'loadings_figure'): %s",
-            hasattr(result, "loadings_figure"),
+        create_logs("MethodView", "method_view", "Checking loadings_figure...", status="debug")
+        create_logs(
+            "MethodView",
+            "method_view",
+            f"  hasattr(result, 'loadings_figure'): {hasattr(result, 'loadings_figure')}",
+            status="debug",
         )
         if hasattr(result, "loadings_figure"):
-            logger.debug(
-                "  result.loadings_figure is not None: %s",
-                result.loadings_figure is not None,
+            create_logs(
+                "MethodView",
+                "method_view",
+                f"  result.loadings_figure is not None: {result.loadings_figure is not None}",
+                status="debug",
             )
-            logger.debug("  result.loadings_figure type: %s", type(result.loadings_figure))
+            create_logs(
+                "MethodView",
+                "method_view",
+                f"  result.loadings_figure type: {type(result.loadings_figure)}",
+                status="debug",
+            )
 
         if hasattr(result, "loadings_figure") and result.loadings_figure:
-            logger.debug("Creating Loadings tab...")
+            create_logs("MethodView", "method_view", "Creating Loadings tab...", status="debug")
             loadings_tab = matplotlib_widget_class()
             loadings_tab.update_plot(result.loadings_figure)
             loadings_tab.setMinimumHeight(400)
             tab_widget.addTab(
                 loadings_tab, "🔬 " + localize_func("ANALYSIS_PAGE.loadings_tab")
             )
-            logger.debug("Loadings tab added successfully")
+            create_logs(
+                "MethodView",
+                "method_view",
+                "Loadings tab added successfully",
+                status="debug",
+            )
         else:
-            logger.debug("Loadings tab NOT created (figure missing or None)")
+            create_logs(
+                "MethodView",
+                "method_view",
+                "Loadings tab NOT created (figure missing or None)",
+                status="debug",
+            )
 
         # === Distributions Tab (for classification) ===
         if hasattr(result, "distributions_figure") and result.distributions_figure:

@@ -14,12 +14,111 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QGroupBox,
     QScrollArea,
+    QDialog,
+    QComboBox,
+    QFormLayout,
+    QDialogButtonBox,
 )
 from PySide6.QtCore import Qt, QSize, Signal, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QIcon, QPixmap, QPainter, QMouseEvent, QFont
 from PySide6.QtSvg import QSvgRenderer
+from configs.configs import create_logs
 from components.widgets import *
 from utils import *
+import sys
+import os
+import json
+
+
+class SettingsDialog(QDialog):
+    """Settings dialog for language and theme selection."""
+    
+    settingsChanged = Signal(dict)  # Emits dict with 'language' and 'theme' keys
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(LOCALIZE("HOME_PAGE.settings_dialog_title"))
+        self.setMinimumWidth(400)
+        self.setModal(True)
+        
+        self._setup_ui()
+        self._load_current_settings()
+    
+    def _setup_ui(self):
+        """Setup the settings dialog UI."""
+        layout = QVBoxLayout(self)
+        layout.setSpacing(20)
+        layout.setContentsMargins(24, 24, 24, 24)
+        
+        # Form layout for settings
+        form_layout = QFormLayout()
+        form_layout.setSpacing(16)
+        
+        # Language selection
+        self.language_combo = QComboBox()
+        self.language_combo.addItem("English", "en")
+        self.language_combo.addItem("日本語", "ja")
+        form_layout.addRow(
+            LOCALIZE("HOME_PAGE.settings_language_label"),
+            self.language_combo
+        )
+        
+        # Theme selection
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItem(
+            LOCALIZE("HOME_PAGE.settings_theme_light"),
+            "light"
+        )
+        self.theme_combo.addItem(
+            LOCALIZE("HOME_PAGE.settings_theme_dark"),
+            "dark"
+        )
+        self.theme_combo.addItem(
+            LOCALIZE("HOME_PAGE.settings_theme_system"),
+            "system"
+        )
+        form_layout.addRow(
+            LOCALIZE("HOME_PAGE.settings_theme_label"),
+            self.theme_combo
+        )
+        
+        layout.addLayout(form_layout)
+        
+        # Info label
+        info_label = QLabel(LOCALIZE("HOME_PAGE.settings_restart_info"))
+        info_label.setObjectName("settingsInfoLabel")
+        info_label.setWordWrap(True)
+        layout.addWidget(info_label)
+        
+        # Dialog buttons
+        button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | 
+            QDialogButtonBox.StandardButton.Cancel
+        )
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+    
+    def _load_current_settings(self):
+        """Load current language and theme settings."""
+        # Load current language (from LOCALIZEMANAGER)
+        current_lang = LOCALIZEMANAGER.current_lang
+        lang_index = self.language_combo.findData(current_lang)
+        if lang_index >= 0:
+            self.language_combo.setCurrentIndex(lang_index)
+        
+        # Load current theme from config
+        current_theme = CONFIGS.get("theme", "system")
+        theme_index = self.theme_combo.findData(current_theme)
+        if theme_index >= 0:
+            self.theme_combo.setCurrentIndex(theme_index)
+    
+    def get_settings(self) -> dict:
+        """Get selected settings."""
+        return {
+            "language": self.language_combo.currentData(),
+            "theme": self.theme_combo.currentData()
+        }
 
 
 class ActionCard(QWidget):
@@ -298,9 +397,16 @@ class HomePage(QWidget):
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum
         )
 
+        # Settings button
+        settings_button = QPushButton(LOCALIZE("HOME_PAGE.settings_button"))
+        settings_button.setObjectName("settingsButton")
+        settings_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        settings_button.clicked.connect(self.handle_settings)
+
         header_layout.addWidget(icon_label)
         header_layout.addWidget(header_label)
         header_layout.addStretch()
+        header_layout.addWidget(settings_button)
 
         return header_container
 
@@ -345,6 +451,13 @@ class HomePage(QWidget):
                 self.populate_recent_projects()
                 self.newProjectCreated.emit(project_path)
             else:
+                create_logs(
+                    "new_project_error",
+                    "HomePage",
+                    f"Project creation failed: {project_name.strip()} already exists.",
+                    status="warning"
+                )
+
                 QMessageBox.warning(
                     self,
                     LOCALIZE("COMMON.error"),
@@ -373,13 +486,87 @@ class HomePage(QWidget):
                 )
         except Exception as e:
             create_logs(
-                "HomePage",
                 "open_project_error",
+                "HomePage",
                 f"Error in open project dialog: {e}",
                 status="error",
             )
             QMessageBox.critical(
                 self, LOCALIZE("COMMON.error"), LOCALIZE("HOME_PAGE.open_project_error")
+            )
+
+    def handle_settings(self):
+        """Handle settings dialog."""
+        try:
+            dialog = SettingsDialog(self)
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                settings = dialog.get_settings()
+                
+                # Save settings to config file
+                self._save_settings(settings)
+                
+                # Show restart message
+                QMessageBox.information(
+                    self,
+                    LOCALIZE("HOME_PAGE.settings_dialog_title"),
+                    LOCALIZE("HOME_PAGE.settings_saved_message")
+                )
+                
+                create_logs(
+                    "HomePage",
+                    "settings",
+                    f"Settings updated: {settings}",
+                    status="info"
+                )
+        except Exception as e:
+            create_logs(
+                "settings_error",
+                "HomePage",
+                f"Error in settings dialog: {e}",
+                status="error"
+            )
+            QMessageBox.critical(
+                self,
+                LOCALIZE("COMMON.error"),
+                LOCALIZE("HOME_PAGE.settings_error")
+            )
+    
+    def _save_settings(self, settings: dict):
+        """Save settings to app config file."""
+        try:
+            config_path = "configs/app_configs.json"
+            
+            # Support frozen mode
+            if getattr(sys, "frozen", False):
+                # For frozen app, save to user directory
+                import appdirs
+                app_name = "RamanApp"
+                app_author = "RamanLab"
+                config_dir = appdirs.user_config_dir(app_name, app_author)
+                os.makedirs(config_dir, exist_ok=True)
+                config_path = os.path.join(config_dir, "app_configs.json")
+            
+            # Load existing config or create new
+            if os.path.exists(config_path):
+                with open(config_path, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+            else:
+                config = {}
+            
+            # Update settings
+            config["language"] = settings["language"]
+            config["theme"] = settings["theme"]
+            
+            # Save config
+            with open(config_path, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=4)
+                
+        except Exception as e:
+            create_logs(
+                "HomePage",
+                "settings_save_error",
+                f"Error saving settings: {e}",
+                status="error"
             )
 
     def handle_recent_item_opened(self, item: QListWidgetItem):
@@ -391,8 +578,8 @@ class HomePage(QWidget):
                 if os.path.exists(project_path):
                     self.projectOpened.emit(project_path)
                     create_logs(
-                        "HomePage",
                         "open_recent",
+                        "HomePage",
                         f"Opening recent project: {project_path}",
                         status="info",
                     )
@@ -408,8 +595,8 @@ class HomePage(QWidget):
                     self.populate_recent_projects()
         except Exception as e:
             create_logs(
-                "HomePage",
                 "open_recent_error",
+                "HomePage",
                 f"Error opening recent project: {e}",
                 status="error",
             )

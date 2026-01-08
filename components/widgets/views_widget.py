@@ -1,3 +1,4 @@
+from configs.configs import create_logs
 from typing import Dict, Any, Callable, Optional
 from PySide6.QtWidgets import (
     QWidget,
@@ -144,64 +145,86 @@ class GroupTreeManager(QWidget):
 
     def create_group_dialog(self):
         """Prompt user for group name and create it - NOW USING MULTI-GROUP DIALOG."""
-        print("\n" + "="*70)
-        print("[DEBUG] ➕ CREATE GROUP BUTTON CLICKED (GroupTreeManager)")
-        print("[DEBUG] Timestamp:", __import__('datetime').datetime.now())
-        print("[DEBUG] Method: create_group_dialog")
-        print("[DEBUG] Instance:", self)
-        print("="*70 + "\n")
+        create_logs(__name__, __file__, "=" * 70, status="debug")
+        create_logs(__name__, __file__, "CREATE GROUP BUTTON CLICKED (GroupTreeManager)", status="debug")
+        create_logs(
+            __name__,
+            __file__,
+            f"Timestamp: {__import__('datetime').datetime.now()}",
+            status="debug",
+        )
+        create_logs(__name__, __file__, "Method: create_group_dialog", status="debug")
+        create_logs(__name__, __file__, f"Instance: {self}", status="debug")
+        create_logs(__name__, __file__, "=" * 70, status="debug")
         
         self._open_multi_group_dialog()
     
     def _open_multi_group_dialog(self):
         """Open the multi-group creation dialog."""
-        print("\n" + "="*70)
-        print("[DEBUG] 🚀 OPENING MULTI-GROUP DIALOG (GroupTreeManager)")
-        print("="*70)
-        print("[DEBUG] Step 1: Attempting to import MultiGroupCreationDialog...")
+        import traceback
+
+        create_logs(__name__, __file__, "=" * 70, status="debug")
+        create_logs(__name__, __file__, "OPENING MULTI-GROUP DIALOG (GroupTreeManager)", status="debug")
+        create_logs(__name__, __file__, "=" * 70, status="debug")
+        create_logs(
+            __name__,
+            __file__,
+            "Step 1: Attempting to import MultiGroupCreationDialog...",
+            status="debug",
+        )
         
         try:
             from pages.analysis_page_utils.multi_group_dialog import MultiGroupCreationDialog
-            print("[DEBUG] ✅ MultiGroupCreationDialog imported successfully!")
-            print("[DEBUG] Class:", MultiGroupCreationDialog)
+            create_logs(__name__, __file__, "MultiGroupCreationDialog imported successfully!", status="debug")
+            create_logs(__name__, __file__, f"Class: {MultiGroupCreationDialog}", status="debug")
         except Exception as e:
-            print(f"[ERROR] ❌ Failed to import MultiGroupCreationDialog: {e}")
-            print("[ERROR] Exception type:", type(e).__name__)
-            import traceback
-            print("[ERROR] Full traceback:")
-            traceback.print_exc()
+            create_logs(__name__, __file__, f"Failed to import MultiGroupCreationDialog: {e}", status="error")
+            create_logs(__name__, __file__, f"Exception type: {type(e).__name__}", status="error")
+            create_logs(__name__, __file__, "Full traceback:", status="error")
+            create_logs(__name__, __file__, traceback.format_exc(), status="error")
             
             from PySide6.QtWidgets import QMessageBox
+
+            create_logs(
+                "GroupTreeManager-open_multi_group_dialog",
+                "views_widget",
+                f"Failed to import multi-group dialog: {e}\n\n{traceback.format_exc()}",
+                "error",
+            )
+
             QMessageBox.critical(
                 self,
-                "Import Error",
-                f"Failed to import multi-group dialog:\n{str(e)}\n\nPlease check console for details."
+                self.localize("ANALYSIS_PAGE.group_assignment_import_error_title"),
+                self.localize(
+                    "ANALYSIS_PAGE.group_assignment_import_error_message",
+                    error=str(e),
+                ),
             )
             return
         
         try:
-            print("\n[DEBUG] Step 2: Creating dialog instance...")
-            print(f"[DEBUG] Dataset count: {len(self.dataset_names)}")
-            print(f"[DEBUG] Localize function: {self.localize}")
+            create_logs(__name__, __file__, "Step 2: Creating dialog instance...", status="debug")
+            create_logs(__name__, __file__, f"Dataset count: {len(self.dataset_names)}", status="debug")
+            create_logs(__name__, __file__, f"Localize function: {self.localize}", status="debug")
             
             dialog = MultiGroupCreationDialog(
                 self.dataset_names,
                 self.localize,
                 self
             )
-            print("[DEBUG] ✅ Dialog created successfully!")
-            print(f"[DEBUG] Dialog title: {dialog.windowTitle()}")
-            print("\n[DEBUG] Step 3: Calling dialog.exec()...")
+            create_logs(__name__, __file__, "Dialog created successfully!", status="debug")
+            create_logs(__name__, __file__, f"Dialog title: {dialog.windowTitle()}", status="debug")
+            create_logs(__name__, __file__, "Step 3: Calling dialog.exec()...", status="debug")
             
             from PySide6.QtWidgets import QDialog
             result = dialog.exec()
-            print("\n[DEBUG] Step 4: Dialog closed")
-            print(f"[DEBUG] Result: {result} (Accepted={QDialog.Accepted})")
+            create_logs(__name__, __file__, "Step 4: Dialog closed", status="debug")
+            create_logs(__name__, __file__, f"Result: {result} (Accepted={QDialog.Accepted})", status="debug")
             
             if result == QDialog.Accepted:
-                print("\n[DEBUG] ✅ Dialog was ACCEPTED")
+                create_logs(__name__, __file__, "Dialog was ACCEPTED", status="debug")
                 assignments = dialog.get_assignments()
-                print(f"[DEBUG] Assignments: {assignments}")
+                create_logs(__name__, __file__, f"Assignments: {assignments}", status="debug")
                 
                 if assignments:
                     # Clear existing groups first (keep Unassigned)
@@ -217,7 +240,12 @@ class GroupTreeManager(QWidget):
                     
                     # Create groups and assign datasets
                     for group_name, dataset_list in assignments.items():
-                        print(f"[DEBUG] Creating group '{group_name}' with {len(dataset_list)} datasets")
+                        create_logs(
+                            __name__,
+                            __file__,
+                            f"Creating group '{group_name}' with {len(dataset_list)} datasets",
+                            status="debug",
+                        )
                         
                         # Create group
                         group_item = self.add_group(group_name)
@@ -237,34 +265,52 @@ class GroupTreeManager(QWidget):
                     # Show success message
                     from PySide6.QtWidgets import QMessageBox
                     total_assigned = sum(len(datasets) for datasets in assignments.values())
+                    group_summary = "\n".join(
+                        [
+                            f"• {name}: {len(datasets)} dataset(s)"
+                            for name, datasets in assignments.items()
+                        ]
+                    )
                     QMessageBox.information(
                         self,
-                        "Groups Created",
-                        f"Successfully created {len(assignments)} group(s) with {total_assigned} dataset(s) assigned.\n\n"
-                        + "\n".join([f"• {name}: {len(datasets)} dataset(s)" for name, datasets in assignments.items()])
+                        self.localize("ANALYSIS_PAGE.groups_created_title"),
+                        self.localize(
+                            "ANALYSIS_PAGE.groups_created_message",
+                            group_count=len(assignments),
+                            dataset_count=total_assigned,
+                            group_summary=group_summary,
+                        ),
                     )
                 else:
-                    print("[DEBUG] No assignments returned")
+                    create_logs(__name__, __file__, "No assignments returned", status="debug")
             else:
-                print("\n[DEBUG] ❌ Dialog was CANCELLED/REJECTED")
+                create_logs(__name__, __file__, "Dialog was CANCELLED/REJECTED", status="debug")
                 
         except Exception as e:
-            print(f"\n[ERROR] ❌ Exception in _open_multi_group_dialog: {e}")
-            print(f"[ERROR] Exception type: {type(e).__name__}")
-            import traceback
-            print("[ERROR] Full traceback:")
-            traceback.print_exc()
+            create_logs(__name__, __file__, f"Exception in _open_multi_group_dialog: {e}", status="error")
+            create_logs(__name__, __file__, f"Exception type: {type(e).__name__}", status="error")
+            create_logs(__name__, __file__, traceback.format_exc(), status="error")
             
             from PySide6.QtWidgets import QMessageBox
+            create_logs(
+                "GroupTreeManager-open_multi_group_dialog",
+                "views_widget",
+                f"An error occurred while creating groups: {e}",
+                "error",
+            )
+
             QMessageBox.critical(
                 self,
-                "Error",
-                f"An error occurred:\n{str(e)}\n\nPlease check console for details."
+                self.localize("COMMON.error"),
+                self.localize(
+                    "ANALYSIS_PAGE.group_assignment_error_message",
+                    error=str(e),
+                ),
             )
         finally:
-            print("\n" + "="*70)
-            print("[DEBUG] 🏁 _open_multi_group_dialog completed (GroupTreeManager)")
-            print("="*70 + "\n")
+            create_logs(__name__, __file__, "=" * 70, status="debug")
+            create_logs(__name__, __file__, "_open_multi_group_dialog completed (GroupTreeManager)", status="debug")
+            create_logs(__name__, __file__, "=" * 70, status="debug")
     
     def _old_create_group_dialog_DISABLED(self):
         """OLD METHOD - DISABLED - Use _open_multi_group_dialog instead."""

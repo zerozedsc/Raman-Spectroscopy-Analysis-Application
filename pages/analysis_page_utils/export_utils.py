@@ -9,6 +9,7 @@ This module handles exporting analysis results to various formats:
 """
 
 import os
+from configs.configs import create_logs
 from datetime import datetime
 from typing import Optional, Any
 from pathlib import Path
@@ -483,6 +484,13 @@ class ExportManager(QObject):
 
     def _show_error(self, message: str):
         """Show error message box."""
+        create_logs(
+            "export_error",
+            "ExportManager",
+            message,
+            status="error",
+        )
+
         QMessageBox.critical(
             self.parent, self.localize("ANALYSIS_PAGE.export_error_title"), message
         )

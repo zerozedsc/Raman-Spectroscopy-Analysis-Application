@@ -1,8 +1,310 @@
 # Raman Spectroscopy Analysis Application
 
-## Overview
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![PySide6](https://img.shields.io/badge/GUI-PySide6-green.svg)](https://www.qt.io/qt-for-python)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application)
 
-A comprehensive desktop application for Raman spectroscopy data analysis built with PySide6/Qt. This application provides an intuitive interface for preprocessing, visualization, and machine learning analysis of Raman spectral data.
+<div align="center">
+  <img src="readme/images/app-main-interface.png" alt="Main application interface" width="800"/>
+  
+  *A comprehensive desktop application for real-time Raman spectroscopy classification and disease detection*
+</div>
+
+---
+
+## 🌐 Language / 言語
+
+📖 **[Read in English](readme/README_EN.md)** | **[日本語で読む](readme/README_JA.md)**
+
+---
+
+## 🎯 Overview
+
+An open-source, cross-platform desktop application designed for **real-time Raman spectroscopy classification** with focus on **disease detection** in clinical settings. Developed as part of a final year project at the **University of Toyama**, under the **Laboratory for Clinical Photonics and Information Engineering**.
+
+### ✨ Key Highlights
+
+- 🔬 **Comprehensive Preprocessing Pipeline** - 40+ methods including advanced algorithms for MGUS/MM classification
+- 📊 **Real-Time Analysis** - Interactive visualization and classification with machine learning integration
+- 🎨 **Modern GUI** - Intuitive PySide6/Qt6 interface with multi-language support (English/Japanese)
+- 🧪 **Research-Grade** - Validated parameter constraints based on peer-reviewed literature
+- 🚀 **Production Ready** - Portable executables and professional installer for clinical deployment
+- 🌍 **Open Source** - MIT License, welcoming contributions from the research community
+
+<div align="center">
+  <img src="readme/images/preprocessing-pipeline.png" alt="Preprocessing pipeline interface" width="700"/>
+</div>
+
+---
+
+## 🔬 Research Context
+
+### Academic Information
+
+**Project Title:** Real-Time Raman Spectroscopy Classification Software for Disease Detection  
+**Institution:** University of Toyama (富山大学)  
+**Laboratory:** [Clinical Photonics and Information Engineering](http://www3.u-toyama.ac.jp/medphoto/)  
+**Student ID:** 12270294  
+**Student:** Muhamad Helmi bin Rozaini (ムハマドヘルミビンロザイン)
+
+### Supervisors
+
+- **大嶋　佑介** (Yusuke Oshima)
+- **竹谷　皓規** (Hironori Taketani)
+
+### Project Background
+
+Current challenges in Raman spectroscopy analysis:
+- ❌ Manual processing required using MATLAB or Python scripts
+- ❌ Existing software for medical/biological applications are proprietary or require expensive licenses
+- ❌ Limited availability of open-source GUI applications for spectral analysis and disease prediction
+
+### Project Objectives
+
+1. **Analysis Functionality Implementation**
+   - Develop spectral processing and classification algorithms
+   - Enable users to configure custom preprocessing pipelines
+   - Support both machine learning and deep learning models
+
+2. **Software Development**
+   - Create user-friendly graphical interface for researchers and medical professionals
+   - Implement real-time processing capabilities
+   - Ensure cross-platform compatibility
+
+3. **Explainability & Interpretability**
+   - Provide detailed, actionable insights for research and medical analysis
+   - Implement visualization tools for spectral features and classification results
+   - Support clinical decision-making workflows
+
+<div align="center">
+  <img src="readme/images/analysis-results.png" alt="Analysis results visualization" width="700"/>
+</div>
+
+---
+
+## 🚀 Quick Start
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application.git
+cd Raman-Spectroscopy-Analysis-Application
+
+# Install dependencies using UV package manager (recommended)
+pip install uv
+uv venv
+uv pip install -e .
+
+# Or use traditional pip
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+# Run the application
+uv run python main.py
+# Or: python main.py
+```
+
+### Portable Version (Windows)
+
+For clinical deployment, download the pre-built portable executable:
+- No installation required
+- Single `.exe` file (>375 MB)
+- All dependencies bundled
+- [Download Latest Release](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/releases)
+
+---
+
+## 📚 Documentation
+
+Comprehensive documentation is available in both **English** and **Japanese**:
+
+- 📖 **[Complete English Documentation](readme/README_EN.md)**
+  - Detailed installation guide
+  - Feature descriptions and usage
+  - Development setup and contribution guidelines
+  - API reference and architecture
+
+- 📖 **[Complete Japanese Documentation](readme/README_JA.md)** (日本語版ドキュメント)
+  - インストールガイド
+  - 機能説明と使い方
+  - 開発環境のセットアップ
+  - API リファレンスとアーキテクチャ
+
+---
+
+## 🎯 Core Features
+
+### 🔬 Preprocessing Pipeline
+- **40+ Processing Methods** including research-validated algorithms
+- **Baseline Correction:** ASLS, Polynomial, IASLS, Butterworth High-Pass
+- **Normalization:** Vector, Quantile, Probabilistic Quotient (PQN), Rank Transform
+- **Feature Engineering:** Peak-Ratio extraction for MGUS/MM classification
+- **Deep Learning:** Convolutional Autoencoder (CDAE) for unified denoising/baseline removal
+- **Real-Time Preview** with intelligent auto-focus
+
+<div align="center">
+  <img src="readme/images/preprocessing-methods.png" alt="Available preprocessing methods" width="650"/>
+</div>
+
+### 📊 Analysis & Visualization
+- **Exploratory Analysis:** PCA, t-SNE, UMAP with confidence ellipses
+- **Statistical Testing:** correlation analysis
+- **Interactive Plots:** Matplotlib integration with zoom, pan, and export
+- **Multi-Tab Results:** Organized visualization of analysis outputs
+
+### 🎨 User Interface
+- **Modern Qt6 Design** with responsive layout
+- **Multi-Language Support** (English/Japanese)
+- **Project Management** system with recent projects sidebar
+- **Batch Processing** capabilities for large datasets
+- **Parameter Hints** based on research literature
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions from the research community! This project is open for:
+
+- 🐛 Bug reports and fixes
+- ✨ Feature requests and implementations
+- 📖 Documentation improvements
+- 🌍 Translations to additional languages
+- 🔬 New preprocessing methods and algorithms
+- 🎨 UI/UX enhancements
+
+### How to Contribute
+
+1. **Fork the Repository**
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/Raman-Spectroscopy-Analysis-Application.git
+   ```
+
+2. **Create a Feature Branch**
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+3. **Make Your Changes**
+   - Follow the [Development Guidelines](.AGI-BANKS/DEVELOPMENT_GUIDELINES.md)
+   - Add tests for new features
+   - Update documentation
+
+4. **Submit a Pull Request**
+   - Describe your changes clearly
+   - Reference any related issues
+   - Ensure all tests pass
+
+For detailed contribution guidelines, see:
+- 📖 [English Contribution Guide](readme/README_EN.md#contributing)
+- 📖 [日本語貢献ガイド](readme/README_JA.md#contributing)
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+```
+MIT License
+
+Copyright (c) 2024-2026 Muhamad Helmi bin Rozaini
+Laboratory for Clinical Photonics and Information Engineering
+University of Toyama
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files...
+```
+
+---
+
+## 🙏 Acknowledgments
+
+### Academic Support
+- **University of Toyama** - Research facilities and support
+- **Laboratory for Clinical Photonics and Information Engineering** - Guidance and resources
+- **Supervisors:** 大嶋　佑介 and 竹谷　皓規 - Project mentorship
+
+### Open Source Community
+- **PySide6/Qt** - Cross-platform GUI framework
+- **matplotlib** - Scientific visualization
+- **scikit-learn** - Machine learning algorithms
+- **RamanSPy** - Raman spectroscopy processing library
+
+### Research References
+This project implements methods from:
+- Bolstad et al. (2003) - Quantile Normalization
+- Dieterle et al. (2006) - Probabilistic Quotient Normalization
+- Deeley et al. (2010) - Peak-Ratio Feature Engineering
+- Vincent et al. (2010) - Denoising Autoencoders
+- And many more cited in the documentation
+
+---
+
+## 📞 Contact & Support
+
+### Project Maintainer
+- **Muhamad Helmi bin Rozaini**
+- **Email:** [Contact via GitHub](https://github.com/zerozedsc)
+- **Laboratory:** [Clinical Photonics and Information Engineering](http://www3.u-toyama.ac.jp/medphoto/)
+
+### Reporting Issues
+- 🐛 **Bug Reports:** [GitHub Issues](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/issues)
+- 💡 **Feature Requests:** [GitHub Discussions](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/discussions)
+- 📧 **Security Issues:** Contact maintainer directly
+
+### Community
+- 💬 **Discussions:** [GitHub Discussions](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/discussions)
+- 📚 **Documentation:** [Wiki](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/wiki)
+- 🌟 **Star this repo** if you find it useful!
+
+---
+
+## 📊 Project Status
+
+- ✅ **Core Features:** Complete and tested
+- ✅ **Preprocessing Pipeline:** 40+ methods implemented
+- ✅ **GUI:** Fully functional with multi-language support
+- ✅ **Build System:** Portable and installer distributions ready
+- 🔄 **Machine Learning:** Integration ongoing
+- 🔄 **Real-Time Analysis:** Hardware integration in progress
+- 📝 **Documentation:** Comprehensive guides in EN/JA
+
+---
+
+## 🌟 Citation
+
+If you use this software in your research, please cite:
+
+```bibtex
+@software{helmi2025raman,
+  author = {Rozain, Muhamad Helmi bin},
+  title = {Raman Spectroscopy Analysis Application: Real-Time Classification Software for Disease Detection},
+  year = {2025},
+  publisher = {GitHub},
+  url = {https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application},
+  institution = {University of Toyama, Laboratory for Clinical Photonics and Information Engineering}
+}
+```
+
+---
+
+<div align="center">
+  <p>
+    <strong>Developed for the ease of Raman Spectroscopy Analysis Research</strong>
+  </p>
+  <p>
+    <a href="http://www3.u-toyama.ac.jp/medphoto/">Laboratory for Clinical Photonics and Information Engineering</a> • 
+    <a href="https://www.u-toyama.ac.jp/">University of Toyama</a>
+  </p>
+  <p>
+    <strong>富山大学 臨床光情報工学研究室</strong>
+  </p>
+</div>
+
+---
 
 ## Recent Updates (Latest Session)
 

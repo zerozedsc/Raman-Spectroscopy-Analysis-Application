@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 import re
+from configs.style.stylesheets import BASE_STYLES, PREPROCESS_PAGE_STYLES_2
 
 
 class MultiGroupCreationDialog(QDialog):
@@ -50,7 +51,20 @@ class MultiGroupCreationDialog(QDialog):
     
     def _init_ui(self):
         """Initialize the user interface."""
+        # Ensure this dialog inherits the app theme even if created before the global stylesheet
+        # is applied (or if OS/theme settings interfere).
+        self.setStyleSheet(
+            "\n".join(
+                [
+                    "QDialog, QWidget { background-color: #f8f9fa; color: #2c3e50; }",
+                    "\n".join(BASE_STYLES.values()),
+                    PREPROCESS_PAGE_STYLES_2,
+                ]
+            )
+        )
+
         main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(20, 20, 20, 20)
         main_layout.setSpacing(16)
         
         # Create splitter for table and preview
@@ -74,56 +88,20 @@ class MultiGroupCreationDialog(QDialog):
         button_layout.addStretch()
         
         preview_btn = QPushButton(self.localize_func("ANALYSIS_PAGE.preview_assignments_button"))
+        preview_btn.setObjectName("ctaButton")
         preview_btn.setMinimumHeight(36)
-        preview_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #2196f3;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 8px 24px;
-                font-weight: 600;
-            }
-            QPushButton:hover {
-                background-color: #1976d2;
-            }
-        """)
         preview_btn.clicked.connect(self._preview_assignments)
         button_layout.addWidget(preview_btn)
         
         apply_btn = QPushButton(self.localize_func("ANALYSIS_PAGE.apply_groups_button"))
         apply_btn.setMinimumHeight(36)
-        apply_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #4caf50;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 8px 24px;
-                font-weight: 600;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-        """)
+        apply_btn.setStyleSheet(BASE_STYLES['success_button'])
         apply_btn.clicked.connect(self._apply_groups)
         button_layout.addWidget(apply_btn)
         
         cancel_btn = QPushButton(self.localize_func("ANALYSIS_PAGE.cancel_button"))
+        cancel_btn.setObjectName("cancelButton")
         cancel_btn.setMinimumHeight(36)
-        cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #f44336;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 8px 24px;
-                font-weight: 600;
-            }
-            QPushButton:hover {
-                background-color: #da190b;
-            }
-        """)
         cancel_btn.clicked.connect(self.reject)
         button_layout.addWidget(cancel_btn)
         
@@ -131,14 +109,11 @@ class MultiGroupCreationDialog(QDialog):
     
     def _create_group_table_widget(self) -> QWidget:
         """Create the group definition table widget."""
-        container = QWidget()
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Title
-        title = QLabel("<b>Group Definitions</b>")
-        title.setStyleSheet("font-size: 13px; color: #2c3e50; margin-bottom: 8px;")
-        layout.addWidget(title)
+        group_box = QGroupBox(self.localize_func("ANALYSIS_PAGE.group_definitions_title"))
+        group_box.setStyleSheet(BASE_STYLES["group_box"])
+        layout = QVBoxLayout(group_box)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
         
         # Table
         self.table = QTableWidget()
@@ -158,188 +133,100 @@ class MultiGroupCreationDialog(QDialog):
         
         self.table.setColumnWidth(0, 150)
         self.table.setColumnWidth(3, 100)
-        
-        self.table.setStyleSheet("""
-            QTableWidget {
-                border: 1px solid #dee2e6;
-                border-radius: 4px;
-                background-color: white;
-                gridline-color: #dee2e6;
-            }
-            QTableWidget::item {
-                padding: 8px;
-            }
-            QHeaderView::section {
-                background-color: #f8f9fa;
-                padding: 8px;
-                border: none;
-                border-bottom: 2px solid #dee2e6;
-                font-weight: 600;
-                color: #495057;
-            }
-        """)
+
+        # Theme-consistent table styling
+        self.table.setStyleSheet(BASE_STYLES.get("table_widget", ""))
+        self.table.setAlternatingRowColors(True)
+        self.table.setShowGrid(False)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SingleSelection)
+
+        # Make text readable
+        self.table.setFont(QFont("Segoe UI", 10))
+        self.table.horizontalHeader().setMinimumSectionSize(90)
+        self.table.horizontalHeader().setDefaultAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         
         layout.addWidget(self.table)
         
         # Add/Remove row buttons
         btn_layout = QHBoxLayout()
         
-        add_row_btn = QPushButton("➕ " + self.localize_func("ANALYSIS_PAGE.add_row_button"))
-        add_row_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #28a745;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 6px 16px;
-                font-weight: 600;
-            }
-            QPushButton:hover {
-                background-color: #218838;
-            }
-        """)
+        add_row_btn = QPushButton(self.localize_func("ANALYSIS_PAGE.add_row_button"))
+        add_row_btn.setStyleSheet(BASE_STYLES['secondary_button'])
+        add_row_btn.setMinimumHeight(34)
         add_row_btn.clicked.connect(self._add_row)
         btn_layout.addWidget(add_row_btn)
         
-        remove_row_btn = QPushButton("➖ " + self.localize_func("ANALYSIS_PAGE.remove_row_button"))
-        remove_row_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #dc3545;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 6px 16px;
-                font-weight: 600;
-            }
-            QPushButton:hover {
-                background-color: #c82333;
-            }
-        """)
+        remove_row_btn = QPushButton(self.localize_func("ANALYSIS_PAGE.remove_row_button"))
+        remove_row_btn.setStyleSheet(BASE_STYLES['secondary_button'])
+        remove_row_btn.setMinimumHeight(34)
         remove_row_btn.clicked.connect(self._remove_row)
         btn_layout.addWidget(remove_row_btn)
+
+        btn_layout.addStretch(1)
         
-        btn_layout.addStretch()
         layout.addLayout(btn_layout)
-        
-        # Hint
-        hint = QLabel("💡 " + self.localize_func("ANALYSIS_PAGE.keywords_hint"))
-        hint.setStyleSheet("font-size: 11px; color: #6c757d; margin-top: 4px;")
-        layout.addWidget(hint)
         
         # Add 1 default row (user can add more as needed)
         self._add_row()
-        
-        return container
+
+        return group_box
     
     def _create_preview_widget(self) -> QWidget:
         """Create the assignment preview widget."""
-        container = QWidget()
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Title
-        title = QLabel("<b>" + self.localize_func("ANALYSIS_PAGE.preview_title") + "</b>")
-        title.setStyleSheet("font-size: 13px; color: #2c3e50; margin-bottom: 8px;")
-        layout.addWidget(title)
+        group_box = QGroupBox(self.localize_func("ANALYSIS_PAGE.preview_title"))
+        group_box.setStyleSheet(BASE_STYLES["group_box"])
+        layout = QVBoxLayout(group_box)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
         
         # Tree widget for preview
         self.preview_tree = QTreeWidget()
         self.preview_tree.setHeaderLabels(["Group", "Count"])
         self.preview_tree.setColumnWidth(0, 300)
-        self.preview_tree.setStyleSheet("""
-            QTreeWidget {
-                border: 1px solid #dee2e6;
-                border-radius: 4px;
-                background-color: white;
-                font-size: 12px;
-            }
-            QTreeWidget::item {
-                padding: 6px;
-                border-bottom: 1px solid #f1f3f5;
-            }
-            QTreeWidget::item:hover {
-                background-color: #f8f9fa;
-            }
-            QTreeWidget::item:selected {
-                background-color: #e7f3ff;
-                color: #212529;
-            }
-            QHeaderView::section {
-                background-color: #f8f9fa;
-                padding: 8px;
-                border: none;
-                border-bottom: 2px solid #dee2e6;
-                font-weight: 600;
-                color: #495057;
-            }
-        """)
+        self.preview_tree.setStyleSheet(BASE_STYLES.get("tree_widget", ""))
+        self.preview_tree.setFont(QFont("Segoe UI", 10))
         layout.addWidget(self.preview_tree)
         
         # Status label
         self.status_label = QLabel("")
         self.status_label.setWordWrap(True)
-        self.status_label.setStyleSheet("font-size: 11px; color: #6c757d; margin-top: 8px;")
+        self.status_label.setStyleSheet("font-size: 12px; color: #6c757d; margin-top: 6px;")
         layout.addWidget(self.status_label)
-        
-        return container
+
+        return group_box
     
     def _add_row(self):
         """Add a new row to the table."""
         row = self.table.rowCount()
         self.table.insertRow(row)
+
+        # Make rows tall enough for comfortable reading
+        try:
+            self.table.setRowHeight(row, 42)
+        except Exception:
+            pass
         
         # Group name (QLineEdit for better UX)
         name_edit = QLineEdit()
-        name_edit.setPlaceholderText("e.g., Control, Disease, MM, MGUS")
-        name_edit.setStyleSheet("""
-            QLineEdit {
-                border: none;
-                padding: 4px 8px;
-                background-color: transparent;
-                font-size: 13px;
-            }
-            QLineEdit:focus {
-                background-color: #fff9e6;
-                border: 1px solid #ffc107;
-                border-radius: 2px;
-            }
-        """)
+        name_edit.setPlaceholderText(self.localize_func("ANALYSIS_PAGE.group_name_placeholder"))
+        name_edit.setStyleSheet(BASE_STYLES["input_field"])
+        name_edit.setMinimumHeight(34)
         self.table.setCellWidget(row, 0, name_edit)
         
         # Include keywords (QLineEdit with placeholder)
         include_edit = QLineEdit()
-        include_edit.setPlaceholderText("e.g., ctrl, control, con")
-        include_edit.setStyleSheet("""
-            QLineEdit {
-                border: none;
-                padding: 4px 8px;
-                background-color: transparent;
-                font-size: 13px;
-            }
-            QLineEdit:focus {
-                background-color: #e8f5e9;
-                border: 1px solid #4caf50;
-                border-radius: 2px;
-            }
-        """)
+        include_edit.setPlaceholderText(self.localize_func("ANALYSIS_PAGE.include_keywords_placeholder"))
+        include_edit.setStyleSheet(BASE_STYLES["input_field"])
+        include_edit.setMinimumHeight(34)
         self.table.setCellWidget(row, 1, include_edit)
         
         # Exclude keywords (QLineEdit with placeholder)
         exclude_edit = QLineEdit()
-        exclude_edit.setPlaceholderText("e.g., treatment, test")
-        exclude_edit.setStyleSheet("""
-            QLineEdit {
-                border: none;
-                padding: 4px 8px;
-                background-color: transparent;
-                font-size: 13px;
-            }
-            QLineEdit:focus {
-                background-color: #ffebee;
-                border: 1px solid #f44336;
-                border-radius: 2px;
-            }
-        """)
+        exclude_edit.setPlaceholderText(self.localize_func("ANALYSIS_PAGE.exclude_keywords_placeholder"))
+        exclude_edit.setStyleSheet(BASE_STYLES["input_field"])
+        exclude_edit.setMinimumHeight(34)
         self.table.setCellWidget(row, 2, exclude_edit)
         
         # Auto-assign checkbox
@@ -364,7 +251,7 @@ class MultiGroupCreationDialog(QDialog):
         is_valid, error_msg, configs = self._validate_and_get_configs()
         
         if not is_valid:
-            QMessageBox.warning(self, "Validation Error", error_msg)
+            QMessageBox.warning(self, self.localize_func("ANALYSIS_PAGE.validation_error_title"), error_msg)
             return
         
         # Calculate assignments
@@ -396,7 +283,9 @@ class MultiGroupCreationDialog(QDialog):
             # Add summary if there are more
             if len(datasets) > MAX_PER_GROUP:
                 summary_item = QTreeWidgetItem([
-                    f"  ... and {len(datasets) - MAX_PER_GROUP} more",
+                    "  " + self.localize_func("ANALYSIS_PAGE.and_more_datasets").format(
+                        count=len(datasets) - MAX_PER_GROUP
+                    ),
                     ""
                 ])
                 summary_item.setForeground(0, Qt.gray)
@@ -428,7 +317,9 @@ class MultiGroupCreationDialog(QDialog):
             # Add summary if there are more
             if unassigned_count > MAX_DISPLAY:
                 summary_item = QTreeWidgetItem([
-                    f"  ... and {unassigned_count - MAX_DISPLAY} more",
+                    "  " + self.localize_func("ANALYSIS_PAGE.and_more_datasets").format(
+                        count=unassigned_count - MAX_DISPLAY
+                    ),
                     ""
                 ])
                 summary_item.setForeground(0, Qt.gray)
@@ -447,13 +338,20 @@ class MultiGroupCreationDialog(QDialog):
         unassigned_count = len(assignments.get("Unassigned", []))
         if unassigned_count == 0:
             self.status_label.setText(
-                f"✅ All {len(self.available_datasets)} datasets assigned to {len(assignments)} group(s)."
+                self.localize_func("ANALYSIS_PAGE.all_datasets_assigned_status").format(
+                    total=len(self.available_datasets),
+                    groups=len(assignments)
+                )
             )
             self.status_label.setStyleSheet("font-size: 11px; color: #28a745; margin-top: 8px;")
         else:
             self.status_label.setText(
-                f"⚠️ {unassigned_count} dataset(s) unassigned. "
-                f"{total_assigned}/{len(self.available_datasets)} assigned to {len(assignments)-1} group(s)."
+                self.localize_func("ANALYSIS_PAGE.some_unassigned_status").format(
+                    unassigned=unassigned_count,
+                    assigned=total_assigned,
+                    total=len(self.available_datasets),
+                    groups=len(assignments)-1
+                )
             )
             self.status_label.setStyleSheet("font-size: 11px; color: #ff9800; margin-top: 8px;")
     
@@ -568,7 +466,9 @@ class MultiGroupCreationDialog(QDialog):
             
             # Validate: must have at least one include keyword if auto-assign is checked
             if auto_assign and not include_keywords:
-                return False, f"Group '{group_name}' has auto-assign enabled but no include keywords.", []
+                return False, self.localize_func(
+                    "ANALYSIS_PAGE.validation_error_no_include_keywords"
+                ).format(group_name=group_name), []
             
             configs.append({
                 "name": group_name,
@@ -578,7 +478,7 @@ class MultiGroupCreationDialog(QDialog):
             })
         
         if not configs:
-            return False, "No groups defined. Please add at least one group.", []
+            return False, self.localize_func("ANALYSIS_PAGE.validation_error_no_groups"), []
         
         return True, "", configs
     
@@ -588,7 +488,7 @@ class MultiGroupCreationDialog(QDialog):
         is_valid, error_msg, configs = self._validate_and_get_configs()
         
         if not is_valid:
-            QMessageBox.warning(self, "Validation Error", error_msg)
+            QMessageBox.warning(self, self.localize_func("ANALYSIS_PAGE.validation_error_title"), error_msg)
             return
         
         # Calculate final assignments
@@ -602,8 +502,10 @@ class MultiGroupCreationDialog(QDialog):
             if unassigned_count > 0:
                 reply = QMessageBox.question(
                     self,
-                    "Unassigned Datasets",
-                    f"{unassigned_count} dataset(s) will remain unassigned. Continue?",
+                    self.localize_func("ANALYSIS_PAGE.unassigned_datasets_dialog_title"),
+                    self.localize_func("ANALYSIS_PAGE.unassigned_datasets_dialog_message").format(
+                        count=unassigned_count
+                    ),
                     QMessageBox.Yes | QMessageBox.No
                 )
                 

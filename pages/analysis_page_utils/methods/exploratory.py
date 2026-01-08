@@ -7,8 +7,11 @@ t-SNE, and clustering techniques.
 
 import numpy as np
 import pandas as pd
+import seaborn as sns  # ✅ Phase 4: Publication-quality statistical visualizations
 from typing import Dict, Any, Callable, Optional, Tuple, List
 import matplotlib
+
+from configs.configs import create_logs
 
 matplotlib.use("Agg")  # Use non-GUI backend for thread safety
 from matplotlib import pyplot as plt
@@ -30,6 +33,20 @@ try:
     UMAP_AVAILABLE = True
 except ImportError:
     UMAP_AVAILABLE = False
+
+
+def _log_debug(message: str, *args) -> None:
+    """Lightweight debug logger that routes through create_logs.
+
+    Supports old-style logging format strings ("%s") to minimize churn.
+    """
+
+    if args:
+        try:
+            message = message % args
+        except Exception:
+            message = f"{message} {args!r}"
+    create_logs(__name__, __file__, message, status="debug")
 
 
 # =============================================================================
@@ -105,7 +122,7 @@ def interpolate_to_common_wavenumbers(
             - labels: List of dataset labels for each spectrum
             - X: Concatenated matrix ready for analysis (n_spectra, n_wavenumbers)
     """
-    print("[DEBUG] interpolate_to_common_wavenumbers() called")
+    _log_debug("interpolate_to_common_wavenumbers() called")
 
     # Step 1: Find common wavenumber range
     wn_mins = []
@@ -117,8 +134,8 @@ def interpolate_to_common_wavenumbers(
         wn_mins.append(np.min(wavenumbers))
         wn_maxs.append(np.max(wavenumbers))
         wn_counts.append(len(wavenumbers))
-        print(
-            f"[DEBUG] Dataset '{dataset_name}': {len(wavenumbers)} points, range [{np.min(wavenumbers):.1f}, {np.max(wavenumbers):.1f}]"
+        _log_debug(
+            f"Dataset '{dataset_name}': {len(wavenumbers)} points, range [{np.min(wavenumbers):.1f}, {np.max(wavenumbers):.1f}]"
         )
 
     # Common range is the intersection of all ranges
@@ -144,8 +161,8 @@ def interpolate_to_common_wavenumbers(
 
     common_wavenumbers = np.linspace(common_min, common_max, n_common_points)
 
-    print(
-        f"[DEBUG] Common wavenumber range: [{common_min:.1f}, {common_max:.1f}] with {n_common_points} points"
+    _log_debug(
+        f"Common wavenumber range: [{common_min:.1f}, {common_max:.1f}] with {n_common_points} points"
     )
 
     # Step 2: Interpolate each dataset to common grid
@@ -179,14 +196,14 @@ def interpolate_to_common_wavenumbers(
         interpolated_spectra.append(interpolated.T)
         labels.extend([dataset_name] * spectra.shape[1])
 
-        print(
-            f"[DEBUG] Interpolated '{dataset_name}': {spectra.shape[1]} spectra, now {n_common_points} points each"
+        _log_debug(
+            f"Interpolated '{dataset_name}': {spectra.shape[1]} spectra, now {n_common_points} points each"
         )
 
     # Step 3: Concatenate all interpolated spectra
     X = np.vstack(interpolated_spectra)
 
-    print(f"[DEBUG] Final combined matrix shape: {X.shape}")
+    _log_debug(f"Final combined matrix shape: {X.shape}")
 
     return common_wavenumbers, interpolated_spectra, labels, X
 
@@ -321,8 +338,8 @@ def add_confidence_ellipse(
     )
     ax.add_patch(ellipse_edge)
 
-    print(
-        f"[DEBUG] Dual-layer ellipse added: center=({mean_x:.2f}, {mean_y:.2f}), size={width:.2f}x{height:.2f}, fill α=0.04, edge α=0.85"
+    _log_debug(
+        f"Dual-layer ellipse added: center=({mean_x:.2f}, {mean_y:.2f}), size={width:.2f}x{height:.2f}, fill α=0.04, edge α=0.85"
     )
     return ellipse_edge  # Return edge ellipse for legend
 
@@ -375,11 +392,11 @@ def perform_pca_analysis(
     show_distributions = params.get("show_distributions", True)
     group_labels_map = params.get("_group_labels", None)  # {dataset_name: group_label}
 
-    print(
-        f"[DEBUG] PCA parameters: n_components={n_components}, show_ellipses={show_ellipses}"
+    _log_debug(
+        f"PCA parameters: n_components={n_components}, show_ellipses={show_ellipses}"
     )
-    print(
-        f"[DEBUG] show_loadings={show_loadings}, show_scree={show_scree}, show_distributions={show_distributions}"
+    _log_debug(
+        f"show_loadings={show_loadings}, show_scree={show_scree}, show_distributions={show_distributions}"
     )
 
     # ✅ FIX: Use interpolation to handle datasets with different wavenumber ranges
@@ -388,9 +405,9 @@ def perform_pca_analysis(
         dataset_data, group_labels_map=group_labels_map, method="linear"
     )
 
-    print(f"[DEBUG] Combined matrix after interpolation: {X.shape}")
-    print(
-        f"[DEBUG] Common wavenumber range: [{wavenumbers[0]:.1f}, {wavenumbers[-1]:.1f}]"
+    _log_debug(f"Combined matrix after interpolation: {X.shape}")
+    _log_debug(
+        f"Common wavenumber range: [{wavenumbers[0]:.1f}, {wavenumbers[-1]:.1f}]"
     )
 
     if progress_callback:
@@ -417,13 +434,13 @@ def perform_pca_analysis(
         progress_callback(70)
 
     # === FIGURE 1: PC1 vs PC2 scores scatter plot WITH confidence ellipses ===
-    print("[DEBUG] Creating PCA scores plot")
+    _log_debug("Creating PCA scores plot")
     fig1, ax1 = plt.subplots(figsize=(10, 8))
 
     unique_labels = sorted(set(labels))
     num_groups = len(unique_labels)
-    print(f"[DEBUG] Number of groups/datasets: {num_groups}")
-    print(f"[DEBUG] Group labels: {unique_labels}")
+    _log_debug(f"Number of groups/datasets: {num_groups}")
+    _log_debug(f"Group labels: {unique_labels}")
 
     # Use HIGH-CONTRAST color palette for clear distinction
     # For 2 datasets: blue (#1f77b4) and yellow/gold (#ffd700)
@@ -433,7 +450,7 @@ def perform_pca_analysis(
         colors = np.array(
             [[0.12, 0.47, 0.71, 1.0], [1.0, 0.84, 0.0, 1.0]]  # Blue
         )  # Gold/Yellow
-        print("[DEBUG] Using high-contrast 2-color palette: Blue and Gold")
+        _log_debug("Using high-contrast 2-color palette: Blue and Gold")
     elif num_groups == 3:
         # High contrast for 3 groups: blue, red, green
         colors = np.array(
@@ -443,17 +460,17 @@ def perform_pca_analysis(
                 [0.17, 0.63, 0.17, 1.0],
             ]
         )  # Green
-        print("[DEBUG] Using high-contrast 3-color palette: Blue, Red, Green")
+        _log_debug("Using high-contrast 3-color palette: Blue, Red, Green")
     else:
         # For 4+ groups, use tab10 but with better spacing
         colors = plt.cm.tab10(np.linspace(0, 0.9, num_groups))
-        print(f"[DEBUG] Using tab10 palette for {num_groups} groups")
+        _log_debug(f"Using tab10 palette for {num_groups} groups")
 
     # Plot each dataset with distinct color
     for i, dataset_label in enumerate(unique_labels):
         mask = np.array([l == dataset_label for l in labels])
         num_points = np.sum(mask)
-        print(f"[DEBUG] Group '{dataset_label}': {num_points} spectra")
+        _log_debug(f"Group '{dataset_label}': {num_points} spectra")
 
         ax1.scatter(
             scores[mask, 0],
@@ -470,8 +487,8 @@ def perform_pca_analysis(
         if (
             show_ellipses and num_points >= 3
         ):  # User-controlled + need at least 3 points
-            print(
-                f"[DEBUG] Adding 95% CI ellipse for '{dataset_label}' ({num_points} points, show_ellipses=True)"
+            _log_debug(
+                f"Adding 95% CI ellipse for '{dataset_label}' ({num_points} points, show_ellipses=True)"
             )
             add_confidence_ellipse(
                 ax1,
@@ -485,12 +502,12 @@ def perform_pca_analysis(
                 label=f"{dataset_label} 95% CI",
             )
         elif not show_ellipses:
-            print(
-                f"[DEBUG] Ellipses disabled by user (show_ellipses=False) for '{dataset_label}'"
+            _log_debug(
+                f"Ellipses disabled by user (show_ellipses=False) for '{dataset_label}'"
             )
         else:
-            print(
-                f"[DEBUG] Skipping ellipse for '{dataset_label}' (only {num_points} points, need ≥3)"
+            _log_debug(
+                f"Skipping ellipse for '{dataset_label}' (only {num_points} points, need ≥3)"
             )
 
     ax1.set_xlabel(
@@ -546,12 +563,12 @@ def perform_pca_analysis(
     ax1.axhline(y=0, color="k", linestyle="--", linewidth=0.5, alpha=0.5)
     ax1.axvline(x=0, color="k", linestyle="--", linewidth=0.5, alpha=0.5)
 
-    print("[DEBUG] PCA scores plot created successfully")
+    _log_debug("PCA scores plot created successfully")
 
     # === FIGURE 3: Scree Plot (Variance Explained) ===
     fig_scree = None
     if show_scree:
-        print("[DEBUG] Creating scree plot...")
+        _log_debug("Creating scree plot...")
 
         # ✅ FIX #7 (P1): Side-by-side layout (bar LEFT | cumulative RIGHT)
         from matplotlib.gridspec import GridSpec
@@ -651,12 +668,12 @@ def perform_pca_analysis(
         ax_cum.legend(loc="lower right", fontsize=10, framealpha=0.9)
 
         fig_scree.tight_layout(pad=1.2)
-        print("[DEBUG] Side-by-side scree plot created successfully")
+        _log_debug("Side-by-side scree plot created successfully")
 
     # === FIGURE 4: Biplot (Scores + Loadings Overlay) ===
     fig_biplot = None
     if show_loadings and n_components >= 2:
-        print("[DEBUG] Creating biplot...")
+        _log_debug("Creating biplot...")
         fig_biplot, ax_biplot = plt.subplots(figsize=(12, 10))
 
         # Plot scores (same as primary figure but without ellipses for clarity)
@@ -730,12 +747,12 @@ def perform_pca_analysis(
         ax_biplot.axhline(y=0, color="k", linestyle="--", linewidth=0.5, alpha=0.3)
         ax_biplot.axvline(x=0, color="k", linestyle="--", linewidth=0.5, alpha=0.3)
         fig_biplot.tight_layout()
-        print("[DEBUG] Biplot created successfully")
+        _log_debug("Biplot created successfully")
 
     # === FIGURE 5: Cumulative Variance Explained ===
     fig_cumvar = None
     if show_scree:
-        print("[DEBUG] Creating cumulative variance plot...")
+        _log_debug("Creating cumulative variance plot...")
         fig_cumvar, ax_cumvar = plt.subplots(figsize=(10, 6))
 
         pc_indices = np.arange(1, n_components + 1)
@@ -801,22 +818,22 @@ def perform_pca_analysis(
         ax_cumvar.grid(True, alpha=0.3)
         ax_cumvar.legend(loc="lower right", fontsize=11)
         fig_cumvar.tight_layout()
-        print("[DEBUG] Cumulative variance plot created successfully")
+        _log_debug("Cumulative variance plot created successfully")
 
     if progress_callback:
         progress_callback(75)
 
     # === FIGURE 2: Loadings Plot (Spectral interpretation) - ENHANCED WITH SUBPLOTS ===
-    print(f"[DEBUG] show_loadings parameter: {show_loadings}")
+    _log_debug(f"show_loadings parameter: {show_loadings}")
     fig_loadings = None
     if show_loadings:
-        print("[DEBUG] Creating loadings figure with dynamic subplot layout...")
+        _log_debug("Creating loadings figure with dynamic subplot layout...")
         
         # Get max_loadings_components parameter (default 1, max 5)
         max_loadings = params.get("max_loadings_components", 1)
         max_loadings = min(max_loadings, n_components, 5)  # Ensure within bounds
 
-        print(f"[DEBUG] Creating {max_loadings} loading subplot(s)")
+        _log_debug(f"Creating {max_loadings} loading subplot(s)")
         
         # ✅ Dynamic layout calculation (max 2 columns, auto rows)
         n_cols = 2 if max_loadings > 1 else 1
@@ -907,9 +924,11 @@ def perform_pca_analysis(
             axes[pc_idx].set_visible(False)
         
         # No need for tight_layout when using constrained_layout
-        print(f"[DEBUG] Loadings figure created successfully with {max_loadings} subplots in {n_rows}x{n_cols} grid (constrained layout)")
+        _log_debug(
+            f"Loadings figure created successfully with {max_loadings} subplots in {n_rows}x{n_cols} grid (constrained layout)"
+        )
     else:
-        print("[DEBUG] Loadings figure skipped (show_loadings=False)")
+        _log_debug("Loadings figure skipped (show_loadings=False)")
 
     if progress_callback:
         progress_callback(80)
@@ -940,9 +959,15 @@ def perform_pca_analysis(
         # ✅ Scale figure height dynamically
         fig_height = max(6, 2.5 * n_rows)
         
-        # Create figure with constrained layout for better spacing
-        fig_distributions, axes = plt.subplots(n_rows, n_cols, figsize=(6*n_cols, fig_height),
-                                              constrained_layout=True)
+        # ✅ USER FIX: Use sharex/sharey for cleaner multi-plot layout (no redundant labels)
+        # Create figure with constrained layout and shared axes
+        fig_distributions, axes = plt.subplots(
+            n_rows, n_cols,
+            figsize=(6*n_cols, fig_height),
+            sharex=True,  # Share x-axis across all subplots
+            sharey=True,  # Share y-axis across all subplots
+            constrained_layout=True
+        )
         
         # Flatten axes for easy iteration if multiple
         if n_pcs_to_plot > 1:
@@ -950,7 +975,9 @@ def perform_pca_analysis(
         else:
             axes_flat = [axes]
             
-        fig_distributions.suptitle('PC Score Distributions', fontsize=main_title_size, fontweight='bold')
+        # ✅ USER FIX: Use simpler suptitle without redundant "PC Score Distributions"
+        # Each subplot will have its own PC label (e.g., "PC1 45.3%")
+        fig_distributions.suptitle('Principal Component Distributions', fontsize=main_title_size, fontweight='bold')
         
         # Plot distributions for each PC
         for idx in range(n_pcs_to_plot):
@@ -961,43 +988,50 @@ def perform_pca_analysis(
             current_row = idx // n_cols
             is_last_row = (current_row == n_rows - 1)
             
-            # Plot histogram/KDE for each dataset
+            # ✅ Phase 4: Use seaborn for publication-quality KDE plots
             for i, dataset_label in enumerate(unique_labels):
                 mask = np.array([l == dataset_label for l in labels])
                 pc_scores = scores[mask, pc_idx]
 
-                # Calculate KDE (Kernel Density Estimation)
-                try:
-                    kde = stats.gaussian_kde(pc_scores)
-                    x_range = np.linspace(pc_scores.min() - 1, pc_scores.max() + 1, 200)
-                    kde_values = kde(x_range)
+                # Robust color selection (avoid IndexError if palette shorter than groups)
+                color = colors[i % len(colors)] if colors else None
 
-                    # Plot KDE curve
-                    ax.plot(
-                        x_range,
-                        kde_values,
-                        color=colors[i],
+                # Seaborn kdeplot with automatic bandwidth selection (better than manual KDE)
+                try:
+                    sns.kdeplot(
+                        x=pc_scores,
+                        ax=ax,
+                        color=color,
                         linewidth=2.5,
                         label=dataset_label,
-                        alpha=0.9,
+                        fill=True,
+                        alpha=0.25,
+                        bw_adjust=0.75,  # Smoother curves for Raman data
+                        common_norm=False,  # Normalize each distribution independently
                     )
-
-                    # Fill under curve for visibility
-                    ax.fill_between(x_range, kde_values, alpha=0.25, color=colors[i])
-                except Exception:
-                    # Fallback if KDE fails (e.g. singular matrix due to too few points)
-                    pass
-
-                # Add histogram for reference
-                ax.hist(
-                    pc_scores,
-                    bins=20,
-                    density=True,
-                    alpha=0.15,
-                    color=colors[i],
-                    edgecolor="white",
-                    linewidth=0.5,
-                )
+                    
+                    # ✅ Add rug plot to show actual data points (publication standard)
+                    sns.rugplot(
+                        x=pc_scores,
+                        ax=ax,
+                        color=color,
+                        alpha=0.5,
+                        height=0.05,
+                        linewidth=1.0,
+                    )
+                except Exception as e:
+                    _log_debug(f"Seaborn KDE failed for {dataset_label}, PC{pc_idx+1}: {e}")
+                    # Fallback to histogram if seaborn fails
+                    ax.hist(
+                        pc_scores,
+                        bins=20,
+                        density=True,
+                        alpha=0.3,
+                        color=color,
+                        edgecolor="white",
+                        linewidth=0.5,
+                        label=dataset_label,
+                    )
 
             # Statistical test (Mann-Whitney U for 2 groups)
             if len(unique_labels) == 2:
@@ -1030,23 +1064,27 @@ def perform_pca_analysis(
                 except Exception:
                     pass
             
-            # ✅ Formatting with dynamic title size and conditional x-axis labels
-            ax.set_ylabel('Density', fontsize=12, fontweight='bold')
+            # ✅ USER FIX: Remove individual x/y axis labels (user: "it looks not proper and ugly")
+            # Only use subplot titles to show which PC is displayed
+            # The shared x-axis label "PC Score" and shared y-axis label "Density" will be added later
+            
+            # Subplot title shows PC number and variance %
             ax.set_title(f'PC{pc_idx+1} ({pca.explained_variance_ratio_[pc_idx]*100:.1f}%)',
                         fontsize=title_size, fontweight='bold')
             
-            # ✅ Only show x-axis labels and ticks on last row
-            if is_last_row:
-                ax.set_xlabel(f'PC{pc_idx+1} Score', fontsize=12, fontweight='bold')
-            else:
-                ax.set_xlabel('')  # Clear x-axis label
-                ax.tick_params(axis='x', labelbottom=False)  # Hide x tick labels
-                ax.set_xticklabels([])  # Force remove all x tick labels
-                
-            if idx == 0:  # Only show legend on first plot to save space
+            # ✅ Remove individual axis labels (sharex/sharey handles this automatically)
+            # matplotlib will show labels only on edge plots when sharex/sharey is used
+            
+            # Show legend only on first plot to save space
+            if idx == 0:
                 ax.legend(loc="upper right", fontsize=10, framealpha=0.9)
             ax.grid(True, alpha=0.3, axis="y")
             ax.axvline(x=0, color="k", linestyle="--", linewidth=0.5, alpha=0.5)
+        
+        # ✅ USER FIX: Add shared axis labels as figure-level labels (cleaner for multi-plot)
+        # This gives a publication-quality look with minimal repetition
+        fig_distributions.supxlabel('PC Score', fontsize=13, fontweight='bold')
+        fig_distributions.supylabel('Density', fontsize=13, fontweight='bold')
 
         # Hide empty subplots if any
         # Ensure axes_flat is always a list/array even if single subplot
@@ -1186,7 +1224,7 @@ def perform_pca_analysis(
 
     summary += f"\n{'═' * 55}\n"
 
-    print(f"[DEBUG] Enhanced summary generated ({len(summary)} characters)")
+    _log_debug(f"Enhanced summary generated ({len(summary)} characters)")
     # Statistical summary for multi-dataset comparison
     detailed_summary = f"Scaling: {scaling_type}\nTotal spectra: {X.shape[0]}\n"
     detailed_summary += f"Datasets: {n_datasets} groups\n"
@@ -1215,23 +1253,23 @@ def perform_pca_analysis(
             detailed_summary += "  Interpretation: Small effect (limited separation)"
 
     # Debug logging for returned figures
-    print(f"[DEBUG] PCA return values:")
-    print(f"[DEBUG]   primary_figure (scores): {fig1 is not None}")
-    print(f"[DEBUG]   loadings_figure: {fig_loadings is not None}")
-    print(f"[DEBUG]   distributions_figure: {fig_distributions is not None}")
+    _log_debug("PCA return values:")
+    _log_debug(f"  primary_figure (scores): {fig1 is not None}")
+    _log_debug(f"  loadings_figure: {fig_loadings is not None}")
+    _log_debug(f"  distributions_figure: {fig_distributions is not None}")
 
     if fig_loadings is None:
-        print(
-            f"[DEBUG] WARNING: loadings_figure is None! show_loadings={show_loadings}"
+        _log_debug(
+            f"WARNING: loadings_figure is None! show_loadings={show_loadings}"
         )
 
-    print(f"[DEBUG] PCA return values:")
-    print(f"[DEBUG]   primary_figure (scores): {fig1 is not None}")
-    print(f"[DEBUG]   scree_figure: {fig_scree is not None}")
-    print(f"[DEBUG]   loadings_figure: {fig_loadings is not None}")
-    print(f"[DEBUG]   biplot_figure: {fig_biplot is not None}")
-    print(f"[DEBUG]   cumulative_variance_figure: {fig_cumvar is not None}")
-    print(f"[DEBUG]   distributions_figure: {fig_distributions is not None}")
+    _log_debug("PCA return values:")
+    _log_debug(f"  primary_figure (scores): {fig1 is not None}")
+    _log_debug(f"  scree_figure: {fig_scree is not None}")
+    _log_debug(f"  loadings_figure: {fig_loadings is not None}")
+    _log_debug(f"  biplot_figure: {fig_biplot is not None}")
+    _log_debug(f"  cumulative_variance_figure: {fig_cumvar is not None}")
+    _log_debug(f"  distributions_figure: {fig_distributions is not None}")
 
     return {
         "primary_figure": fig1,  # Scores plot with confidence ellipses (PC1 vs PC2)
@@ -1292,10 +1330,10 @@ def perform_umap_analysis(
     metric = params.get("metric", "euclidean")
     group_labels_map = params.get("_group_labels", None)  # {dataset_name: group_label}
 
-    print(
-        f"[DEBUG] UMAP parameters: n_neighbors={n_neighbors}, min_dist={min_dist}, metric={metric}"
+    _log_debug(
+        f"UMAP parameters: n_neighbors={n_neighbors}, min_dist={min_dist}, metric={metric}"
     )
-    print(f"[DEBUG] Group labels map: {group_labels_map}")
+    _log_debug(f"Group labels map: {group_labels_map}")
 
     # ✅ FIX: Use interpolation to handle datasets with different wavenumber ranges
     # This resolves "ValueError: all input array dimensions except for concatenation axis must match"
@@ -1303,8 +1341,8 @@ def perform_umap_analysis(
         dataset_data, group_labels_map=group_labels_map, method="linear"
     )
 
-    print(f"[DEBUG] Combined matrix shape after interpolation: {X.shape}")
-    print(f"[DEBUG] Unique labels: {sorted(set(labels))}")
+    _log_debug(f"Combined matrix shape after interpolation: {X.shape}")
+    _log_debug(f"Unique labels: {sorted(set(labels))}")
 
     if progress_callback:
         progress_callback(30)
@@ -1312,8 +1350,8 @@ def perform_umap_analysis(
     # Perform UMAP
     # P1-2: Use configurable random seed for reproducibility
     random_seed = params.get("random_seed", 42)
-    print(
-        f"[DEBUG] Running UMAP with n_neighbors={n_neighbors}, min_dist={min_dist}, random_seed={random_seed}"
+    _log_debug(
+        f"Running UMAP with n_neighbors={n_neighbors}, min_dist={min_dist}, random_seed={random_seed}"
     )
     reducer = umap.UMAP(
         n_neighbors=n_neighbors,
@@ -1336,12 +1374,12 @@ def perform_umap_analysis(
     # Use unified high-contrast color palette
     colors = get_high_contrast_colors(num_groups)
 
-    print(f"[DEBUG] Plotting {num_groups} groups with high-contrast colors")
+    _log_debug(f"Plotting {num_groups} groups with high-contrast colors")
 
     for i, dataset_label in enumerate(unique_labels):
         mask = np.array([l == dataset_label for l in labels])
         num_points = np.sum(mask)
-        print(f"[DEBUG] Group '{dataset_label}': {num_points} spectra")
+        _log_debug(f"Group '{dataset_label}': {num_points} spectra")
 
         ax.scatter(
             embedding[mask, 0],
@@ -1417,10 +1455,10 @@ def perform_tsne_analysis(
     n_iter = params.get("n_iter", 1000)
     group_labels_map = params.get("_group_labels", None)  # {dataset_name: group_label}
 
-    print(
-        f"[DEBUG] t-SNE parameters: perplexity={perplexity}, learning_rate={learning_rate}"
+    _log_debug(
+        f"t-SNE parameters: perplexity={perplexity}, learning_rate={learning_rate}"
     )
-    print(f"[DEBUG] t-SNE n_iter={n_iter} (will use as max_iter for sklearn)")
+    _log_debug(f"t-SNE n_iter={n_iter} (will use as max_iter for sklearn)")
 
     # ✅ FIX: Use interpolation to handle datasets with different wavenumber ranges
     # This resolves "ValueError: all input array dimensions except for concatenation axis must match"
@@ -1429,13 +1467,13 @@ def perform_tsne_analysis(
     )
 
     n_samples = X.shape[0]
-    print(f"[DEBUG] Combined matrix shape after interpolation: {X.shape}")
+    _log_debug(f"Combined matrix shape after interpolation: {X.shape}")
 
     # CRITICAL FIX: Perplexity must be less than n_samples
     if perplexity >= n_samples:
         new_perplexity = max(1, n_samples - 1)
-        print(
-            f"[DEBUG] Adjusting perplexity from {perplexity} to {new_perplexity} (n_samples={n_samples})"
+        _log_debug(
+            f"Adjusting perplexity from {perplexity} to {new_perplexity} (n_samples={n_samples})"
         )
         perplexity = new_perplexity
 
@@ -1445,7 +1483,7 @@ def perform_tsne_analysis(
     # Perform t-SNE (sklearn uses max_iter, not n_iter)
     # P1-2: Use configurable random seed for reproducibility
     random_seed = params.get("random_seed", 42)
-    print(f"[DEBUG] Creating TSNE with max_iter={n_iter}, random_seed={random_seed}")
+    _log_debug(f"Creating TSNE with max_iter={n_iter}, random_seed={random_seed}")
     tsne = TSNE(
         n_components=2,
         perplexity=perplexity,
@@ -1467,7 +1505,7 @@ def perform_tsne_analysis(
 
     # Use unified high-contrast color palette (same as PCA and UMAP)
     colors = get_high_contrast_colors(num_groups)
-    print(f"[DEBUG] t-SNE using high-contrast colors for {num_groups} groups: {colors}")
+    _log_debug(f"t-SNE using high-contrast colors for {num_groups} groups: {colors}")
 
     for i, dataset_label in enumerate(unique_labels):
         mask = np.array([l == dataset_label for l in labels])
@@ -1507,7 +1545,6 @@ def perform_tsne_analysis(
         "secondary_figure": None,
         "data_table": embedding_df,
         "summary_text": summary,
-        "detailed_summary": f"Total spectra: {X.shape[0]}",
         "detailed_summary": f"Total spectra: {X.shape[0]}",
         "raw_results": {"embedding": embedding},
         "loadings_figure": None,  # t-SNE does not produce loadings
@@ -1549,8 +1586,9 @@ def perform_hierarchical_clustering(
         method="linear",
     )
 
-    print(
-        f"[DEBUG] Hierarchical clustering: Combined matrix shape after interpolation: {X.shape}"
+    _log_debug(
+        "Hierarchical clustering: Combined matrix shape after interpolation: %s",
+        X.shape,
     )
 
     if progress_callback:
@@ -1679,11 +1717,11 @@ def perform_kmeans_clustering(
     n_init = params.get("n_init", 10)
     show_pca = params.get("show_pca", True)
 
-    print(f"[DEBUG] K-Means parameters received:")
-    print(f"[DEBUG]   n_clusters = {n_clusters} (type: {type(n_clusters).__name__})")
-    print(f"[DEBUG]   n_init = {n_init} (type: {type(n_init).__name__})")
-    print(f"[DEBUG]   max_iter = {max_iter} (type: {type(max_iter).__name__})")
-    print(f"[DEBUG]   show_pca = {show_pca}")
+    _log_debug("K-Means parameters received:")
+    _log_debug(f"  n_clusters = {n_clusters} (type: {type(n_clusters).__name__})")
+    _log_debug(f"  n_init = {n_init} (type: {type(n_init).__name__})")
+    _log_debug(f"  max_iter = {max_iter} (type: {type(max_iter).__name__})")
+    _log_debug(f"  show_pca = {show_pca}")
 
     # ✅ FIX: Use interpolation to handle datasets with different wavenumber ranges
     # This resolves "ValueError: all input array dimensions except for concatenation axis must match"
@@ -1693,7 +1731,7 @@ def perform_kmeans_clustering(
         method="linear",
     )
 
-    print(f"[DEBUG] K-Means: Combined matrix shape after interpolation: {X.shape}")
+    _log_debug(f"K-Means: Combined matrix shape after interpolation: {X.shape}")
 
     if progress_callback:
         progress_callback(30)
@@ -1701,8 +1739,8 @@ def perform_kmeans_clustering(
     # Perform K-means clustering
     # P1-2: Use configurable random seed for reproducibility
     random_seed = params.get("random_seed", 42)
-    print(
-        f"[DEBUG] Creating KMeans with n_clusters={n_clusters}, n_init={n_init}, max_iter={max_iter}, random_seed={random_seed}"
+    _log_debug(
+        f"Creating KMeans with n_clusters={n_clusters}, n_init={n_init}, max_iter={max_iter}, random_seed={random_seed}"
     )
     kmeans = KMeans(
         n_clusters=n_clusters,
@@ -1710,9 +1748,9 @@ def perform_kmeans_clustering(
         n_init=n_init,
         random_state=random_seed,
     )
-    print(f"[DEBUG] Fitting KMeans model...")
+    _log_debug("Fitting KMeans model...")
     cluster_labels = kmeans.fit_predict(X)
-    print(f"[DEBUG] KMeans completed. Inertia: {kmeans.inertia_:.2f}")
+    _log_debug(f"KMeans completed. Inertia: {kmeans.inertia_:.2f}")
 
     if progress_callback:
         progress_callback(60)

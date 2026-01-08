@@ -22,13 +22,12 @@ except ImportError:
     RAMANSPY_AVAILABLE = False
 
 try:
-    from ..utils import create_logs, CURRENT_DIR
+    from ..utils import CURRENT_DIR
 except ImportError:
-    # Fallback logging function and current directory
-    def create_logs(log_id, source, message, status="info"):
-        print(f"[{status.upper()}] {source}: {message}")
-
+    # Fallback current directory
     CURRENT_DIR = os.getcwd()
+
+from configs.configs import create_logs
 
 
 class RamanPipeline:

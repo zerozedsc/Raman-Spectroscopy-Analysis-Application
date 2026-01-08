@@ -52,7 +52,7 @@ class AnalysisThread(QThread):
 
     progress = Signal(int)
     finished = Signal(AnalysisResult)
-    error = Signal(str)
+    error = Signal(str, str)  # error_message, traceback_str
 
     def __init__(
         self,
@@ -171,9 +171,10 @@ class AnalysisThread(QThread):
             )
 
         except Exception as e:
-            error_msg = f"Analysis failed: {str(e)}\n{traceback.format_exc()}"
+            tb_str = traceback.format_exc()
+            error_msg = f"Analysis failed: {str(e)}\n{tb_str}"
             create_logs("AnalysisThread", "run_analysis", error_msg, status="error")
-            self.error.emit(str(e))
+            self.error.emit(str(e), tb_str)
 
     def _update_progress(self, progress: int):
         """

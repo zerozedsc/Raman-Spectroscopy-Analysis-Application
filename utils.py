@@ -63,6 +63,50 @@ class ProjectManager:
         data_dir = os.path.join(project_root_dir, "data")
         os.makedirs(data_dir, exist_ok=True)
         return data_dir
+    
+    def _resolve_data_path(self, old_path: str, project_dir: str, project_name: str, dataset_name: str) -> str | None:
+        """
+        Resolve data file path when project directory has been moved or renamed.
+        
+        Strategy:
+        1. Try relative to current project directory
+        2. Try standard project structure (project_dir/data/filename)
+        3. Try searching in all subdirectories
+        
+        Args:
+            old_path: The stored (invalid) path
+            project_dir: Current project directory
+            project_name: Project name
+            dataset_name: Dataset name for filename construction
+            
+        Returns:
+            Resolved path or None if not found
+        """
+        # Extract just the filename
+        filename = os.path.basename(old_path)
+        
+        # Strategy 1: Check in standard data directory
+        standard_data_dir = os.path.join(project_dir, "data")
+        standard_path = os.path.join(standard_data_dir, filename)
+        if os.path.exists(standard_path):
+            return standard_path
+        
+        # Strategy 2: Try with reconstructed filename from dataset name
+        sanitized_name = dataset_name.replace(" ", "_").lower()
+        constructed_filename = f"{sanitized_name}.pkl"
+        constructed_path = os.path.join(standard_data_dir, constructed_filename)
+        if os.path.exists(constructed_path):
+            return constructed_path
+        
+        # Strategy 3: Search in project directory and subdirectories
+        for root, dirs, files in os.walk(project_dir):
+            if filename in files:
+                return os.path.join(root, filename)
+            if constructed_filename in files:
+                return os.path.join(root, constructed_filename)
+        
+        # Not found
+        return None
 
     def get_recent_projects(self) -> List[Dict[str, Any]]:
         """Scans the projects directory and returns a sorted list of projects by modification date."""
@@ -222,9 +266,20 @@ class ProjectManager:
 
             RAMAN_DATA.clear()
             data_packages = self.current_project_data.get("dataPackages", {})
+            
+            # Get project directory for relative path resolution
+            project_dir = os.path.dirname(project_path)
+            project_name = self.current_project_data.get("projectName", "").replace(" ", "_").lower()
+            
+            paths_fixed = False
             for name, package_info in data_packages.items():
                 pickle_path = package_info.get("path")
-                if pickle_path and os.path.exists(pickle_path):
+                if not pickle_path:
+                    continue
+                    
+                # Try to load the data file
+                if os.path.exists(pickle_path):
+                    # Path is valid, load normally
                     try:
                         RAMAN_DATA[name] = pd.read_pickle(pickle_path)
                     except Exception as e:
@@ -235,12 +290,49 @@ class ProjectManager:
                             status="warning",
                         )
                 else:
-                    create_logs(
-                        "ProjectManager",
-                        "projects",
-                        f"Data file for '{name}' not found at {pickle_path}",
-                        status="warning",
-                    )
+                    # Path is invalid, try to fix it
+                    fixed_path = self._resolve_data_path(pickle_path, project_dir, project_name, name)
+                    
+                    if fixed_path and os.path.exists(fixed_path):
+                        # Path was successfully fixed
+                        create_logs(
+                            "ProjectManager",
+                            "projects",
+                            f"Fixed path for '{name}': {pickle_path} -> {fixed_path}",
+                            status="info",
+                        )
+                        
+                        # Update the path in project data
+                        package_info["path"] = fixed_path
+                        paths_fixed = True
+                        
+                        # Load the data
+                        try:
+                            RAMAN_DATA[name] = pd.read_pickle(fixed_path)
+                        except Exception as e:
+                            create_logs(
+                                "ProjectManager",
+                                "projects",
+                                f"Failed to load data package '{name}' from fixed path {fixed_path}: {e}",
+                                status="warning",
+                            )
+                    else:
+                        create_logs(
+                            "ProjectManager",
+                            "projects",
+                            f"Data file for '{name}' not found at {pickle_path}",
+                            status="warning",
+                        )
+            
+            # Save project if any paths were fixed
+            if paths_fixed:
+                self.save_current_project()
+                create_logs(
+                    "ProjectManager",
+                    "projects",
+                    "Project paths were automatically fixed and saved",
+                    status="info",
+                )
 
             # Initialize analysisGroups if not present (for backward compatibility)
             if "analysisGroups" not in self.current_project_data:

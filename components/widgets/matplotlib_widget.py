@@ -1,8 +1,8 @@
 import sys
 import os
-import logging
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
+from configs.configs import create_logs
 from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
@@ -12,9 +12,6 @@ from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as Navigation
 from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d import Axes3D
 from typing import Optional, Dict, Any, List, Tuple
-
-
-logger = logging.getLogger(__name__)
 
 
 def detect_signal_range(
@@ -201,9 +198,14 @@ class MatplotlibWidget(QWidget):
         try:
             self.figure.tight_layout(pad=1.2)
             self.canvas.draw_idle()  # Non-blocking draw
-        except Exception:
+        except Exception as e:
             # Silent fail on resize - layout incompatibility is acceptable here
-            logger.debug("Matplotlib tight_layout/draw_idle failed during resize: %s", e)
+            create_logs(
+                __name__,
+                __file__,
+                f"Matplotlib tight_layout/draw_idle failed during resize: {e}",
+                status="debug",
+            )
 
 
     def create_subplot_layout(self, num_plots: int, max_cols: int = 2, max_rows: int = None) -> Tuple[int, int]:
@@ -321,9 +323,7 @@ class MatplotlibWidget(QWidget):
             return base_size - 3  # 11pt
         else:
             return base_size - 4  # 10pt for 5+ plots
-        except Exception as e:
-            # Best-effort: layout can fail transiently while the figure is being rebuilt.
-            logger.debug("Matplotlib tight_layout/draw_idle failed during resize: %s", e)
+        
 
     def update_plot(self, new_figure: Figure):
         """
@@ -349,17 +349,20 @@ class MatplotlibWidget(QWidget):
 
                 # Create new axes at the same position
                 new_ax = self.figure.add_axes([pos.x0, pos.y0, pos.width, pos.height])
-                logger.debug(
-                    "Created axis %s at position: (%.2f, %.2f, %.2f, %.2f)",
-                    i,
-                    pos.x0,
-                    pos.y0,
-                    pos.width,
-                    pos.height,
+                create_logs(
+                    __name__,
+                    __file__,
+                    f"Created axis {i} at position: ({pos.x0:.2f}, {pos.y0:.2f}, {pos.width:.2f}, {pos.height:.2f})",
+                    status="debug",
                 )
             except Exception as e:
                 # Fallback to simple layout
-                logger.debug("Failed to preserve axes position; using fallback: %s", e)
+                create_logs(
+                    __name__,
+                    __file__,
+                    f"Failed to preserve axes position; using fallback: {e}",
+                    status="debug",
+                )
                 if len(axes_list) == 1:
                     new_ax = self.figure.add_subplot(111)
                 else:
@@ -384,9 +387,11 @@ class MatplotlibWidget(QWidget):
 
             images = ax.get_images()
             if images:
-                logger.debug(
-                    "Found %s AxesImage objects (heatmaps/imshow)",
-                    len(images),
+                create_logs(
+                    __name__,
+                    __file__,
+                    f"Found {len(images)} AxesImage objects (heatmaps/imshow)",
+                    status="debug",
                 )
                 for img in images:
                     try:
@@ -414,14 +419,14 @@ class MatplotlibWidget(QWidget):
 
                         # Copy colorbar if present
                         # Note: Colorbars are handled separately after all axes are copied
-                        logger.debug(
-                            "Successfully copied AxesImage: shape=%s, cmap=%s, clim=%s",
-                            getattr(img_data, "shape", None),
-                            getattr(cmap, "name", None),
-                            clim,
+                        create_logs(
+                            __name__,
+                            __file__,
+                            f"Successfully copied AxesImage: shape={getattr(img_data, 'shape', None)}, cmap={getattr(cmap, 'name', None)}, clim={clim}",
+                            status="debug",
                         )
                     except Exception as e:
-                        logger.debug("Failed to copy AxesImage: %s", e)
+                        create_logs(__name__, __file__, f"Failed to copy AxesImage: {e}", status="debug")
 
             # Copy scatter plots (PathCollections) and LineCollections from the original axes
             from matplotlib.collections import LineCollection, PathCollection
@@ -429,7 +434,12 @@ class MatplotlibWidget(QWidget):
             for collection in ax.collections:
                 # Handle LineCollection (used in dendrograms, heatmaps, cluster plots)
                 if isinstance(collection, LineCollection):
-                    logger.debug("Copying LineCollection (dendrogram/cluster lines)")
+                    create_logs(
+                        __name__,
+                        __file__,
+                        "Copying LineCollection (dendrogram/cluster lines)",
+                        status="debug",
+                    )
                     # Copy line segments directly
                     segments = collection.get_segments()
                     colors = collection.get_colors()
@@ -476,17 +486,23 @@ class MatplotlibWidget(QWidget):
             # Patches can't be transferred between figures (RuntimeError), so we recreate them
             # Skip if too many patches (likely heatmap/correlation plot with many cells)
             num_patches = len(ax.patches)
-            print(f"[DEBUG] Found {num_patches} patches on axis")
+            create_logs(__name__, __file__, f"Found {num_patches} patches on axis", status="debug")
 
             if num_patches > 100:
-                print(
-                    f"[DEBUG] Too many patches ({num_patches}), skipping recreation (likely heatmap)"
+                create_logs(
+                    __name__,
+                    __file__,
+                    f"Too many patches ({num_patches}), skipping recreation (likely heatmap)",
+                    status="debug",
                 )
-                print(
-                    f"[DEBUG] Heatmap patches are handled by matplotlib's internal rendering"
+                create_logs(
+                    __name__,
+                    __file__,
+                    "Heatmap patches are handled by matplotlib's internal rendering",
+                    status="debug",
                 )
             else:
-                print(f"[DEBUG] Recreating {num_patches} patches on new axis")
+                create_logs(__name__, __file__, f"Recreating {num_patches} patches on new axis", status="debug")
 
                 from matplotlib.patches import (
                     Ellipse,
@@ -570,8 +586,11 @@ class MatplotlibWidget(QWidget):
                             if is_fill_layer
                             else ("edge" if is_edge_layer else "standard")
                         )
-                        print(
-                            f"[DEBUG] Recreated ellipse ({layer_type} layer) at {patch.center}, α={original_alpha}"
+                        create_logs(
+                            __name__,
+                            __file__,
+                            f"Recreated ellipse ({layer_type} layer) at {patch.center}, alpha={original_alpha}",
+                            status="debug",
                         )
 
                     elif isinstance(patch, Rectangle):
@@ -586,14 +605,17 @@ class MatplotlibWidget(QWidget):
                             alpha=patch.get_alpha(),
                         )
                         new_ax.add_patch(new_rect)
-                        print(
-                            f"[DEBUG] Recreated rectangle at ({patch.get_x()}, {patch.get_y()}) on new axis"
+                        create_logs(
+                            __name__,
+                            __file__,
+                            f"Recreated rectangle at ({patch.get_x()}, {patch.get_y()}) on new axis",
+                            status="debug",
                         )
 
                     elif isinstance(patch, FancyArrow):
                         #
                         # Recreate FancyArrow (used in Biplots)
-                        print(f"[DEBUG] Recreating FancyArrow on new axis")
+                        create_logs(__name__, __file__, "Recreating FancyArrow on new axis", status="debug")
 
                         # FancyArrow stores properties as attributes, not via get_ methods
                         new_arrow = FancyArrow(
@@ -620,11 +642,16 @@ class MatplotlibWidget(QWidget):
                             alpha=patch.get_alpha(),
                         )
                         new_ax.add_patch(new_arrow)
-                        print(f"[DEBUG] Successfully recreated FancyArrow")
+                        create_logs(__name__, __file__, "Successfully recreated FancyArrow", status="debug")
 
                     elif isinstance(patch, FancyArrowPatch):
                         # Recreate FancyArrowPatch (more common arrow type)
-                        print(f"[DEBUG] Recreating FancyArrowPatch on new axis")
+                        create_logs(
+                            __name__,
+                            __file__,
+                            "Recreating FancyArrowPatch on new axis",
+                            status="debug",
+                        )
                         posA = patch.get_path().vertices[0]
                         posB = patch.get_path().vertices[-1]
                         new_arrow_patch = FancyArrowPatch(
@@ -638,12 +665,20 @@ class MatplotlibWidget(QWidget):
                             alpha=patch.get_alpha(),
                         )
                         new_ax.add_patch(new_arrow_patch)
-                        print(f"[DEBUG] Successfully recreated FancyArrowPatch")
+                        create_logs(
+                            __name__,
+                            __file__,
+                            "Successfully recreated FancyArrowPatch",
+                            status="debug",
+                        )
 
                     else:
                         # For other patch types, log and skip
-                        print(
-                            f"[DEBUG] Skipping unsupported patch type: {type(patch).__name__}"
+                        create_logs(
+                            __name__,
+                            __file__,
+                            f"Skipping unsupported patch type: {type(patch).__name__}",
+                            status="debug",
                         )
 
             # Copy annotations (text with arrows) - CRITICAL FOR PEAK LABELS
@@ -657,10 +692,15 @@ class MatplotlibWidget(QWidget):
                 )
             ]
             num_annotations = len(annotations)
-            print(f"[DEBUG] Found {num_annotations} annotations on axis")
+            create_logs(__name__, __file__, f"Found {num_annotations} annotations on axis", status="debug")
 
             if num_annotations > 0:
-                print(f"[DEBUG] Copying {num_annotations} annotations to new axis")
+                create_logs(
+                    __name__,
+                    __file__,
+                    f"Copying {num_annotations} annotations to new axis",
+                    status="debug",
+                )
                 for artist in annotations:
                     try:
                         # Get annotation properties
@@ -722,9 +762,20 @@ class MatplotlibWidget(QWidget):
                             arrowprops=arrowprops,
                             zorder=10,
                         )
-                        logger.debug("Copied annotation: '%s...' at %s", text[:20], xy)
+
+                        create_logs(
+                            __name__,
+                            __file__,
+                            f"Copied annotation: '{text[:20]}...' at {xy}",
+                            status="debug",
+                        )
                     except Exception as e:
-                        logger.debug("Failed to copy annotation: %s", e)
+                        create_logs(
+                            __name__,
+                            __file__,
+                            f"Failed to copy annotation: {e}",
+                            status="debug",
+                        )
 
             # Copy axes properties
             new_ax.set_title(ax.get_title())
@@ -747,19 +798,21 @@ class MatplotlibWidget(QWidget):
                             for child in new_figure.get_axes()
                             if hasattr(child, "_colorbar")
                         ]
-                        logger.debug("Added colorbar for heatmap")
+                        create_logs(__name__, __file__, "Added colorbar for heatmap", status="debug")
                     except Exception as e:
-                        logger.debug("Failed to add colorbar: %s", e)
+                        create_logs(__name__, __file__, f"Failed to add colorbar: {e}", status="debug")
 
-            # Copy legend if it exists and has valid artists
+            # Copy legend if it exists and has valid artists.
+            # IMPORTANT: never reuse legend handles from the source axes, because those
+            # artists belong to the source figure and can trigger:
+            #   RuntimeError: Can not put single artist in more than one figure
             legend = ax.get_legend()
             if legend and legend.get_texts():
-                # Check if there are any labeled artists
-                handles, labels = ax.get_legend_handles_labels()
-                if handles and labels:
+                new_handles, new_labels = new_ax.get_legend_handles_labels()
+                if new_handles and new_labels:
                     new_ax.legend(
-                        handles,
-                        labels,
+                        new_handles,
+                        new_labels,
                         loc=legend._loc if hasattr(legend, "_loc") else "best",
                     )
 
@@ -772,22 +825,28 @@ class MatplotlibWidget(QWidget):
         try:
             self.figure.tight_layout(pad=1.2, rect=[0, 0.03, 1, 0.95])
         except (ValueError, UserWarning, RuntimeWarning) as e:
-            # Known incompatibility with certain subplot types (e.g., colorbar axes)
-            # Try constrained_layout as fallback
+            create_logs(
+                __name__,
+                __file__,
+                f"tight_layout warning/error ({e}); trying constrained_layout",
+                status="debug",
+            )
+            try:
+                self.figure.set_constrained_layout(True)
+            except Exception as ce:
+                create_logs(__name__, __file__, f"constrained_layout also failed: {ce}", status="debug")
         except Exception as e:
-            logger.debug("tight_layout failed (%s); using constrained_layout", e)
+            create_logs(
+                __name__,
+                __file__,
+                f"tight_layout failed ({e}); using constrained_layout",
+                status="debug",
+            )
             try:
                 self.figure.set_constrained_layout(True)
             except Exception:
                 # If both fail, continue without layout adjustment
                 pass
-        except Exception as e:
-            # Catch any other unexpected errors
-            print(f"[DEBUG] Layout adjustment failed: {type(e).__name__}")
-            pass
-        
-            except Exception as e2:
-                logger.debug("set_constrained_layout(True) failed: %s", e2)
 
         self.canvas.draw()
 
@@ -855,9 +914,14 @@ class MatplotlibWidget(QWidget):
                 if img_list:
                     try:
                         self.figure.colorbar(img_list[-1], ax=new_ax)
-                        logger.debug("Added colorbar in update_plot_with_config")
+                        create_logs(
+                            __name__,
+                            __file__,
+                            "Added colorbar in update_plot_with_config",
+                            status="debug",
+                        )
                     except Exception as e:
-                        logger.debug("Failed to add colorbar: %s", e)
+                        create_logs(__name__, __file__, f"Failed to add colorbar: {e}", status="debug")
 
             # Apply grid configuration (skip for heatmaps)
             if not has_images:
@@ -922,18 +986,28 @@ class MatplotlibWidget(QWidget):
                 try:
                     self.figure.tight_layout(pad=1.2, rect=[0, 0.03, 1, 0.95])
                 except Exception as e:
-                    logger.debug("tight_layout failed (%s); using constrained_layout", e)
+                    create_logs(
+                        __name__,
+                        __file__,
+                        f"tight_layout failed ({e}); using constrained_layout",
+                        status="debug",
+                    )
                     self.figure.set_constrained_layout(True)
         else:
             # ✅ DEFAULT: Always apply tight_layout when no config provided
             try:
                 self.figure.tight_layout(pad=1.2, rect=[0, 0.03, 1, 0.95])
             except Exception as e:
-                logger.debug("tight_layout failed (%s); using constrained_layout", e)
+                create_logs(
+                    __name__,
+                    __file__,
+                    f"tight_layout failed ({e}); using constrained_layout",
+                    status="debug",
+                )
                 try:
                     self.figure.set_constrained_layout(True)
                 except Exception as e2:
-                    logger.debug("set_constrained_layout(True) failed: %s", e2)
+                    create_logs(__name__, __file__, f"set_constrained_layout(True) failed: {e2}", status="debug")
 
         self.canvas.draw()
 
@@ -965,7 +1039,12 @@ class MatplotlibWidget(QWidget):
         has_images = False
         if images:
             has_images = True
-            logger.debug("_copy_plot_elements: Found %s AxesImage objects", len(images))
+            create_logs(
+                __name__,
+                __file__,
+                f"_copy_plot_elements: Found {len(images)} AxesImage objects",
+                status="debug",
+            )
             for img in images:
                 try:
                     img_data = img.get_array()
@@ -985,12 +1064,19 @@ class MatplotlibWidget(QWidget):
                         vmin=clim[0],
                         vmax=clim[1],
                     )
-                    logger.debug(
-                        "Copied AxesImage in helper: shape=%s",
-                        getattr(img_data, "shape", None),
+                    create_logs(
+                        __name__,
+                        __file__,
+                        f"Copied AxesImage in helper: shape={getattr(img_data, 'shape', None)}",
+                        status="debug",
                     )
                 except Exception as e:
-                    logger.debug("Failed to copy AxesImage in helper: %s", e)
+                    create_logs(
+                        __name__,
+                        __file__,
+                        f"Failed to copy AxesImage in helper: {e}",
+                        status="debug",
+                    )
 
         # Copy collections
         from matplotlib.collections import LineCollection, PathCollection

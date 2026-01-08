@@ -33,14 +33,36 @@ from pathlib import Path
 import argparse
 from typing import Dict, List, Tuple, Any
 
-
-logger = logging.getLogger(__name__)
-
 # ============== CONFIGURATION ==============
 
 # Get project root (parent of build_scripts/)
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(script_dir)
+
+# Ensure project root is importable even if the script is run from elsewhere
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+try:
+    from configs.configs import create_logs  # type: ignore
+except Exception:
+    create_logs = None
+
+
+def _log(status: str, message: str):
+    """Log to app logger (if available) and to stdlib logging."""
+    if create_logs is not None:
+        try:
+            create_logs(__name__, __file__, message, status=status)
+        except Exception:
+            # Never let logging break the test runner
+            pass
+
+    level = status.lower()
+    if level == "warn":
+        level = "warning"
+    log_fn = getattr(logging, level, logging.info)
+    log_fn(message)
 
 # Change to project root so paths are relative to it
 os.chdir(project_root)
@@ -537,7 +559,7 @@ class TestSuite:
             print(f"📝 Results saved to: {output_file}")
 
         except Exception as e:
-            logger.warning("Could not save JSON results: %s", e)
+            _log("warning", f"Could not save JSON results: {e}")
 
 
 # ============== MAIN ==============

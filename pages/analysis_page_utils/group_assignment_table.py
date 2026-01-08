@@ -11,7 +11,9 @@ Key Features:
 - Simple, intuitive workflow without mental mapping overhead
 """
 
-import logging
+import traceback
+
+from configs.configs import create_logs
 from typing import Dict, List, Callable, Optional
 from PySide6.QtWidgets import (
     QWidget,
@@ -31,9 +33,6 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 import re
-
-
-logger = logging.getLogger(__name__)
 
 
 class GroupAssignmentTable(QWidget):
@@ -62,9 +61,9 @@ class GroupAssignmentTable(QWidget):
             parent: Parent widget
         """
         super().__init__(parent)
-        logger.debug("GroupAssignmentTable __init__ called")
-        logger.debug("Number of datasets: %s", len(dataset_names))
-        logger.debug("Dataset names: %s", dataset_names)
+        create_logs(__name__, __file__, "GroupAssignmentTable __init__ called", status="debug")
+        create_logs(__name__, __file__, f"Number of datasets: {len(dataset_names)}", status="debug")
+        create_logs(__name__, __file__, f"Dataset names: {dataset_names}", status="debug")
 
         self.dataset_names = dataset_names
         self.localize_func = localize_func
@@ -78,9 +77,9 @@ class GroupAssignmentTable(QWidget):
             "Normal",
         ]
 
-        logger.debug("Calling _init_ui()")
+        create_logs(__name__, __file__, "Calling _init_ui()", status="debug")
         self._init_ui()
-        logger.debug("GroupAssignmentTable initialization complete")
+        create_logs(__name__, __file__, "GroupAssignmentTable initialization complete", status="debug")
 
     def _init_ui(self):
         """Initialize the user interface."""
@@ -89,10 +88,7 @@ class GroupAssignmentTable(QWidget):
         main_layout.setSpacing(12)
 
         # Instructions
-        instructions = QLabel(
-            "💡 <b>Classification Mode:</b> Assign each dataset to a group for comparison. "
-            "Use the dropdown in each row or click 'Auto-Assign' to map by filename patterns."
-        )
+        instructions = QLabel(self.localize_func("ANALYSIS_PAGE.group_assignment_instructions"))
         instructions.setWordWrap(True)
         instructions.setStyleSheet(
             """
@@ -139,36 +135,37 @@ class GroupAssignmentTable(QWidget):
         )
 
         # Auto-assign action
-        auto_assign_action = toolbar.addAction("🔍 Auto-Assign")
-        auto_assign_action.setToolTip(
-            "Automatically assign groups based on filename patterns"
-        )
+        auto_assign_action = toolbar.addAction(self.localize_func("ANALYSIS_PAGE.auto_assign_button"))
+        auto_assign_action.setToolTip(self.localize_func("ANALYSIS_PAGE.auto_assign_tooltip"))
         auto_assign_action.triggered.connect(self._auto_assign_groups)
 
         # Reset action
-        reset_action = toolbar.addAction("↺ Reset All")
-        reset_action.setToolTip("Clear all group assignments")
+        reset_action = toolbar.addAction(self.localize_func("ANALYSIS_PAGE.reset_all_button"))
+        reset_action.setToolTip(self.localize_func("ANALYSIS_PAGE.reset_all_tooltip"))
         reset_action.triggered.connect(self._reset_all)
 
         toolbar.addSeparator()
         
         # Multi-group creation action (NEW - replaces old single-input dialog)
-        print("[DEBUG] ========== INITIALIZING CREATE GROUPS BUTTON ==========")
-        multi_group_action = toolbar.addAction("➕ Create Groups")
-        multi_group_action.setToolTip("Create multiple groups at once with keyword patterns")
-        print(f"[DEBUG] Button created: {multi_group_action}")
-        print(f"[DEBUG] Button text: {multi_group_action.text()}")
-        print(f"[DEBUG] Connecting to method: _on_create_groups_clicked")
+        create_logs(__name__, __file__, "========== INITIALIZING CREATE GROUPS BUTTON ==========", status="debug")
+        multi_group_action = toolbar.addAction(self.localize_func("ANALYSIS_PAGE.create_groups_button"))
+        multi_group_action.setToolTip(self.localize_func("ANALYSIS_PAGE.create_groups_tooltip"))
+        create_logs(__name__, __file__, f"Button created: {multi_group_action}", status="debug")
+        create_logs(__name__, __file__, f"Button text: {multi_group_action.text()}", status="debug")
+        create_logs(__name__, __file__, "Connecting to method: _on_create_groups_clicked", status="debug")
         multi_group_action.triggered.connect(self._on_create_groups_clicked)
-        print(f"[DEBUG] Connection successful!")
-        print("[DEBUG] ==========================================================")
+        create_logs(__name__, __file__, "Connection successful!", status="debug")
+        create_logs(__name__, __file__, "==========================================================", status="debug")
         
         main_layout.addWidget(toolbar)
 
         # Table widget
         self.table = QTableWidget()
         self.table.setColumnCount(2)
-        self.table.setHorizontalHeaderLabels(["Dataset Name", "Group Label"])
+        self.table.setHorizontalHeaderLabels([
+            self.localize_func("ANALYSIS_PAGE.dataset_name_column"),
+            self.localize_func("ANALYSIS_PAGE.group_label_column")
+        ])
         self.table.setRowCount(len(self.dataset_names))
 
         # Professional table styling with comfortable spacing and minimal gridlines
@@ -213,13 +210,13 @@ class GroupAssignmentTable(QWidget):
         self.table.setColumnWidth(1, 200)
 
         # Populate table
-        logger.debug("Populating table with %s datasets", len(self.dataset_names))
+        create_logs(__name__, __file__, f"Populating table with {len(self.dataset_names)} datasets", status="debug")
         for row, dataset_name in enumerate(self.dataset_names):
-            logger.debug(
-                "Adding dataset %s/%s: %s",
-                row + 1,
-                len(self.dataset_names),
-                dataset_name,
+            create_logs(
+                __name__,
+                __file__,
+                f"Adding dataset {row + 1}/{len(self.dataset_names)}: {dataset_name}",
+                status="debug",
             )
             # Dataset name (read-only)
             name_item = QTableWidgetItem(dataset_name)
@@ -229,9 +226,9 @@ class GroupAssignmentTable(QWidget):
 
             # Group selector (dropdown)
             group_combo = QComboBox()
-            group_combo.addItem("-- Select Group --")
+            group_combo.addItem(self.localize_func("ANALYSIS_PAGE.select_group_placeholder"))
             group_combo.addItems(self.common_groups)
-            group_combo.addItem("+ Add Custom Group...")
+            group_combo.addItem(self.localize_func("ANALYSIS_PAGE.add_custom_group_option"))
 
             # Set larger font for better visibility
             combo_font = QFont("Segoe UI", 11)
@@ -294,7 +291,7 @@ class GroupAssignmentTable(QWidget):
                 lambda text, r=row: self._on_group_changed(r, text)
             )
 
-            logger.debug("Created group combo for row %s with font size 11", row)
+            create_logs(__name__, __file__, f"Created group combo for row {row} with font size 11", status="debug")
             self.table.setCellWidget(row, 1, group_combo)
 
         main_layout.addWidget(self.table)
@@ -374,14 +371,14 @@ class GroupAssignmentTable(QWidget):
         3. Try underscore/hyphen prefix pattern (Prefix_*)
         4. Try mixed patterns with multiple segments
         """
-        logger.debug("Auto-assign groups called (enhanced version)")
-        logger.debug("Analyzing %s dataset names", len(self.dataset_names))
+        create_logs(__name__, __file__, "Auto-assign groups called (enhanced version)", status="debug")
+        create_logs(__name__, __file__, f"Analyzing {len(self.dataset_names)} dataset names", status="debug")
 
         # Pattern extraction with multiple strategies
         patterns = {}
 
         for idx, dataset_name in enumerate(self.dataset_names):
-            logger.debug("Analyzing pattern for: %s", dataset_name)
+            create_logs(__name__, __file__, f"Analyzing pattern for: {dataset_name}", status="debug")
             group_assigned = False
 
             # === Strategy 1: Date prefix pattern (YYYYMMDD_*) ===
@@ -389,14 +386,14 @@ class GroupAssignmentTable(QWidget):
             date_match = re.match(r"^\d{8}_(.+)", dataset_name)
             if date_match:
                 remainder = date_match.group(1)
-                logger.debug("Date prefix detected, remainder: %s", remainder)
+                create_logs(__name__, __file__, f"Date prefix detected, remainder: {remainder}", status="debug")
 
                 # Extract alphanumeric prefix before next separator
                 parts = re.split(r"[_\-\s]", remainder)
                 if parts:
                     # Try to find keyword in first part
                     first_part = parts[0]
-                    logger.debug("First part after date: %s", first_part)
+                    create_logs(__name__, __file__, f"First part after date: {first_part}", status="debug")
 
                     # Check for known keywords in first part
                     for keyword in [
@@ -415,11 +412,11 @@ class GroupAssignmentTable(QWidget):
                                 if len(keyword) <= 4
                                 else keyword.capitalize()
                             )
-                            logger.debug(
-                                "Keyword '%s' found in '%s' → Group '%s'",
-                                keyword,
-                                first_part,
-                                group_name,
+                            create_logs(
+                                __name__,
+                                __file__,
+                                f"Keyword '{keyword}' found in '{first_part}' -> Group '{group_name}'",
+                                status="debug",
                             )
 
                             if group_name not in patterns:
@@ -434,10 +431,11 @@ class GroupAssignmentTable(QWidget):
                         alpha_prefix = re.match(r"^([A-Za-z]+)", first_part)
                         if alpha_prefix:
                             group_name = alpha_prefix.group(1).capitalize()
-                            logger.debug(
-                                "Using alpha prefix '%s' from '%s'",
-                                group_name,
-                                first_part,
+                            create_logs(
+                                __name__,
+                                __file__,
+                                f"Using alpha prefix '{group_name}' from '{first_part}'",
+                                status="debug",
                             )
 
                             if group_name not in patterns:
@@ -449,7 +447,7 @@ class GroupAssignmentTable(QWidget):
             if not group_assigned:
                 # Extract alphanumeric words
                 words = re.findall(r"[A-Za-z]+", dataset_name)
-                logger.debug("Extracted words: %s", words)
+                create_logs(__name__, __file__, f"Extracted words: {words}", status="debug")
 
                 # Look for common group keywords
                 for word in words:
@@ -469,7 +467,12 @@ class GroupAssignmentTable(QWidget):
                         if word_lower in ["mm", "mgus"]:
                             group_name = word.upper()
 
-                        logger.debug("Keyword match: '%s' → Group '%s'", word, group_name)
+                        create_logs(
+                            __name__,
+                            __file__,
+                            f"Keyword match: '{word}' -> Group '{group_name}'",
+                            status="debug",
+                        )
 
                         if group_name not in patterns:
                             patterns[group_name] = []
@@ -483,10 +486,11 @@ class GroupAssignmentTable(QWidget):
                 prefix_match = re.match(r"^([A-Za-z]+)[\-_]", dataset_name)
                 if prefix_match:
                     group_name = prefix_match.group(1).capitalize()
-                    logger.debug(
-                        "Prefix pattern: '%s' → Group '%s'",
-                        dataset_name,
-                        group_name,
+                    create_logs(
+                        __name__,
+                        __file__,
+                        f"Prefix pattern: '{dataset_name}' -> Group '{group_name}'",
+                        status="debug",
                     )
 
                     if group_name not in patterns:
@@ -499,10 +503,11 @@ class GroupAssignmentTable(QWidget):
                 alpha_match = re.match(r"^([A-Za-z]+)", dataset_name)
                 if alpha_match:
                     group_name = alpha_match.group(1).capitalize()
-                    logger.debug(
-                        "Fallback alpha pattern: '%s' → Group '%s'",
-                        dataset_name,
-                        group_name,
+                    create_logs(
+                        __name__,
+                        __file__,
+                        f"Fallback alpha pattern: '{dataset_name}' -> Group '{group_name}'",
+                        status="debug",
                     )
 
                     if group_name not in patterns:
@@ -511,21 +516,27 @@ class GroupAssignmentTable(QWidget):
                     group_assigned = True
 
             if not group_assigned:
-                logger.debug("No pattern detected for '%s'", dataset_name)
+                create_logs(__name__, __file__, f"No pattern detected for '{dataset_name}'", status="debug")
 
         # Apply assignments
-        logger.debug("Patterns found: %s", patterns)
+        create_logs(__name__, __file__, f"Patterns found: {patterns}", status="debug")
         if patterns:
             assigned_count = 0
             for group_name, indices in patterns.items():
-                logger.debug(
-                    "Processing group '%s' with %s datasets",
-                    group_name,
-                    len(indices),
+                create_logs(
+                    __name__,
+                    __file__,
+                    f"Processing group '{group_name}' with {len(indices)} datasets",
+                    status="debug",
                 )
                 # Ensure group exists
                 if group_name not in self.common_groups:
-                    logger.debug("Adding new group '%s' to common groups", group_name)
+                    create_logs(
+                        __name__,
+                        __file__,
+                        f"Adding new group '{group_name}' to common groups",
+                        status="debug",
+                    )
                     self.common_groups.append(group_name)
                     # Add to all combos
                     for r in range(self.table.rowCount()):
@@ -548,21 +559,26 @@ class GroupAssignmentTable(QWidget):
             )
             QMessageBox.information(
                 self,
-                "Auto-Assign Complete",
-                f"Successfully assigned {assigned_count} dataset(s) to {len(patterns)} group(s).\n\n"
-                f"Groups detected:\n{pattern_summary}",
+                self.localize_func("ANALYSIS_PAGE.auto_assign_complete_title"),
+                self.localize_func(
+                    "ANALYSIS_PAGE.auto_assign_complete_message",
+                    assigned_count=assigned_count,
+                    group_count=len(patterns),
+                    pattern_summary=pattern_summary,
+                ),
             )
         else:
+            create_logs(
+                "auto_assign_no_patterns",
+                "GroupAssignmentTable",
+                "No patterns detected during auto-assignment.",
+                status="warning",
+            )
+
             QMessageBox.warning(
                 self,
-                "No Patterns Found",
-                "Could not detect common patterns in dataset names.\n\n"
-                "Supported patterns:\n"
-                "• Date prefix: '20220314_MgusO1_B' → 'Mgus'\n"
-                "• Keywords: 'MM_Sample1' → 'MM'\n"
-                "• Prefix: 'Control_01' → 'Control'\n"
-                "• Alpha prefix: 'Treatment-A-1' → 'Treatment'\n\n"
-                "Tip: Use clear naming conventions for automatic grouping.",
+                self.localize_func("ANALYSIS_PAGE.auto_assign_no_patterns_title"),
+                self.localize_func("ANALYSIS_PAGE.auto_assign_no_patterns_message"),
             )
 
         self._update_summary()
@@ -572,8 +588,8 @@ class GroupAssignmentTable(QWidget):
         """Reset all group assignments."""
         reply = QMessageBox.question(
             self,
-            "Reset Assignments",
-            "Clear all group assignments?",
+            self.localize_func("ANALYSIS_PAGE.reset_assignments_title"),
+            self.localize_func("ANALYSIS_PAGE.reset_assignments_message"),
             QMessageBox.Yes | QMessageBox.No,
         )
 
@@ -590,65 +606,82 @@ class GroupAssignmentTable(QWidget):
         Legacy method - now redirects to multi-group dialog.
         Kept for backward compatibility in case called from elsewhere.
         """
-        print("[DEBUG] _add_custom_group called - redirecting to multi-group dialog")
+        create_logs(
+            __name__,
+            __file__,
+            "_add_custom_group called - redirecting to multi-group dialog",
+            status="debug",
+        )
         self._on_create_groups_clicked()
     
     def _on_create_groups_clicked(self):
         """Handler for Create Groups button click."""
-        print("\n" + "="*70)
-        print("[DEBUG] ➕ CREATE GROUPS BUTTON CLICKED!")
-        print("[DEBUG] Timestamp:", __import__('datetime').datetime.now())
-        print("[DEBUG] Method: _on_create_groups_clicked")
-        print("[DEBUG] Instance:", self)
-        print("[DEBUG] Instance class:", self.__class__.__name__)
-        print("="*70 + "\n")
+        create_logs(__name__, __file__, "=" * 70, status="debug")
+        create_logs(__name__, __file__, "CREATE GROUPS BUTTON CLICKED!", status="debug")
+        create_logs(
+            __name__,
+            __file__,
+            f"Timestamp: {__import__('datetime').datetime.now()}",
+            status="debug",
+        )
+        create_logs(__name__, __file__, "Method: _on_create_groups_clicked", status="debug")
+        create_logs(__name__, __file__, f"Instance: {self}", status="debug")
+        create_logs(__name__, __file__, f"Instance class: {self.__class__.__name__}", status="debug")
+        create_logs(__name__, __file__, "=" * 70, status="debug")
         self._open_multi_group_dialog()
     
     def _open_multi_group_dialog(self):
         """Open the multi-group creation dialog."""
-        print("\n" + "="*70)
-        print("[DEBUG] 🚀 OPENING MULTI-GROUP DIALOG")
-        print("="*70)
-        print("[DEBUG] Step 1: Attempting to import MultiGroupCreationDialog...")
-        print("[DEBUG] Import path: .multi_group_dialog")
+        create_logs(__name__, __file__, "=" * 70, status="debug")
+        create_logs(__name__, __file__, "OPENING MULTI-GROUP DIALOG", status="debug")
+        create_logs(__name__, __file__, "=" * 70, status="debug")
+        create_logs(
+            __name__,
+            __file__,
+            "Step 1: Attempting to import MultiGroupCreationDialog...",
+            status="debug",
+        )
+        create_logs(__name__, __file__, "Import path: .multi_group_dialog", status="debug")
         try:
             from .multi_group_dialog import MultiGroupCreationDialog
-            print("[DEBUG] ✅ MultiGroupCreationDialog imported successfully!")
-            print("[DEBUG] Class:", MultiGroupCreationDialog)
+            create_logs(__name__, __file__, "MultiGroupCreationDialog imported successfully!", status="debug")
+            create_logs(__name__, __file__, f"Class: {MultiGroupCreationDialog}", status="debug")
         except Exception as e:
-            print(f"[ERROR] ❌ Failed to import MultiGroupCreationDialog: {e}")
-            print("[ERROR] Exception type:", type(e).__name__)
-            import traceback
-            print("[ERROR] Full traceback:")
-            traceback.print_exc()
+            create_logs(__name__, __file__, f"Failed to import MultiGroupCreationDialog: {e}", status="error")
+            create_logs(__name__, __file__, f"Exception type: {type(e).__name__}", status="error")
+            create_logs(__name__, __file__, "Full traceback:", status="error")
+            create_logs(__name__, __file__, traceback.format_exc(), status="error")
             QMessageBox.critical(
                 self,
-                "Import Error",
-                f"Failed to import multi-group dialog:\n{str(e)}\n\nPlease check console for details."
+                self.localize_func("ANALYSIS_PAGE.group_assignment_import_error_title"),
+                self.localize_func(
+                    "ANALYSIS_PAGE.group_assignment_import_error_message",
+                    error=str(e),
+                ),
             )
             return
         
         try:
-            print("\n[DEBUG] Step 2: Creating dialog instance...")
-            print(f"[DEBUG] Dataset count: {len(self.dataset_names)}")
-            print(f"[DEBUG] Localize function: {self.localize_func}")
+            create_logs(__name__, __file__, "Step 2: Creating dialog instance...", status="debug")
+            create_logs(__name__, __file__, f"Dataset count: {len(self.dataset_names)}", status="debug")
+            create_logs(__name__, __file__, f"Localize function: {self.localize_func}", status="debug")
             dialog = MultiGroupCreationDialog(
                 self.dataset_names,
                 self.localize_func,
                 self
             )
-            print("[DEBUG] ✅ Dialog created successfully!")
-            print(f"[DEBUG] Dialog title: {dialog.windowTitle()}")
-            print("\n[DEBUG] Step 3: Calling dialog.exec()...")
+            create_logs(__name__, __file__, "Dialog created successfully!", status="debug")
+            create_logs(__name__, __file__, f"Dialog title: {dialog.windowTitle()}", status="debug")
+            create_logs(__name__, __file__, "Step 3: Calling dialog.exec()...", status="debug")
             
             result = dialog.exec()
-            print("\n[DEBUG] Step 4: Dialog closed")
-            print(f"[DEBUG] Result: {result} (Accepted={QDialog.Accepted})")
+            create_logs(__name__, __file__, "Step 4: Dialog closed", status="debug")
+            create_logs(__name__, __file__, f"Result: {result} (Accepted={QDialog.Accepted})", status="debug")
             
             if result == QDialog.Accepted:
-                print("\n[DEBUG] ✅ Dialog was ACCEPTED")
+                create_logs(__name__, __file__, "Dialog was ACCEPTED", status="debug")
                 assignments = dialog.get_assignments()
-                print(f"[DEBUG] Assignments: {assignments}")
+                create_logs(__name__, __file__, f"Assignments: {assignments}", status="debug")
                 
                 if assignments:
                     # Apply assignments using set_groups
@@ -656,35 +689,47 @@ class GroupAssignmentTable(QWidget):
                     
                     # Show success message
                     total_assigned = sum(len(datasets) for datasets in assignments.values())
+                    group_summary = "\n".join(
+                        [
+                            f"• {name}: {len(datasets)} dataset(s)"
+                            for name, datasets in assignments.items()
+                        ]
+                    )
                     QMessageBox.information(
                         self,
-                        "Groups Created",
-                        f"Successfully created {len(assignments)} group(s) with {total_assigned} dataset(s) assigned.\n\n"
-                        + "\n".join([f"• {name}: {len(datasets)} dataset(s)" for name, datasets in assignments.items()])
+                        self.localize_func("ANALYSIS_PAGE.groups_created_title"),
+                        self.localize_func(
+                            "ANALYSIS_PAGE.groups_created_message",
+                            group_count=len(assignments),
+                            dataset_count=total_assigned,
+                            group_summary=group_summary,
+                        ),
                     )
                     
                     self._update_summary()
                     self.groups_changed.emit(self.get_groups())
                 else:
-                    print("[DEBUG] No assignments returned")
+                    create_logs(__name__, __file__, "No assignments returned", status="debug")
             else:
-                print("\n[DEBUG] ❌ Dialog was CANCELLED/REJECTED")
+                create_logs(__name__, __file__, "Dialog was CANCELLED/REJECTED", status="debug")
                 
         except Exception as e:
-            print(f"\n[ERROR] ❌ Exception in _open_multi_group_dialog: {e}")
-            print(f"[ERROR] Exception type: {type(e).__name__}")
-            import traceback
-            print("[ERROR] Full traceback:")
-            traceback.print_exc()
+            create_logs(__name__, __file__, f"Exception in _open_multi_group_dialog: {e}", status="error")
+            create_logs(__name__, __file__, f"Exception type: {type(e).__name__}", status="error")
+            create_logs(__name__, __file__, "Full traceback:", status="error")
+            create_logs(__name__, __file__, traceback.format_exc(), status="error")
             QMessageBox.critical(
                 self,
-                "Error",
-                f"An error occurred:\n{str(e)}\n\nPlease check console for details."
+                self.localize_func("COMMON.error"),
+                self.localize_func(
+                    "ANALYSIS_PAGE.group_assignment_error_message",
+                    error=str(e),
+                ),
             )
         finally:
-            print("\n" + "="*70)
-            print("[DEBUG] 🏁 _open_multi_group_dialog completed")
-            print("="*70 + "\n")
+            create_logs(__name__, __file__, "=" * 70, status="debug")
+            create_logs(__name__, __file__, "_open_multi_group_dialog completed", status="debug")
+            create_logs(__name__, __file__, "=" * 70, status="debug")
     
     def _old_add_custom_group_DISABLED(self):
         """OLD METHOD - DISABLED - Use _on_create_groups_clicked instead."""
@@ -707,8 +752,11 @@ class GroupAssignmentTable(QWidget):
 
             QMessageBox.information(
                 self,
-                "Group Created",
-                f"Custom group '{new_group}' has been added to all dropdowns.",
+                self.localize_func("ANALYSIS_PAGE.group_created_title"),
+                self.localize_func(
+                    "ANALYSIS_PAGE.group_created_message",
+                    group_name=new_group,
+                ),
             )
 
     def _update_summary(self):
@@ -737,7 +785,7 @@ class GroupAssignmentTable(QWidget):
         Returns:
             Dictionary mapping group labels to lists of dataset names
         """
-        logger.debug("get_groups() called")
+        create_logs(__name__, __file__, "get_groups() called", status="debug")
         groups = {}
 
         for row in range(self.table.rowCount()):
@@ -745,11 +793,11 @@ class GroupAssignmentTable(QWidget):
             combo = self.table.cellWidget(row, 1)
             group_name = combo.currentText()
 
-            logger.debug(
-                "Row %s: Dataset='%s', Group='%s'",
-                row,
-                dataset_name,
-                group_name,
+            create_logs(
+                __name__,
+                __file__,
+                f"Row {row}: Dataset='{dataset_name}', Group='{group_name}'",
+                status="debug",
             )
 
             # Skip unassigned
@@ -764,7 +812,7 @@ class GroupAssignmentTable(QWidget):
 
             groups[group_name].append(dataset_name)
 
-        logger.debug("Final groups: %s", groups)
+        create_logs(__name__, __file__, f"Final groups: {groups}", status="debug")
         return groups
 
     def set_groups(self, groups: Dict[str, List[str]]):

@@ -14,17 +14,12 @@ try:
 except ImportError:
     RAMANSPY_AVAILABLE = False
 
-try:
-    from ..utils import create_logs
-except ImportError:
-    # Fallback logging function
-    def create_logs(log_id, source, message, status="info"):
-        print(f"[{status.upper()}] {source}: {message}")
+from configs.configs import create_logs
 
 
 from .spike_removal import Gaussian, MedianDespike
 from .calibration import WavenumberCalibration, IntensityCalibration
-from .normalization import SNV, MSC, MovingAverage
+from .normalization import SNV, MSC, MovingAverage, Vector
 from .baseline import MultiScaleConv1D
 from .derivatives import Derivative
 from .advanced_normalization import (

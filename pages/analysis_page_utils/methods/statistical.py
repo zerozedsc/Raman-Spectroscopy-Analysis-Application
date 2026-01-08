@@ -5,7 +5,9 @@ This module implements statistical analysis methods for Raman spectra including
 spectral comparison, peak analysis, correlation analysis, and ANOVA.
 """
 
-import logging
+import traceback
+
+from configs.configs import create_logs
 
 import numpy as np
 import pandas as pd
@@ -15,9 +17,6 @@ from matplotlib.figure import Figure
 from scipy import stats
 from scipy.signal import find_peaks
 from sklearn.preprocessing import normalize
-
-
-logger = logging.getLogger(__name__)
 
 
 def perform_spectral_comparison(
@@ -239,14 +238,26 @@ def perform_peak_analysis(
         if os.path.exists(peaks_json_path):
             with open(peaks_json_path, "r", encoding="utf-8") as f:
                 raman_peaks_data = json.load(f)
-            logger.debug(
-                "Loaded %s peak assignments from raman_peaks.json",
-                len(raman_peaks_data),
+            create_logs(
+                __name__,
+                __file__,
+                f"Loaded {len(raman_peaks_data)} peak assignments from raman_peaks.json",
+                status="debug",
             )
         else:
-            logger.warning("raman_peaks.json not found at %s", peaks_json_path)
+            create_logs(
+                __name__,
+                __file__,
+                f"raman_peaks.json not found at {peaks_json_path}",
+                status="warning",
+            )
     except Exception as e:
-        logger.exception("Error loading raman_peaks.json")
+        create_logs(
+            __name__,
+            __file__,
+            f"Error loading raman_peaks.json: {e}\n\n{traceback.format_exc()}",
+            status="error",
+        )
 
     # Use first dataset for mean spectrum
     dataset_name = list(dataset_data.keys())[0]
@@ -277,11 +288,14 @@ def perform_peak_analysis(
     top_peaks = peaks[sorted_indices]
     top_prominences = prominences[sorted_indices]
 
-    print(
-        f"[DEBUG] Peak detection: Found {len(peaks)} total peaks, showing top {len(top_peaks)} peaks"
+    create_logs(
+        __name__,
+        __file__,
+        f"Peak detection: Found {len(peaks)} total peaks, showing top {len(top_peaks)} peaks",
+        status="debug",
     )
-    print(f"[DEBUG] top_n_peaks parameter: {top_n_peaks}")
-    print(f"[DEBUG] Actual peaks shown: {len(top_peaks)}")
+    create_logs(__name__, __file__, f"top_n_peaks parameter: {top_n_peaks}", status="debug")
+    create_logs(__name__, __file__, f"Actual peaks shown: {len(top_peaks)}", status="debug")
 
     # Helper function to find closest peak assignment
     def find_peak_assignment(wavenumber: float, tolerance: float = 10.0) -> str:
@@ -336,8 +350,11 @@ def perform_peak_analysis(
     )
 
     # Annotate ALL peaks with wavenumber AND component assignment labels
-    print(
-        f"[DEBUG] Adding wavenumber + component annotations for {len(top_peaks)} peaks"
+    create_logs(
+        __name__,
+        __file__,
+        f"Adding wavenumber + component annotations for {len(top_peaks)} peaks",
+        status="debug",
     )
     for i, peak_idx in enumerate(top_peaks):
         wavenumber = wavenumbers[peak_idx]
@@ -380,12 +397,18 @@ def perform_peak_analysis(
         )
 
         if assignment:
-            print(
-                f"[DEBUG] Peak {i+1}/{len(top_peaks)}: {wavenumber:.0f} cm⁻¹ → {assignment[:30]}"
+            create_logs(
+                __name__,
+                __file__,
+                f"Peak {i+1}/{len(top_peaks)}: {wavenumber:.0f} cm⁻¹ -> {assignment[:30]}",
+                status="debug",
             )
         else:
-            print(
-                f"[DEBUG] Peak {i+1}/{len(top_peaks)}: {wavenumber:.0f} cm⁻¹ (no assignment found)"
+            create_logs(
+                __name__,
+                __file__,
+                f"Peak {i+1}/{len(top_peaks)}: {wavenumber:.0f} cm⁻¹ (no assignment found)",
+                status="debug",
             )
 
     ax1.set_xlabel("Wavenumber (cm⁻¹)", fontsize=12)

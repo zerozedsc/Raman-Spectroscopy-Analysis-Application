@@ -5,6 +5,7 @@ Dramatically improves startup time for packaged executable
 
 import sys
 import os
+import argparse
 
 # Early imports - only absolute essentials
 from PySide6.QtWidgets import QApplication
@@ -13,6 +14,30 @@ from PySide6.QtGui import QFontDatabase
 
 # Import splash screen (lightweight)
 from splash_screen import create_splash
+
+
+def parse_arguments():
+    """Parse command-line arguments for application configuration."""
+    parser = argparse.ArgumentParser(
+        description="Raman Spectroscopy Analysis Application"
+    )
+    
+    # ✅ PRODUCTION FIX: Default to False for portable/installer builds
+    # Developers can still use --debug true when running from source
+    # Users of portable/installer get clean production mode by default
+    parser.add_argument(
+        "--debug",
+        type=lambda x: x.lower() == "true",
+        default=False,  # Changed from True to False for production mode
+        help="Enable debug mode (default: False). Use --debug true for development."
+    )
+    parser.add_argument(
+        "--lang",
+        type=str,
+        default="en",
+        help="Language code (en, ja). Default: en"
+    )
+    return parser.parse_args()
 
 
 def lazy_import_modules(splash):
@@ -143,6 +168,13 @@ class MainWindow:
 
 def main():
     """Main application entry point with optimized loading."""
+    
+    # Parse command-line arguments FIRST (before any other imports)
+    args = parse_arguments()
+    
+    # Set global DEBUG mode early (before creating logs)
+    import configs.configs as cfg
+    cfg.set_debug_mode(args.debug)
 
     # Create QApplication first (required for splash)
     app = QApplication(sys.argv)
@@ -179,6 +211,10 @@ def main():
     # Delay splash close slightly for smooth transition
     QTimer.singleShot(500, splash.close)
     QTimer.singleShot(300, window.show)
+    
+    # Focus and raise the window to bring it to front (after showing)
+    QTimer.singleShot(600, lambda: window.window.raise_())
+    QTimer.singleShot(600, lambda: window.window.activateWindow())
 
     return app.exec()
 

@@ -1,7 +1,7 @@
 import sys
 import os
 import json
-import logging
+
 import pandas as pd
 from PySide6.QtWidgets import (
     QApplication,
@@ -31,12 +31,12 @@ from PySide6.QtCore import Qt, Signal, QUrl, QSize, QThread
 from PySide6.QtGui import QIcon
 
 from functions.data_loader import load_data_from_path, load_metadata_from_json
+from configs.configs import create_logs
 from utils import LOCALIZE, PROJECT_MANAGER, CONFIGS, RAMAN_DATA
 from components.widgets.matplotlib_widget import MatplotlibWidget, plot_spectra
 from components.widgets.icons import get_icon_path, load_icon
 
-# Logger for data package page
-logger = logging.getLogger("DataPackagePage")
+
 
 
 class BatchImportProgressDialog(QDialog):
@@ -729,14 +729,39 @@ class DataPackagePage(QWidget):
 
         # Defensive logging for debugging frozen exe issues
         if not meta_structure:
-            logger.error("⚠ metadata_structure is empty or missing from CONFIGS!")
-            logger.error(f"CONFIGS keys: {list(CONFIGS.keys())}")
-            logger.error(f"Frozen mode: {getattr(sys, 'frozen', False)}")
+            create_logs(
+                "DataPackagePage",
+                "data_package_page",
+                "metadata_structure is empty or missing from CONFIGS!",
+                status="error",
+            )
+            create_logs(
+                "DataPackagePage",
+                "data_package_page",
+                f"CONFIGS keys: {list(CONFIGS.keys())}",
+                status="error",
+            )
+            create_logs(
+                "DataPackagePage",
+                "data_package_page",
+                f"Frozen mode: {getattr(sys, 'frozen', False)}",
+                status="error",
+            )
             if getattr(sys, "frozen", False):
-                logger.error(f"_MEIPASS path: {getattr(sys, '_MEIPASS', 'NOT_SET')}")
+                create_logs(
+                    "DataPackagePage",
+                    "data_package_page",
+                    f"_MEIPASS path: {getattr(sys, '_MEIPASS', 'NOT_SET')}",
+                    status="error",
+                )
             return
 
-        logger.info(f"Loading metadata structure with {len(meta_structure)} tabs")
+        create_logs(
+            "DataPackagePage",
+            "data_package_page",
+            f"Loading metadata structure with {len(meta_structure)} tabs",
+            status="info",
+        )
 
         for tab_key, fields in meta_structure.items():
             tab_widget = QWidget()
@@ -761,7 +786,12 @@ class DataPackagePage(QWidget):
                 row += 1
             tab_layout.setRowStretch(row, 1)
 
-        logger.info(f"✓ Successfully created {self.meta_tabs.count()} metadata tabs")
+        create_logs(
+            "DataPackagePage",
+            "data_package_page",
+            f"Successfully created {self.meta_tabs.count()} metadata tabs",
+            status="info",
+        )
 
     def _connect_signals(self):
         self.preview_button.clicked.connect(self.handle_preview_data)

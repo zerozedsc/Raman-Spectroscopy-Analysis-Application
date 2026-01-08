@@ -1,5 +1,5 @@
 {
-    "language": "ja",
+    "language": "en",
     "metadata_structure": {
         "sample": {
             "patient_id": {
@@ -78,5 +78,5 @@
             }
         }
     },
-    "theme": "light"
+    "theme": "dark"
 }

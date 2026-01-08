@@ -34,11 +34,14 @@ Version: 2.0
 
 import sys
 import os
+import traceback
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 
 import matplotlib.pyplot as plt
+
+from configs.configs import create_logs
 
 from PySide6.QtWidgets import (
     QWidget,
@@ -189,6 +192,50 @@ class AnalysisPage(QWidget):
         # Show startup view initially
         self._show_startup_view()
 
+    def clear_project_data(self):
+        """
+        Clear all analysis data and reset to startup view.
+        Called when switching projects or returning to home.
+        """
+        create_logs(
+            "clear_project_data",
+            "analysis_page",
+            "Clearing all analysis data and resetting to startup view",
+            "info",
+        )
+        
+        # Cancel any running analysis
+        if self.analysis_thread and self.analysis_thread.isRunning():
+            self.analysis_thread.cancel()
+            self.analysis_thread.wait()
+        
+        # Reset state variables
+        self.current_view = "startup"
+        self.current_category = None
+        self.current_method_key = None
+        self.current_result = None
+        self.analysis_history = []
+        
+        # Clear sidebar
+        if hasattr(self, "sidebar_widget"):
+            self.sidebar_widget.history_list.clear()
+        
+        # Remove method view if it exists
+        if self.method_view:
+            self.view_stack.removeWidget(self.method_view)
+            self.method_view.deleteLater()
+            self.method_view = None
+        
+        # Show startup view
+        self._show_startup_view()
+        
+        create_logs(
+            "clear_project_data",
+            "analysis_page",
+            "Successfully cleared analysis data",
+            "info",
+        )
+
     def _show_startup_view(self):
         """Switch to startup view showing method cards."""
         self.current_view = "startup"
@@ -220,6 +267,13 @@ class AnalysisPage(QWidget):
         # Get available datasets - RAMAN_DATA is a dict, get names from keys
         dataset_names = list(self.raman_data.keys()) if self.raman_data else []
         if not dataset_names:
+            create_logs(
+                "_show_method_view",
+                "analysis_page",
+                "No datasets available for analysis.",
+                "warning",
+            )
+
             QMessageBox.warning(
                 self,
                 self.localize("ANALYSIS_PAGE.no_datasets_title"),
@@ -282,6 +336,13 @@ class AnalysisPage(QWidget):
         if isinstance(dataset_selection, dict):
             # Group mode: {group_label: [dataset_names]}
             if not dataset_selection:
+                create_logs(
+                    "_run_analysis",
+                    "analysis_page",
+                    "No groups defined in dataset selection",
+                    "warning",
+                )
+
                 QMessageBox.warning(
                     self,
                     self.localize("ANALYSIS_PAGE.validation_error_title"),
@@ -303,16 +364,30 @@ class AnalysisPage(QWidget):
         elif isinstance(dataset_selection, list):
             selected_datasets = dataset_selection
         else:
+            create_logs(
+                "_run_analysis",
+                "analysis_page",
+                "Invalid dataset selection format",
+                "error",
+            )
+
             QMessageBox.critical(
                 self,
                 self.localize("ANALYSIS_PAGE.error_title"),
-                "Invalid dataset selection format",
+                self.localize("ANALYSIS_PAGE.invalid_dataset_selection_format"),
             )
             return
 
         # Validate number of datasets selected
         num_selected = len(selected_datasets)
         if num_selected < min_datasets:
+            create_logs(
+                "_run_analysis",
+                "analysis_page",
+                f"Insufficient datasets selected: {num_selected} (min {min_datasets})",
+                "warning",
+            )
+
             QMessageBox.warning(
                 self,
                 self.localize("ANALYSIS_PAGE.validation_error_title"),
@@ -325,6 +400,13 @@ class AnalysisPage(QWidget):
             return
 
         if max_datasets is not None and num_selected > max_datasets:
+            create_logs(
+                "_run_analysis",
+                "analysis_page",
+                f"Too many datasets selected: {num_selected} (max {max_datasets})",
+                "warning",
+            )
+
             QMessageBox.warning(
                 self,
                 self.localize("ANALYSIS_PAGE.validation_error_title"),
@@ -347,6 +429,13 @@ class AnalysisPage(QWidget):
                 dataset_data[name] = dataset
 
         if missing_datasets:
+            create_logs(
+                "_run_analysis",
+                "analysis_page",
+                f"Datasets not found: {', '.join(missing_datasets)}",
+                "error",
+            )
+
             QMessageBox.critical(
                 self,
                 self.localize("ANALYSIS_PAGE.error_title"),
@@ -420,9 +509,13 @@ class AnalysisPage(QWidget):
         # Store result
         self.current_result = result
 
+        # Get method name from ANALYSIS_METHODS
+        method_info = ANALYSIS_METHODS.get(category, {}).get(method_key, {})
+        method_name = method_info.get("name", method_key)
+
         # Populate results tabs
         populate_results_tabs(
-            self.method_view.results_panel, result, self.localize, MatplotlibWidget
+            self.method_view.results_panel, result, self.localize, MatplotlibWidget, method_name
         )
 
         # P0-2: Limit history size to prevent memory leaks from figure storage
@@ -455,7 +548,7 @@ class AnalysisPage(QWidget):
         # Emit signal
         self.analysis_finished.emit(category, method_key, result)
 
-    def _on_analysis_error(self, error_msg: str):
+    def _on_analysis_error(self, error_msg: str, traceback: str = ""):
         """
         Handle analysis errors.
 
@@ -471,12 +564,21 @@ class AnalysisPage(QWidget):
             if hasattr(self.method_view.results_panel, 'hide_loading'):
                 self.method_view.results_panel.hide_loading()
         
+        # log error
+        create_logs(
+            "_on_analysis_error",
+            "analysis_page",
+            f"Analysis error: {error_msg} \n {traceback}",
+            "error",
+        )
+
         # Show error dialog
         QMessageBox.critical(
             self,
             self.localize("ANALYSIS_PAGE.error_title"),
             self.localize("ANALYSIS_PAGE.analysis_error", error=error_msg),
         )
+        
 
         # Emit signal
         self.error_occurred.emit(error_msg)
@@ -564,6 +666,7 @@ class AnalysisPage(QWidget):
                     history_item.result,
                     self.localize,
                     MatplotlibWidget,
+                    history_item.method_name,  # ✅ Pass method name for consistent behavior
                 )
                 self.current_result = history_item.result
 
@@ -702,6 +805,13 @@ class AnalysisPage(QWidget):
     def _export_data_multi_format(self):
         """Export current data table in multiple formats (CSV, Excel, JSON, etc.)."""
         if not self.current_result or self.current_result.data_table is None:
+            create_logs(
+                "_export_data_multi_format",
+                "analysis_page",
+                "No data table available for export.",
+                "warning",
+            )
+
             QMessageBox.warning(
                 self,
                 self.localize("ANALYSIS_PAGE.export_error_title"),
@@ -717,6 +827,13 @@ class AnalysisPage(QWidget):
     def export_full_report(self):
         """Export complete analysis report (public method for external calls)."""
         if not self.current_result:
+            create_logs(
+                "_export_full_report",
+                "analysis_page",
+                "No analysis results available for report export.",
+                "warning",
+            )
+            
             QMessageBox.warning(
                 self,
                 self.localize("ANALYSIS_PAGE.warning_title"),
@@ -753,6 +870,13 @@ class AnalysisPage(QWidget):
     def save_to_project(self):
         """Save current analysis to project folder (public method)."""
         if not self.current_result:
+            create_logs(
+                "_save_to_project",
+                "analysis_page",
+                "No analysis results available to save to project.",
+                "warning",
+            )
+
             QMessageBox.warning(
                 self,
                 self.localize("ANALYSIS_PAGE.warning_title"),

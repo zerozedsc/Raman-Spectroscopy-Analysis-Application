@@ -44,8 +44,38 @@ from datetime import datetime
 import importlib.util
 import importlib.metadata
 
+def _try_import_create_logs():
+    """Best-effort import of create_logs.
 
-logger = logging.getLogger(__name__)
+    This script can be run standalone; if the project root isn't on sys.path,
+    we fall back to stdlib logging.
+    """
+    try:
+        from configs.configs import create_logs  # type: ignore
+
+        return create_logs
+    except Exception:
+        return None
+
+
+_CREATE_LOGS = _try_import_create_logs()
+
+
+def _log(status: str, message: str):
+    """Log to app logger (if available) and to stdlib logging."""
+    if _CREATE_LOGS is not None:
+        try:
+            _CREATE_LOGS(__name__, __file__, message, status=status)
+        except Exception:
+            # Never let logging break build config generation.
+            pass
+
+    level = status.lower()
+    if level == "warn":
+        level = "warning"
+
+    log_fn = getattr(logging, level, logging.info)
+    log_fn(message)
 
 
 class BuildConfigGenerator:
@@ -80,7 +110,7 @@ class BuildConfigGenerator:
             for dist in importlib.metadata.distributions():
                 packages[dist.name] = dist.version
         except Exception as e:
-            logger.warning("Could not scan all packages: %s", e)
+            _log("warning", f"Could not scan all packages: {e}")
 
         return packages
 

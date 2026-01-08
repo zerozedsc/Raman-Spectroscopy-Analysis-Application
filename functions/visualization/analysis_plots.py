@@ -134,15 +134,22 @@ def create_spectral_heatmap(
 
         # Plot dendrograms
         if cluster_rows and show_dendrograms:
-            dendrogram(
+            # ✅ USER FIX: Add meaningful labels (dataset names) and colored branches
+            # Extract just dataset names (remove spectrum numbers) for cleaner labels
+            dataset_only_labels = [label.rsplit('_', 1)[0] if '_' in label else label for label in labels_ordered]
+            
+            # Create dendrogram with colored branches based on clustering
+            dend_result = dendrogram(
                 row_linkage,
                 ax=ax_dend_row,
                 orientation="left",
-                no_labels=True,
-                color_threshold=0,
+                labels=dataset_only_labels,  # ✅ Show actual dataset names
+                color_threshold=row_linkage[:, 2].max() * 0.7,  # Color clusters
+                above_threshold_color='#808080',  # Gray for high-level branches
             )
             ax_dend_row.set_xticks([])
-            ax_dend_row.set_yticks([])
+            # ✅ Keep y-axis labels visible so users can see dataset names
+            ax_dend_row.tick_params(axis='y', labelsize=8)  # Smaller font for many labels
             ax_dend_row.spines["top"].set_visible(False)
             ax_dend_row.spines["right"].set_visible(False)
             ax_dend_row.spines["bottom"].set_visible(False)
@@ -177,18 +184,32 @@ def create_spectral_heatmap(
     # Labels
     ax_heatmap.set_xlabel("Wavenumber Index", fontsize=12)
     ax_heatmap.set_ylabel("Spectrum Index", fontsize=12)
-    ax_heatmap.set_title("Spectral Heatmap", fontsize=14, fontweight="bold")
+    # ✅ USER FIX: Add more descriptive title explaining what hierarchical clustering shows
+    title = "Hierarchical Clustering of Raman Spectra"
+    if cluster_rows:
+        title += " (Rows: Spectra Similarity)"
+    if cluster_cols:
+        title += " + (Cols: Wavenumber Patterns)"
+    ax_heatmap.set_title(title, fontsize=14, fontweight="bold", pad=15)
 
     if progress_callback:
         progress_callback(90)
 
-    summary = f"Heatmap created with {data_matrix.shape[0]} spectra.\n"
+    # Summary text
+    summary = f"Spectral heatmap created from {len(dataset_data)} dataset(s).\n"
+    summary += f"Matrix: {data_matrix.shape[0]} spectra × {data_matrix.shape[1]} wavenumbers.\n"
     if cluster_rows:
-        summary += "Rows clustered. "
+        summary += "✓ Rows (spectra) clustered by similarity.\n"
     if cluster_cols:
-        summary += "Columns clustered. "
+        summary += "✓ Columns (wavenumbers) clustered by pattern.\n"
     if normalize:
-        summary += "Data normalized."
+        summary += "✓ Data normalized (0-1 range per spectrum).\n"
+    
+    # ✅ USER FIX: Add explanation of what hierarchical clustering shows
+    summary += "\n💡 Dendrogram Interpretation:\n"
+    summary += "  • Similar colors = grouped by clustering algorithm\n"
+    summary += "  • Branch height = dissimilarity measure\n"
+    summary += "  • Labels show dataset names for identification\n"
 
     return {
         "primary_figure": fig,
@@ -512,7 +533,7 @@ def create_correlation_heatmap(
         dataset_data: Dictionary of {dataset_name: DataFrame}
         params: Analysis parameters
             - method: Correlation method ('pearson', 'spearman') (default 'pearson')
-            - colormap: Colormap (default 'RdBu_r')
+            - colormap: Colormap (default 'coolwarm')
             - cluster: Apply clustering (default True)
         progress_callback: Optional callback for progress updates
 
@@ -524,7 +545,7 @@ def create_correlation_heatmap(
 
     # Get parameters
     method = params.get("method", "pearson")
-    colormap = params.get("colormap", "RdBu_r")
+    colormap = params.get("colormap", "coolwarm")
     cluster = params.get("cluster", True)
 
     # P1-4 FIX: Handle multi-dataset input properly
@@ -561,8 +582,13 @@ def create_correlation_heatmap(
     else:
         corr_matrix_ordered = corr_matrix
 
-    # Create figure
-    fig, ax = plt.subplots(figsize=(10, 9))
+    # ✅ FIX: Dynamic figure sizing based on matrix size (user requested tight fit)
+    n_features = corr_matrix_ordered.shape[0]
+    # Scale figure size with matrix size, but cap at reasonable limits
+    fig_size = min(12, max(8, n_features * 0.05))  # Between 8 and 12 inches
+    
+    # Create figure with dynamic sizing
+    fig, ax = plt.subplots(figsize=(fig_size, fig_size * 0.9))
 
     im = ax.imshow(
         corr_matrix_ordered.values, cmap=colormap, aspect="auto", vmin=-1, vmax=1
