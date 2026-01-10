@@ -266,8 +266,6 @@ def add_confidence_ellipse(
     """
     Add a confidence ellipse to a matplotlib axis using DUAL-LAYER PATTERN.
 
-    ✅ FIX #3 (P0): Dual-layer ellipses for better visibility
-    Consensus from 6 AI analyses: α=0.08 fill + α=0.85 edge prevents dark overlaps
 
     For Raman spectroscopy Chemometrics, 95% confidence ellipses (n_std=1.96) are critical
     for proving statistical group separation in PCA plots.

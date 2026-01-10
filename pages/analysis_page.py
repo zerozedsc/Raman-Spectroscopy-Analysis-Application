@@ -27,7 +27,7 @@ UI Components (Modularized):
 - result.py: Result data structures
 - registry.py: Method definitions and parameters
 
-Author: Enhanced by AI Assistant
+Author: MUHAMMAD HELMI BIN ROZAIN
 Date: 2024-12-18
 Version: 2.0
 """

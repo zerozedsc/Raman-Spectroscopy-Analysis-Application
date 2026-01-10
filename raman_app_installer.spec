@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
 Optimized Spec File with Splash Screen
-Generated: 2026-01-07 19:43:34
+Created: 2026-01-07 19:43:34
 """
 
 from PyInstaller.utils.hooks import collect_submodules, collect_data_files

@@ -304,7 +304,7 @@ Analysis Page
 The preprocessing pipeline allows you to chain multiple processing methods together, with real-time preview and parameter adjustment.
 
 <div align="center">
-  <img src="images/preprocessing-pipeline-detail.png" alt="Preprocessing pipeline" width="750"/>
+  <img src="images/preprocessing-pipeline.png" alt="Preprocessing pipeline" width="750"/>
 </div>
 
 #### Available Categories

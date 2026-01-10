@@ -35,7 +35,7 @@
 本ラマン分光分析アプリケーションは、ラマン分光法を用いた**リアルタイム分類および疾患検出**のために設計された包括的なデスクトップソフトウェアです。本プロジェクトは、**富山大学 臨床フォトニクスおよび情報工学研究室**の指導の下、**卒業研究**として開発されました。
 
 <div align="center">
-  <img src="images/app-overview.png" alt="アプリケーション概要" width="800"/>
+  <img src="images/app-main-interface.png" alt="アプリケーション概要" width="800"/>
 </div>
 
 ### 研究背景
@@ -86,8 +86,8 @@
 **研究室:** [臨床フォトニクスおよび情報工学研究室](http://www3.u-toyama.ac.jp/medphoto/)
 
 **指導教員:**
-- 大嶋　佑介 先生 (Yusuke Oshima)
-- 竹谷　皓規 先生 (Hironori Taketani)
+- 大嶋　佑介 先生 (Oshima Yusuke)
+- 竹谷　皓規 先生 (Taketani Akinori)
 
 ### 主な機能
 
@@ -304,7 +304,7 @@ python main.py
 複数の処理手法を連鎖させ、リアルタイムプレビューとパラメータ調整が可能なパイプライン機能です。
 
 <div align="center">
-  <img src="images/preprocessing-pipeline-detail.png" alt="前処理パイプライン" width="750"/>
+  <img src="images/preprocessing-pipeline.png" alt="前処理パイプライン" width="750"/>
 </div>
 
 #### 利用可能なカテゴリ
@@ -390,7 +390,7 @@ python main.py
 
 #### 統計解析
 
-**ANOVA (分散分析)**
+**ANOVA (分散分析) (未完成)**
 - 一元配置および二元配置分散分析
 - 事後検定 (Tukey HSD)
 - 効果量の計算
@@ -400,7 +400,7 @@ python main.py
 - ヒートマップ可視化
 - 有意性検定
 
-**マン・ホイットニーのU検定**
+**マン・ホイットニーのU検定　(未完成)**
 - ノンパラメトリック比較
 - 効果量 (Cohen's d)
 - 信頼区間
@@ -711,8 +711,8 @@ University of Toyama
 - 分光装置へのアクセスと研究協力
 
 **指導教員:**
-- **大嶋　佑介 先生** (Yusuke Oshima) - 技術指導およびプロジェクト監督
-- **竹谷　皓規 先生** (Hironori Taketani) - 臨床的知見および検証
+- **大嶋　佑介 先生** (Oshima Yusuke) - 技術指導およびプロジェクト監督
+- **竹谷　皓規 先生** (Taketani Akinori) - 臨床的知見および検証
 
 ---
 

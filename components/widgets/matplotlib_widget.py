@@ -189,8 +189,6 @@ class MatplotlibWidget(QWidget):
         """
         Override resize event to reapply tight_layout dynamically.
 
-        ✅ FIX #4 (P0): Automatic layout recalculation on window resize
-        Implements recommendation from all 6 AI analyses.
         """
         from PySide6.QtGui import QResizeEvent
 
@@ -515,9 +513,6 @@ class MatplotlibWidget(QWidget):
                 for patch in ax.patches:
                     # Get patch properties
                     if isinstance(patch, Ellipse):
-                        # ✅ FIX #3 (P0): DUAL-LAYER ELLIPSE PATTERN
-                        # Consensus from 6 AI analyses: α=0.08 fill + α=0.85 edge prevents dark overlaps
-                        # This preserves the dual-layer pattern created in add_confidence_ellipse()
 
                         original_alpha = patch.get_alpha()
                         original_facecolor = patch.get_facecolor()
@@ -820,8 +815,6 @@ class MatplotlibWidget(QWidget):
             if not images:
                 new_ax.grid(True, which="both", linestyle="--", linewidth=0.5)
 
-        # ✅ FIX #1 (P0): Apply tight_layout BEFORE draw (not after)
-        # Consensus from 6 AI analyses: tight_layout must be called after ALL artists added
         try:
             self.figure.tight_layout(pad=1.2, rect=[0, 0.03, 1, 0.95])
         except (ValueError, UserWarning, RuntimeWarning) as e:
