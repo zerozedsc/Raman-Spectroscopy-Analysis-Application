@@ -228,38 +228,76 @@ def load_config(file_path: str = "configs/app_configs.json") -> dict:
     Returns:
         dict: Contents of the JSON file.
     """
-    # Support frozen mode
+    """Load app configuration.
+
+    Source of truth:
+    - Defaults: bundled JSON (read-only in frozen builds)
+    - User overrides: per-user/portable INI (language/theme)
+
+    This fixes a long-standing issue where frozen builds read configs from
+    `sys._MEIPASS` (non-writable) while the Settings dialog wrote elsewhere.
+    """
+
+    # Resolve default JSON location (supports frozen mode)
+    default_json_path = file_path
     if getattr(sys, "frozen", False):
-        # Running in PyInstaller bundle
-        file_path = os.path.join(sys._MEIPASS, file_path)
+        default_json_path = os.path.join(sys._MEIPASS, file_path)
 
-    if not os.path.exists(file_path):
-        create_logs(
-            "ConfigLoader",
-            "config",
-            f"Configuration file not found: {file_path}",
-            status="error",
-        )
-        return {}
+    config: dict = {}
 
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            config = json.load(f)
+    if os.path.exists(default_json_path):
+        try:
+            with open(default_json_path, "r", encoding="utf-8") as f:
+                config = json.load(f)
+                create_logs(
+                    "ConfigLoader",
+                    "config",
+                    f"Loaded default configuration from {default_json_path}",
+                    status="info",
+                )
+        except json.JSONDecodeError as e:
             create_logs(
                 "ConfigLoader",
                 "config",
-                f"Successfully loaded configuration from {file_path}",
-                status="info",
+                f"Error decoding JSON from {default_json_path}: {e}",
+                status="error",
             )
-            return config
-    except json.JSONDecodeError as e:
+            config = {}
+        except Exception as e:
+            create_logs(
+                "ConfigLoader",
+                "config",
+                f"Error reading default configuration from {default_json_path}: {e}",
+                status="error",
+            )
+            config = {}
+    else:
+        # Defaults missing should not crash the app; return a minimal baseline.
         create_logs(
             "ConfigLoader",
             "config",
-            f"Error decoding JSON from {file_path}: {e}",
-            status="error",
+            f"Default configuration file not found: {default_json_path}",
+            status="warning",
         )
-        return {}
+        config = {}
+
+    # Overlay user settings from INI (portable/user dir)
+    try:
+        from configs.user_settings import load_user_settings
+
+        user = load_user_settings(defaults=config)
+        config["language"] = user.language
+        config["theme"] = user.theme
+    except Exception as e:
+        # Keep JSON defaults if INI load fails
+        create_logs(
+            "ConfigLoader",
+            "config",
+            f"Failed to load INI user settings: {e}",
+            status="warning",
+        )
+
+    return config
 
 
 def create_logs(

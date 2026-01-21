@@ -18,9 +18,281 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import ramanspy as rp
 from sklearn.metrics import confusion_matrix
+from sklearn.metrics import roc_curve, auc
 from sklearn.manifold import TSNE
 from typing import List, Tuple, Dict, Union
 from functions.configs import console_log
+
+
+def create_confusion_matrix_figure(
+    *,
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    class_labels: List[str],
+    title: str = "Confusion Matrix",
+    normalize: bool = True,
+    figsize: tuple = (6, 5),
+    cmap: str = "Blues",
+) -> plt.Figure:
+    """Create a confusion matrix heatmap figure for embedding in Qt.
+
+    Unlike confusion_matrix_heatmap(), this function does not call plt.show().
+    """
+    if len(y_true) != len(y_pred):
+        raise ValueError("y_true and y_pred must have the same length")
+
+    cm = confusion_matrix(y_true, y_pred, labels=class_labels)
+    total = float(np.sum(cm))
+    acc = float(np.trace(cm) / total) if total > 0 else 0.0
+    if normalize:
+        with np.errstate(all="ignore"):
+            cm_display = cm.astype(float) / cm.sum(axis=1, keepdims=True)
+        cm_display = np.nan_to_num(cm_display)
+        annot = np.empty_like(cm_display, dtype=object)
+        for i in range(cm.shape[0]):
+            for j in range(cm.shape[1]):
+                annot[i, j] = f"{cm_display[i, j]:.2f}\n({cm[i, j]})"
+    else:
+        cm_display = cm
+        annot = cm
+
+    # NOTE:
+    # We intentionally avoid seaborn.heatmap() here.
+    # In the Qt app we render via MatplotlibWidget which historically copies
+    # Axes elements across Figures. Seaborn uses QuadMesh which can be fragile
+    # to copy. Using imshow + text annotations is robust.
+
+    fig = plt.Figure(figsize=figsize)
+    ax = fig.add_subplot(111)
+
+    # Use stable color scaling so the heatmap is comparable across runs.
+    if normalize:
+        vmin, vmax = 0.0, 1.0
+    else:
+        vmin, vmax = 0.0, float(np.max(cm)) if np.max(cm) > 0 else 1.0
+
+    im = ax.imshow(cm_display, cmap=cmap, interpolation="nearest", vmin=vmin, vmax=vmax)
+    ax.set_aspect("equal")
+
+    # Ticks/labels
+    ax.set_xticks(np.arange(len(class_labels)))
+    ax.set_yticks(np.arange(len(class_labels)))
+    ax.set_xticklabels(class_labels)
+    ax.set_yticklabels(class_labels)
+    ax.set_xlabel("Predicted label")
+    ax.set_ylabel("True label")
+    # Add more context in the title (matches typical "reference" confusion matrix layouts)
+    norm_suffix = " (normalized)" if normalize else ""
+    ax.set_title(f"{title}{norm_suffix}\nAccuracy: {acc:.2%}")
+    # Keep x tick labels readable
+    ax.tick_params(axis="x", rotation=45)
+    ax.tick_params(axis="y", rotation=0)
+    try:
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
+    except Exception:
+        pass
+
+    # Annotate cells
+    for i in range(cm_display.shape[0]):
+        for j in range(cm_display.shape[1]):
+            txt = annot[i, j]
+            # Contrast-aware text color
+            try:
+                v = float(cm_display[i, j])
+            except Exception:
+                v = 0.0
+            color = "white" if v >= 0.5 else "black"
+            ax.text(
+                j,
+                i,
+                txt,
+                ha="center",
+                va="center",
+                fontsize=9,
+                color=color,
+            )
+
+    fig.tight_layout()
+    return fig
+
+
+def create_roc_curve_figure(
+    *,
+    y_true: np.ndarray,
+    y_score: np.ndarray,
+    class_labels: List[str],
+    title: str = "ROC Curve",
+    figsize: tuple = (6, 5),
+) -> plt.Figure:
+    """Create ROC curve figure.
+
+    For binary: y_score can be shape (n_samples,) or (n_samples, 2).
+    For multiclass: y_score must be shape (n_samples, n_classes) and a one-vs-rest
+    macro-average curve will be plotted.
+    """
+    fig = plt.Figure(figsize=figsize)
+    ax = fig.add_subplot(111)
+
+    # Map labels to integer indices
+    label_to_idx = {lab: i for i, lab in enumerate(class_labels)}
+    y_int = np.asarray([label_to_idx.get(str(v), -1) for v in y_true], dtype=int)
+    valid = y_int >= 0
+    if not np.all(valid):
+        y_int = y_int[valid]
+        y_score = np.asarray(y_score)[valid]
+
+    y_score = np.asarray(y_score)
+    if y_score.ndim == 2 and y_score.shape[1] == 2:
+        pos_score = y_score[:, 1]
+    else:
+        pos_score = y_score
+
+    if len(class_labels) == 2 and pos_score.ndim == 1:
+        fpr, tpr, _ = roc_curve(y_int, pos_score, pos_label=1)
+        roc_auc = auc(fpr, tpr)
+        ax.plot(fpr, tpr, label=f"AUC = {roc_auc:.3f}", linewidth=2)
+    else:
+        # One-vs-rest macro average
+        # Build one-hot true labels
+        n_classes = len(class_labels)
+        Y = np.zeros((y_int.shape[0], n_classes), dtype=int)
+        Y[np.arange(y_int.shape[0]), y_int] = 1
+        if y_score.ndim != 2 or y_score.shape[1] != n_classes:
+            raise ValueError("For multiclass ROC, y_score must be (n_samples, n_classes)")
+
+        fpr = dict()
+        tpr = dict()
+        roc_auc = dict()
+        for i in range(n_classes):
+            fpr[i], tpr[i], _ = roc_curve(Y[:, i], y_score[:, i])
+            roc_auc[i] = auc(fpr[i], tpr[i])
+            ax.plot(fpr[i], tpr[i], linewidth=1.5, label=f"{class_labels[i]} (AUC={roc_auc[i]:.3f})")
+
+    ax.plot([0, 1], [0, 1], "k--", linewidth=1)
+    ax.set_xlim(0.0, 1.0)
+    ax.set_ylim(0.0, 1.05)
+    ax.set_xlabel("False Positive Rate")
+    ax.set_ylabel("True Positive Rate")
+    ax.set_title(title)
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc="lower right")
+    fig.tight_layout()
+    return fig
+
+
+def create_prediction_distribution_figure(
+    *,
+    y_true: np.ndarray | None,
+    y_score: np.ndarray,
+    class_labels: List[str],
+    title: str = "Prediction Distribution",
+    figsize: tuple = (6, 5),
+    bins: int = 20,
+) -> plt.Figure:
+    """Create a histogram of predicted probabilities.
+
+    - Binary case: uses probability of positive class.
+      If y_true is provided, distributions are separated by true class.
+
+    - Multiclass case: plots a histogram for each class probability column.
+      This avoids Matplotlib's "one color per dataset" error and supports >2 groups.
+    """
+    fig = plt.Figure(figsize=figsize)
+    ax = fig.add_subplot(111)
+
+    y_score = np.asarray(y_score)
+
+    # Binary: pick positive class column
+    if y_score.ndim == 2 and y_score.shape[1] == 2:
+        score = y_score[:, 1]
+        if y_true is None or len(class_labels) != 2:
+            ax.hist(score, bins=bins, alpha=0.85, color="#1f77b4")
+        else:
+            # Split by true label
+            label_to_idx = {lab: i for i, lab in enumerate(class_labels)}
+            y_int = np.asarray([label_to_idx.get(str(v), -1) for v in y_true], dtype=int)
+            mask0 = y_int == 0
+            mask1 = y_int == 1
+            ax.hist(score[mask0], bins=bins, alpha=0.65, label=class_labels[0], color="#1f77b4")
+            ax.hist(score[mask1], bins=bins, alpha=0.65, label=class_labels[1], color="#ff7f0e")
+            ax.legend(loc="best")
+
+        ax.set_xlabel("Predicted probability")
+
+    # Multiclass: plot each class probability distribution
+    elif y_score.ndim == 2 and y_score.shape[1] >= 3:
+        n_classes = int(y_score.shape[1])
+        labels = list(class_labels)
+        if len(labels) != n_classes:
+            labels = [f"class_{i}" for i in range(n_classes)]
+        cmap = plt.get_cmap("tab10")
+        for i in range(n_classes):
+            color = cmap(i % 10)
+            ax.hist(
+                y_score[:, i],
+                bins=bins,
+                alpha=0.45,
+                label=str(labels[i]),
+                color=color,
+            )
+        ax.legend(loc="best")
+        ax.set_xlabel("Predicted probability (per class)")
+
+    # Fallback (e.g., 1D scores)
+    else:
+        score = y_score
+        ax.hist(score, bins=bins, alpha=0.85, color="#1f77b4")
+        ax.set_xlabel("Score")
+
+    ax.set_title(title)
+    ax.set_ylabel("Count")
+    ax.grid(True, alpha=0.25)
+    fig.tight_layout()
+    return fig
+
+
+def create_feature_importance_figure(
+    *,
+    feature_importances: np.ndarray,
+    wavenumbers: np.ndarray | None = None,
+    title: str = "Feature Importance",
+    figsize: tuple = (7, 4),
+    top_k: int | None = None,
+) -> plt.Figure:
+    """Plot feature importance as a spectrum-like line plot.
+
+    If wavenumbers are provided and match feature_importances length, they are used
+    as the x-axis.
+
+    If top_k is provided, will display only the top_k most important features as a stem plot.
+    """
+    fi = np.asarray(feature_importances, dtype=float)
+    fig = plt.Figure(figsize=figsize)
+    ax = fig.add_subplot(111)
+
+    if wavenumbers is not None:
+        x = np.asarray(wavenumbers, dtype=float)
+        if x.shape[0] != fi.shape[0]:
+            x = None
+    else:
+        x = None
+
+    if top_k is not None and top_k > 0:
+        idx = np.argsort(fi)[::-1][: int(top_k)]
+        idx_sorted = np.sort(idx)
+        x_plot = x[idx_sorted] if x is not None else idx_sorted
+        ax.stem(x_plot, fi[idx_sorted], basefmt=" ", linefmt="#28a745", markerfmt="o")
+        ax.set_xlabel("Wavenumber (cm⁻¹)" if x is not None else "Feature index")
+    else:
+        x_plot = x if x is not None else np.arange(fi.shape[0])
+        ax.plot(x_plot, fi, color="#28a745", linewidth=1.5)
+        ax.set_xlabel("Wavenumber (cm⁻¹)" if x is not None else "Feature index")
+
+    ax.set_ylabel("Importance")
+    ax.set_title(title)
+    ax.grid(True, alpha=0.25)
+    fig.tight_layout()
+    return fig
 
 
 def confusion_matrix_heatmap(

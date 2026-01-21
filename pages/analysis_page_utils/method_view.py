@@ -1362,6 +1362,24 @@ class DatasetSelectionWidget(QWidget):
             # PAGE 1: Group Tree
             self.group_manager = GroupTreeManager(self.dataset_names, self.localize)
 
+            # Load persisted groups (shared with ML) so Analysis grouped mode reflects them.
+            try:
+                saved_groups = PROJECT_MANAGER.get_analysis_groups()
+            except Exception:
+                saved_groups = None
+
+            if isinstance(saved_groups, dict) and saved_groups:
+                try:
+                    self.group_manager.set_groups(saved_groups)
+                except Exception:
+                    pass
+
+            # Persist edits (drag/drop, create, rename, delete) back into the project.
+            try:
+                self.group_manager.groups_changed.connect(self._persist_groups)
+            except Exception:
+                pass
+
             self.stack.addWidget(page_simple)
             self.stack.addWidget(self.group_manager)
             layout.addWidget(self.stack)
@@ -1451,6 +1469,13 @@ class DatasetSelectionWidget(QWidget):
             # Simple Mode
             items = self.simple_input.selectedItems()
             return [i.text() for i in items]
+
+    def _persist_groups(self, groups: dict):
+        try:
+            if isinstance(groups, dict):
+                PROJECT_MANAGER.set_analysis_groups(groups)
+        except Exception:
+            pass
 
 
 class ResultsPanel(QWidget):
@@ -1806,8 +1831,32 @@ class MethodView(QWidget):
         return self.results_panel
 
     def _handle_export_csv(self):
-        # Logic to handle export
-        pass
+        """Export the current analysis result table.
+
+        The ResultsPanel button lives inside MethodView, but the source of truth for
+        current results + export manager is AnalysisPage. We locate it via the parent
+        chain and delegate to its export method.
+        """
+        try:
+            parent = self.parent()
+            while parent is not None:
+                # Prefer the multi-format export (it provides user feedback dialogs)
+                if hasattr(parent, "_export_data_multi_format"):
+                    parent._export_data_multi_format()
+                    return
+                if hasattr(parent, "_export_csv"):
+                    parent._export_csv()
+                    return
+                parent = parent.parent()
+        except Exception:
+            parent = None
+
+        # Fallback: if we couldn't find AnalysisPage, show a warning (avoid silent no-op)
+        QMessageBox.warning(
+            self,
+            self.localize("ANALYSIS_PAGE.export_error_title"),
+            self.localize("ANALYSIS_PAGE.export_error").format("Export handler not found"),
+        )
 
 
 def populate_results_tabs(

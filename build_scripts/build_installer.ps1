@@ -145,6 +145,23 @@ try {
         Write-Status "ERROR: Required files missing!" 'Error'
         exit 1
     }
+
+    # ============== ICON GENERATION ==============
+    Write-Section "Icon Generation"
+    $IconScript = "build_scripts\generate_app_icon.py"
+    if (Test-Path $IconScript) {
+        Write-Status "Generating app-icon.ico from assets/icons/app-icon.svg..." 'Info'
+        & $PythonCmd $IconScript
+        if ($LASTEXITCODE -ne 0) {
+            Write-Status "WARNING: Icon generation failed (exit $LASTEXITCODE). Build will continue, but exe/installer icon may be missing." 'Warning'
+        }
+        else {
+            Write-Status "App icon generated successfully" 'Success'
+        }
+    }
+    else {
+        Write-Status "WARNING: Icon generation script not found: $IconScript" 'Warning'
+    }
     
     # ============== BUILD EXECUTABLE FOR INSTALLER ==============
     Write-Section "Building Executable (Installer Staging)"

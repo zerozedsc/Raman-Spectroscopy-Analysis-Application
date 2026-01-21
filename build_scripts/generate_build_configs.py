@@ -364,7 +364,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='assets/app_icon.ico' if os.path.exists('assets/app_icon.ico') else None,
+    icon='assets/icons/app-icon.ico' if os.path.exists('assets/icons/app-icon.ico') else None,
     *([] if splash is None else [splash, splash.binaries])
 )
 
@@ -428,8 +428,8 @@ RequestExecutionLevel admin
 
 ; Interface Configuration
 !define MUI_ABORTWARNING
-!define MUI_ICON "${{NSISDIR}}\\Contrib\\Graphics\\Icons\\modern-install.ico"
-!define MUI_UNICON "${{NSISDIR}}\\Contrib\\Graphics\\Icons\\modern-uninstall.ico"
+!define MUI_ICON "assets\\icons\\app-icon.ico"
+!define MUI_UNICON "assets\\icons\\app-icon.ico"
 
 ; Pages
 !insertmacro MUI_PAGE_LICENSE "${{NSISDIR}}\\Docs\\Modern UI\\License.txt"

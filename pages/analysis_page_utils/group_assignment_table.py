@@ -641,9 +641,9 @@ class GroupAssignmentTable(QWidget):
             "Step 1: Attempting to import MultiGroupCreationDialog...",
             status="debug",
         )
-        create_logs(__name__, __file__, "Import path: .multi_group_dialog", status="debug")
+        create_logs(__name__, __file__, "Import path: components.widgets.multi_group_dialog", status="debug")
         try:
-            from .multi_group_dialog import MultiGroupCreationDialog
+            from components.widgets.multi_group_dialog import MultiGroupCreationDialog
             create_logs(__name__, __file__, "MultiGroupCreationDialog imported successfully!", status="debug")
             create_logs(__name__, __file__, f"Class: {MultiGroupCreationDialog}", status="debug")
         except Exception as e:

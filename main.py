@@ -10,10 +10,26 @@ import argparse
 # Early imports - only absolute essentials
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QFontDatabase
+from PySide6.QtGui import QFontDatabase, QIcon
 
 # Import splash screen (lightweight)
 from splash_screen import create_splash
+
+
+def get_app_icon() -> QIcon:
+    """Resolve the main application icon (SVG source-of-truth)."""
+    try:
+        if getattr(sys, "frozen", False):
+            base_path = sys._MEIPASS
+        else:
+            base_path = os.path.dirname(os.path.abspath(__file__))
+
+        icon_path = os.path.join(base_path, "assets", "icons", "app-icon.svg")
+        if os.path.exists(icon_path):
+            return QIcon(icon_path)
+    except Exception:
+        pass
+    return QIcon()
 
 
 def parse_arguments():
@@ -102,6 +118,7 @@ class MainWindow:
 
         # Create actual window instance
         self.window = QMainWindow()
+        self.window.setWindowIcon(get_app_icon())
         self.window.setWindowTitle(LOCALIZE("MAIN_WINDOW.title"))
         self.window.resize(1440, 900)
         self.window.setMinimumHeight(600)
@@ -178,6 +195,9 @@ def main():
 
     # Create QApplication first (required for splash)
     app = QApplication(sys.argv)
+
+    # Set application icon early (taskbar/window icon)
+    app.setWindowIcon(get_app_icon())
 
     # Show splash screen immediately
     splash = create_splash()

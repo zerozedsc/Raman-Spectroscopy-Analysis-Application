@@ -1,5 +1,5 @@
 import sys
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QStackedWidget, QLabel
+from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QStackedWidget
 from PySide6.QtCore import Qt, Signal
 
 from components.app_tabs import AppTabBar
@@ -7,6 +7,7 @@ from pages.data_package_page import DataPackagePage
 from pages.preprocess_page import PreprocessPage
 from pages.analysis_page import AnalysisPage
 from pages.home_page import HomePage
+from pages.machine_learning_page import MachineLearningPage
 from utils import *
 from configs.configs import *
 
@@ -44,10 +45,7 @@ class WorkspacePage(QWidget):
         self.data_page = DataPackagePage()
         self.preprocessing_page = PreprocessPage()
         self.analysis_page = AnalysisPage()
-        self.ml_page = QLabel(
-            LOCALIZE("TABS.machine_learning") + " Page Content",
-            alignment=Qt.AlignmentFlag.AlignCenter,
-        )
+        self.ml_page = MachineLearningPage()
 
         # --- Add pages to the stack ---
         self.page_stack.addWidget(self.home_page)  # Index 0 - Home
@@ -68,8 +66,9 @@ class WorkspacePage(QWidget):
         if hasattr(self.tab_bar, "update_localized_text"):
             self.tab_bar.update_localized_text()
 
-        # Update ML page label
-        self.ml_page.setText(LOCALIZE("TABS.machine_learning") + " Page Content")
+        # Update ML page
+        if hasattr(self.ml_page, "update_localized_text"):
+            self.ml_page.update_localized_text()
 
     def _connect_signals(self):
         """Connect all signals for navigation and project handling."""

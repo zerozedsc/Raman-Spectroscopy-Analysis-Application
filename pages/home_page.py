@@ -28,6 +28,7 @@ from utils import *
 import sys
 import os
 import json
+from configs.user_settings import save_user_settings
 
 
 class SettingsDialog(QDialog):
@@ -534,32 +535,22 @@ class HomePage(QWidget):
     def _save_settings(self, settings: dict):
         """Save settings to app config file."""
         try:
-            config_path = "configs/app_configs.json"
-            
-            # Support frozen mode
-            if getattr(sys, "frozen", False):
-                # For frozen app, save to user directory
-                import appdirs
-                app_name = "RamanApp"
-                app_author = "RamanLab"
-                config_dir = appdirs.user_config_dir(app_name, app_author)
-                os.makedirs(config_dir, exist_ok=True)
-                config_path = os.path.join(config_dir, "app_configs.json")
-            
-            # Load existing config or create new
-            if os.path.exists(config_path):
-                with open(config_path, "r", encoding="utf-8") as f:
-                    config = json.load(f)
-            else:
-                config = {}
-            
-            # Update settings
-            config["language"] = settings["language"]
-            config["theme"] = settings["theme"]
-            
-            # Save config
-            with open(config_path, "w", encoding="utf-8") as f:
-                json.dump(config, f, indent=4)
+            ini_path = save_user_settings(
+                language=settings["language"],
+                theme=settings["theme"],
+            )
+
+            # Keep in-memory config consistent for the remainder of this session.
+            # (Some UI strings still require restart to fully refresh.)
+            CONFIGS["language"] = settings["language"]
+            CONFIGS["theme"] = settings["theme"]
+
+            create_logs(
+                "HomePage",
+                "settings",
+                f"Saved user settings to {ini_path}",
+                status="info",
+            )
                 
         except Exception as e:
             create_logs(

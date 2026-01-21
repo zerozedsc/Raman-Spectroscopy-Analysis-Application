@@ -1,10 +1,15 @@
 import os
 import json
+import ast
 import datetime
 from typing import List, Dict, Any
 import pandas as pd
 import argparse
 from configs.configs import *
+
+# --- Argument Parser for Command-Line Options ---
+# Load persisted config first so CLI defaults can respect it
+CONFIGS = load_config()
 
 # --- Argument Parser for Command-Line Options ---
 parser = argparse.ArgumentParser(
@@ -14,8 +19,8 @@ parser.add_argument(
     "--lang",
     type=str,
     choices=["en", "ja"],
-    default="ja",
-    help="Set the application language (default: ja)",
+    default=None,
+    help="Set the application language (overrides saved settings)",
 )
 
 # Use parse_known_args() to safely handle PyInstaller's import scanning
@@ -246,6 +251,18 @@ class ProjectManager:
         # Also remove from the in-memory store
         RAMAN_DATA.pop(dataset_name, None)
 
+        # Keep group assignments consistent when datasets are removed.
+        # This ensures Analysis/ML pages won't reference deleted datasets.
+        try:
+            self._reconcile_saved_groups_with_data_packages()
+        except Exception as e:
+            create_logs(
+                "ProjectManager",
+                "projects",
+                f"Failed to reconcile groups after dataset removal: {e}",
+                status="warning",
+            )
+
         self.save_current_project()
         create_logs(
             "ProjectManager",
@@ -338,6 +355,31 @@ class ProjectManager:
             if "analysisGroups" not in self.current_project_data:
                 self.current_project_data["analysisGroups"] = {}
 
+            # Initialize ML groups if not present (for backward compatibility)
+            if "mlGroups" not in self.current_project_data:
+                self.current_project_data["mlGroups"] = {}
+            if "mlGroupConfigs" not in self.current_project_data:
+                self.current_project_data["mlGroupConfigs"] = []
+
+            # Reconcile saved groups with actual datasets (auto-fix and persist).
+            try:
+                changed = self._reconcile_saved_groups_with_data_packages()
+                if changed:
+                    self.save_current_project()
+                    create_logs(
+                        "ProjectManager",
+                        "projects",
+                        "Reconciled saved group assignments with current datasets",
+                        status="info",
+                    )
+            except Exception as e:
+                create_logs(
+                    "ProjectManager",
+                    "projects",
+                    f"Failed to reconcile saved groups: {e}",
+                    status="warning",
+                )
+
             create_logs(
                 "ProjectManager",
                 "projects",
@@ -425,7 +467,14 @@ class ProjectManager:
             Dictionary mapping group names to lists of dataset names
             Example: {"MM": ["dataset1", "dataset2"], "MGUS": ["dataset3"]}
         """
-        return self.current_project_data.get("analysisGroups", {})
+        # Analysis and ML pages share the same conceptual grouping.
+        # For backward compatibility we keep both keys in the project JSON, but
+        # always read whichever one is populated.
+        ag = self.current_project_data.get("analysisGroups", {})
+        if isinstance(ag, dict) and ag:
+            return ag
+        mg = self.current_project_data.get("mlGroups", {})
+        return mg if isinstance(mg, dict) else {}
 
     def set_analysis_groups(self, groups: Dict[str, List[str]]):
         """
@@ -434,19 +483,218 @@ class ProjectManager:
         Args:
             groups: Dictionary mapping group names to dataset lists
         """
+        # Keep analysis and ML groups synchronized.
         self.current_project_data["analysisGroups"] = groups
+        self.current_project_data["mlGroups"] = groups
         self.save_current_project()
         create_logs(
             "ProjectManager",
             "projects",
-            f"Saved {len(groups)} analysis groups",
+            f"Saved {len(groups)} shared groups (analysis + ML)",
             status="info",
         )
 
+    def get_ml_groups(self) -> Dict[str, List[str]]:
+        """Get saved group assignments for the Machine Learning page.
 
-arg_lang = args.lang  # Command-line argument (default: 'ja')
-CONFIGS = load_config()
-LOCALIZEMANAGER = LocalizationManager(default_lang=arg_lang)
+        Returns:
+            Dictionary mapping group names to lists of dataset names.
+        """
+        mg = self.current_project_data.get("mlGroups", {})
+        if isinstance(mg, dict) and mg:
+            return mg
+        ag = self.current_project_data.get("analysisGroups", {})
+        return ag if isinstance(ag, dict) else {}
+
+    def get_ml_group_enabled_map(self) -> Dict[str, bool]:
+        """Get ML group enabled/disabled state by group name.
+
+        Stored separately so the core group format stays compatible with the Analysis page.
+        """
+        m = self.current_project_data.get("mlGroupEnabled", {})
+        if not isinstance(m, dict):
+            return {}
+        out: Dict[str, bool] = {}
+        for k, v in m.items():
+            if not k:
+                continue
+            out[str(k)] = bool(v)
+        return out
+
+    def set_ml_groups_and_enabled(self, groups: Dict[str, List[str]], enabled: Dict[str, bool]):
+        """Save ML groups + enabled flags in a single project write."""
+        # Keep analysis and ML groups synchronized.
+        self.current_project_data["analysisGroups"] = groups
+        self.current_project_data["mlGroups"] = groups
+        # Filter enabled map to known groups (prevents stale names lingering)
+        enabled_clean: Dict[str, bool] = {}
+        if isinstance(enabled, dict):
+            for gname in groups.keys():
+                enabled_clean[str(gname)] = bool(enabled.get(gname, True))
+        self.current_project_data["mlGroupEnabled"] = enabled_clean
+        self.save_current_project()
+        create_logs(
+            "ProjectManager",
+            "projects",
+            f"Saved {len(groups)} shared groups (analysis + ML) with enabled map",
+            status="info",
+        )
+
+    def set_ml_groups(self, groups: Dict[str, List[str]]):
+        """Save group assignments for the Machine Learning page.
+
+        Backward compatible wrapper: preserves current enabled-map if present.
+        """
+        self.set_ml_groups_and_enabled(groups, self.get_ml_group_enabled_map())
+
+    def get_ml_group_configs(self) -> List[Dict[str, Any]]:
+        """Get ML group creation configs (include/exclude keywords, auto-assign flags)."""
+        cfg = self.current_project_data.get("mlGroupConfigs", [])
+        return cfg if isinstance(cfg, list) else []
+
+    def set_ml_group_configs(self, configs: List[Dict[str, Any]]):
+        """Save ML group configs (from MultiGroupCreationDialog)."""
+        self.current_project_data["mlGroupConfigs"] = configs
+        self.save_current_project()
+        create_logs(
+            "ProjectManager",
+            "projects",
+            f"Saved {len(configs)} ML group configs",
+            status="info",
+        )
+
+    def _reconcile_saved_groups_with_data_packages(self) -> bool:
+        """Remove references to datasets that no longer exist in the project.
+
+        This keeps saved group assignments stable when datasets are deleted,
+        moved, or otherwise removed from the project.
+
+        Returns:
+            True if any changes were made.
+        """
+        changed = False
+        data_packages = self.current_project_data.get("dataPackages", {})
+        valid_datasets = set(map(str, data_packages.keys()))
+
+        def reconcile_group_map(key: str) -> bool:
+            nonlocal changed
+            groups = self.current_project_data.get(key, {})
+            if not isinstance(groups, dict):
+                self.current_project_data[key] = {}
+                changed = True
+                return True
+            new_groups: Dict[str, List[str]] = {}
+            for gname, ds_list in groups.items():
+                if not gname:
+                    continue
+                if not isinstance(ds_list, list):
+                    ds_list = []
+                filtered = [str(ds) for ds in ds_list if str(ds) in valid_datasets]
+                if filtered != ds_list:
+                    changed = True
+                new_groups[str(gname)] = filtered
+            if new_groups != groups:
+                self.current_project_data[key] = new_groups
+                changed = True
+                return True
+            return False
+
+        reconcile_group_map("analysisGroups")
+        reconcile_group_map("mlGroups")
+
+        # Reconcile mlGroupConfigs dataset-independent fields (best-effort):
+        # ensure list-of-dicts, and drop configs with empty/invalid names.
+        cfg = self.current_project_data.get("mlGroupConfigs", [])
+        if not isinstance(cfg, list):
+            self.current_project_data["mlGroupConfigs"] = []
+            changed = True
+        else:
+            def _normalize_keywords(value) -> List[str]:
+                """Normalize include/exclude keywords to a clean list of strings.
+
+                Supports legacy persisted formats:
+                - list[str]
+                - comma-separated string
+                - Python list literal string like "['MM', 'foo']"
+                """
+                items: List[str] = []
+                try:
+                    if value is None:
+                        items = []
+                    elif isinstance(value, (list, tuple)):
+                        items = [str(x).strip() for x in value]
+                    elif isinstance(value, str):
+                        s = value.strip()
+                        if not s:
+                            items = []
+                        elif s.startswith("[") and s.endswith("]"):
+                            # Legacy: stored as a stringified Python list.
+                            try:
+                                parsed = ast.literal_eval(s)
+                                if isinstance(parsed, (list, tuple)):
+                                    items = [str(x).strip() for x in parsed]
+                                else:
+                                    items = [s]
+                            except Exception:
+                                items = [kw.strip() for kw in s.strip("[]").split(",")]
+                        else:
+                            items = [kw.strip() for kw in s.split(",")]
+                    else:
+                        items = [str(value).strip()]
+                except Exception:
+                    items = []
+
+                # Drop empties + dedupe (keep order)
+                out: List[str] = []
+                seen = set()
+                for kw in items:
+                    kw = str(kw or "").strip()
+                    if not kw:
+                        continue
+                    k = kw.lower()
+                    if k in seen:
+                        continue
+                    seen.add(k)
+                    out.append(kw)
+                return out
+
+            new_cfg: List[Dict[str, Any]] = []
+            for item in cfg:
+                if not isinstance(item, dict):
+                    changed = True
+                    continue
+                name = str(item.get("name") or "").strip()
+                if not name:
+                    changed = True
+                    continue
+                # Keep only known keys to avoid bloat.
+                new_cfg.append(
+                    {
+                        "name": name,
+                        "include": _normalize_keywords(item.get("include")),
+                        "exclude": _normalize_keywords(item.get("exclude")),
+                        "auto_assign": bool(item.get("auto_assign", False)),
+                    }
+                )
+            if new_cfg != cfg:
+                self.current_project_data["mlGroupConfigs"] = new_cfg
+                changed = True
+
+        return changed
+
+
+arg_lang = args.lang
+
+# Final language selection: CLI overrides persisted config; fallback to English
+selected_lang = (arg_lang or CONFIGS.get("language") or "en").strip()
+if selected_lang not in ("en", "ja"):
+    selected_lang = "en"
+
+# Keep CONFIGS consistent with what we actually use
+CONFIGS["language"] = selected_lang
+
+# Localization: always fallback to English, start with selected language
+LOCALIZEMANAGER = LocalizationManager(default_lang="en", initial_lang=selected_lang)
 PROJECT_MANAGER = ProjectManager()
 
 

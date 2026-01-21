@@ -6,7 +6,8 @@ from configs.configs import create_logs
 from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
-from PySide6.QtWidgets import QWidget, QVBoxLayout
+from PySide6.QtCore import Qt, QSize
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
@@ -154,13 +155,30 @@ class MatplotlibWidget(QWidget):
         # --- Create a Figure and a Canvas ---
         self.figure = Figure(figsize=(5, 4), dpi=100, facecolor="whitesmoke")
         self.canvas = FigureCanvas(self.figure)
+        try:
+            self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        except Exception:
+            pass
 
         # --- Create a Toolbar ---
         self.toolbar = NavigationToolbar(self.canvas, self)
+        # Make toolbar appearance consistent across pages (and less likely to look "missing")
+        try:
+            self.toolbar.setMovable(False)
+            self.toolbar.setFloatable(False)
+            self.toolbar.setToolButtonStyle(Qt.ToolButtonIconOnly)
+            self.toolbar.setIconSize(QSize(18, 18))
+            # Prevent toolbars from collapsing to 0px height in tight layouts (seen in ML tab).
+            self.toolbar.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            self.toolbar.setMinimumHeight(35)
+            self.toolbar.setStyleSheet("background-color: #dbdbdb; border-bottom: 1px solid #9a9b9c; font-color: #000000;")
+        except Exception:
+            pass
 
         # --- Layout ---
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         layout.addWidget(self.toolbar)
         layout.addWidget(self.canvas)
 
@@ -191,10 +209,20 @@ class MatplotlibWidget(QWidget):
 
         """
         from PySide6.QtGui import QResizeEvent
+        import warnings
 
         super().resizeEvent(event)
         try:
-            self.figure.tight_layout(pad=1.2)
+            # tight_layout() can emit UserWarning (printed to stderr) when the figure has
+            # incompatible Axes (e.g., some colorbar / constrained layouts). Those warnings
+            # are not exceptions, so we suppress them here to avoid terminal/log spam.
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message=r"This figure includes Axes that are not compatible with tight_layout.*",
+                    category=UserWarning,
+                )
+                self.figure.tight_layout(pad=1.2)
             self.canvas.draw_idle()  # Non-blocking draw
         except Exception as e:
             # Silent fail on resize - layout incompatibility is acceptable here
@@ -815,9 +843,17 @@ class MatplotlibWidget(QWidget):
             if not images:
                 new_ax.grid(True, which="both", linestyle="--", linewidth=0.5)
 
+        import warnings
+
         try:
-            self.figure.tight_layout(pad=1.2, rect=[0, 0.03, 1, 0.95])
-        except (ValueError, UserWarning, RuntimeWarning) as e:
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message=r"This figure includes Axes that are not compatible with tight_layout.*",
+                    category=UserWarning,
+                )
+                self.figure.tight_layout(pad=1.2, rect=[0, 0.03, 1, 0.95])
+        except (ValueError, RuntimeWarning) as e:
             create_logs(
                 __name__,
                 __file__,
@@ -901,20 +937,57 @@ class MatplotlibWidget(QWidget):
             new_ax.set_xlim(ax.get_xlim())
             new_ax.set_ylim(ax.get_ylim())
 
+            # ✅ FIX: Copy tick locations/labels (critical for heatmaps/confusion matrices)
+            try:
+                new_ax.set_xscale(ax.get_xscale())
+                new_ax.set_yscale(ax.get_yscale())
+            except Exception:
+                pass
+            try:
+                new_ax.set_xticks(ax.get_xticks())
+                new_ax.set_yticks(ax.get_yticks())
+                xt = [t.get_text() for t in ax.get_xticklabels()]
+                yt = [t.get_text() for t in ax.get_yticklabels()]
+                if any(s for s in xt):
+                    new_ax.set_xticklabels(xt)
+                if any(s for s in yt):
+                    new_ax.set_yticklabels(yt)
+                # Preserve label styling (rotation/alignment/fonts)
+                for src, tgt in zip(ax.get_xticklabels(), new_ax.get_xticklabels()):
+                    tgt.set_rotation(src.get_rotation())
+                    tgt.set_ha(src.get_ha())
+                    tgt.set_va(src.get_va())
+                    tgt.set_fontsize(src.get_fontsize())
+                    tgt.set_color(src.get_color())
+                for src, tgt in zip(ax.get_yticklabels(), new_ax.get_yticklabels()):
+                    tgt.set_rotation(src.get_rotation())
+                    tgt.set_ha(src.get_ha())
+                    tgt.set_va(src.get_va())
+                    tgt.set_fontsize(src.get_fontsize())
+                    tgt.set_color(src.get_color())
+                if ax.xaxis_inverted():
+                    new_ax.invert_xaxis()
+                if ax.yaxis_inverted():
+                    new_ax.invert_yaxis()
+                new_ax.set_aspect(ax.get_aspect())
+            except Exception as e:
+                create_logs(__name__, __file__, f"Failed to copy ticks/labels: {e}", status="debug")
+
             # ✅ FIX: Add colorbar for heatmaps if images were copied
             if has_images:
                 img_list = new_ax.get_images()
                 if img_list:
-                    try:
-                        self.figure.colorbar(img_list[-1], ax=new_ax)
-                        create_logs(
-                            __name__,
-                            __file__,
-                            "Added colorbar in update_plot_with_config",
-                            status="debug",
-                        )
-                    except Exception as e:
-                        create_logs(__name__, __file__, f"Failed to add colorbar: {e}", status="debug")
+                    if config.get("colorbar", True):
+                        try:
+                            self.figure.colorbar(img_list[-1], ax=new_ax, fraction=0.046, pad=0.04)
+                            create_logs(
+                                __name__,
+                                __file__,
+                                "Added colorbar in update_plot_with_config",
+                                status="debug",
+                            )
+                        except Exception as e:
+                            create_logs(__name__, __file__, f"Failed to add colorbar: {e}", status="debug")
 
             # Apply grid configuration (skip for heatmaps)
             if not has_images:
@@ -977,7 +1050,15 @@ class MatplotlibWidget(QWidget):
                 self.figure.set_constrained_layout(True)
             elif fig_cfg.get("tight_layout", True):
                 try:
-                    self.figure.tight_layout(pad=1.2, rect=[0, 0.03, 1, 0.95])
+                    import warnings
+
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings(
+                            "ignore",
+                            message=r"This figure includes Axes that are not compatible with tight_layout.*",
+                            category=UserWarning,
+                        )
+                        self.figure.tight_layout(pad=1.2, rect=[0, 0.03, 1, 0.95])
                 except Exception as e:
                     create_logs(
                         __name__,
@@ -989,7 +1070,15 @@ class MatplotlibWidget(QWidget):
         else:
             # ✅ DEFAULT: Always apply tight_layout when no config provided
             try:
-                self.figure.tight_layout(pad=1.2, rect=[0, 0.03, 1, 0.95])
+                import warnings
+
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore",
+                        message=r"This figure includes Axes that are not compatible with tight_layout.*",
+                        category=UserWarning,
+                    )
+                    self.figure.tight_layout(pad=1.2, rect=[0, 0.03, 1, 0.95])
             except Exception as e:
                 create_logs(
                     __name__,
@@ -1186,6 +1275,37 @@ class MatplotlibWidget(QWidget):
                         alpha=patch.get_alpha(),
                     )
                     target_ax.add_patch(new_patch)
+
+        # ✅ FIX: Copy text artists (annotations, in-plot labels)
+        # Confusion matrix values and many Analysis annotations rely on ax.text().
+        try:
+            for txt in getattr(source_ax, "texts", []) or []:
+                try:
+                    transform = None
+                    # Preserve common transforms (axes coords vs data coords)
+                    if txt.get_transform() == source_ax.transAxes:
+                        transform = target_ax.transAxes
+                    elif txt.get_transform() == source_ax.transData:
+                        transform = target_ax.transData
+                    target_ax.text(
+                        txt.get_position()[0],
+                        txt.get_position()[1],
+                        txt.get_text(),
+                        ha=txt.get_ha(),
+                        va=txt.get_va(),
+                        fontsize=txt.get_fontsize(),
+                        fontweight=txt.get_fontweight(),
+                        color=txt.get_color(),
+                        alpha=txt.get_alpha(),
+                        rotation=txt.get_rotation(),
+                        transform=transform,
+                        zorder=getattr(txt, "get_zorder", lambda: None)(),
+                    )
+                except Exception:
+                    # Text copying is best-effort.
+                    pass
+        except Exception:
+            pass
 
         # Return whether images were copied (for colorbar handling)
         return has_images

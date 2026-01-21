@@ -24,8 +24,8 @@ RequestExecutionLevel admin
 
 ; Interface Configuration
 !define MUI_ABORTWARNING
-!define MUI_ICON "${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico"
-!define MUI_UNICON "${NSISDIR}\Contrib\Graphics\Icons\modern-uninstall.ico"
+!define MUI_ICON "assets\icons\app-icon.ico"
+!define MUI_UNICON "assets\icons\app-icon.ico"
 
 ; Pages
 !insertmacro MUI_PAGE_LICENSE "${NSISDIR}\Docs\Modern UI\License.txt"

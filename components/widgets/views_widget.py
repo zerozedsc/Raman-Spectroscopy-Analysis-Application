@@ -1,5 +1,5 @@
 from configs.configs import create_logs
-from typing import Dict, Any, Callable, Optional
+from typing import Dict, Any, Callable, Optional, List
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
     QTreeWidgetItem,
     QInputDialog,
 )
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QFont, QIcon
 
 
@@ -40,8 +40,12 @@ class GroupTreeManager(QWidget):
         super().__init__(parent)
         self.dataset_names = dataset_names
         self.localize = localize_func
+        self._suspend_emit = False
         self._setup_ui()
         self.reset()  # Initialize with all items in Unassigned
+
+    # Emits current groups as: {group_name: [dataset1, dataset2]}
+    groups_changed = Signal(dict)
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -74,15 +78,21 @@ class GroupTreeManager(QWidget):
             QPushButton:hover { background-color: #e0e0e0; color: #000; }
         """
 
-        self.btn_create = QPushButton("➕ Create Group")
+        self.btn_create = QPushButton(
+            "➕ " + (self.localize("ANALYSIS_PAGE.create_groups_button") if self.localize else "Create Groups")
+        )
         self.btn_create.setStyleSheet(btn_style)
         self.btn_create.clicked.connect(self.create_group_dialog)
 
-        self.btn_auto = QPushButton("✨ Auto-Assign")
+        self.btn_auto = QPushButton(
+            "✨ " + (self.localize("ANALYSIS_PAGE.auto_assign_button") if self.localize else "Auto-Assign")
+        )
         self.btn_auto.setStyleSheet(btn_style)
         self.btn_auto.clicked.connect(self.auto_assign)
 
-        self.btn_reset = QPushButton("↺ Reset")
+        self.btn_reset = QPushButton(
+            "↺ " + (self.localize("ANALYSIS_PAGE.reset_all_button") if self.localize else "Reset")
+        )
         self.btn_reset.setStyleSheet(btn_style)
         self.btn_reset.clicked.connect(self.reset)
 
@@ -122,13 +132,40 @@ class GroupTreeManager(QWidget):
 
         layout.addWidget(self.tree)
 
+        # Emit groups_changed when the tree structure changes (drag/drop, create, rename, delete).
+        try:
+            m = self.tree.model()
+            m.rowsInserted.connect(lambda *_: self._on_tree_structure_changed())
+            m.rowsRemoved.connect(lambda *_: self._on_tree_structure_changed())
+            m.rowsMoved.connect(lambda *_: self._on_tree_structure_changed())
+        except Exception:
+            pass
+
+        try:
+            self.tree.itemChanged.connect(lambda *_: self._on_tree_structure_changed())
+        except Exception:
+            pass
+
+    def _on_tree_structure_changed(self):
+        if self._suspend_emit:
+            return
+        try:
+            self.groups_changed.emit(self.get_groups())
+        except Exception:
+            pass
+
     def reset(self):
         """Reset tree: Clear all groups, put everything in 'Unassigned'."""
+        prev_suspend = self._suspend_emit
+        self._suspend_emit = True
         self.tree.clear()
 
         # Create immutable "Unassigned" group
         self.unassigned_root = QTreeWidgetItem(self.tree)
-        self.unassigned_root.setText(0, "📂 Unassigned Datasets")
+        unassigned_text = (
+            self.localize("ANALYSIS_PAGE.unassigned_group") if self.localize else "Unassigned"
+        )
+        self.unassigned_root.setText(0, f"📂 {unassigned_text}")
         self.unassigned_root.setFlags(
             Qt.ItemIsEnabled | Qt.ItemIsDropEnabled
         )  # Not selectable/draggable itself, just a container
@@ -142,6 +179,49 @@ class GroupTreeManager(QWidget):
             item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable | Qt.ItemIsDragEnabled)
 
         self.tree.expandAll()
+
+        self._suspend_emit = prev_suspend
+        if not self._suspend_emit:
+            self._on_tree_structure_changed()
+
+    def set_groups(self, groups: Dict[str, List[str]]):
+        """Apply group assignments programmatically.
+
+        Args:
+            groups: Dict of {group_name: [dataset1, dataset2]}
+        """
+        if not isinstance(groups, dict):
+            return
+        self._suspend_emit = True
+        self.reset()
+
+        # Build an index of dataset items in Unassigned for quick moving.
+        def _find_unassigned_item(name: str) -> Optional[QTreeWidgetItem]:
+            for i in range(self.unassigned_root.childCount()):
+                it = self.unassigned_root.child(i)
+                if it.text(0) == name:
+                    return it
+            return None
+
+        for group_name, dataset_list in groups.items():
+            gname = str(group_name or "").strip()
+            if not gname:
+                continue
+            group_item = self.add_group(gname)
+            for ds in list(dataset_list or []):
+                ds_name = str(ds or "").strip()
+                if not ds_name:
+                    continue
+                src = _find_unassigned_item(ds_name)
+                if src is None:
+                    continue
+                cloned = src.clone()
+                self.unassigned_root.removeChild(src)
+                group_item.addChild(cloned)
+
+        self.tree.expandAll()
+        self._suspend_emit = False
+        self._on_tree_structure_changed()
 
     def create_group_dialog(self):
         """Prompt user for group name and create it - NOW USING MULTI-GROUP DIALOG."""
@@ -174,7 +254,7 @@ class GroupTreeManager(QWidget):
         )
         
         try:
-            from pages.analysis_page_utils.multi_group_dialog import MultiGroupCreationDialog
+            from components.widgets.multi_group_dialog import MultiGroupCreationDialog
             create_logs(__name__, __file__, "MultiGroupCreationDialog imported successfully!", status="debug")
             create_logs(__name__, __file__, f"Class: {MultiGroupCreationDialog}", status="debug")
         except Exception as e:
@@ -509,7 +589,7 @@ class GroupTreeManager(QWidget):
             if group_item == self.unassigned_root:
                 continue
 
-            group_name = group_item.text(0).replace("🧪 ", "")  # Remove emoji
+            group_name = group_item.text(0).replace("🧪 ", "").strip()  # Remove emoji
             datasets = []
 
             for j in range(group_item.childCount()):
