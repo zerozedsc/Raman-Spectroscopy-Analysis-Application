@@ -155,70 +155,10 @@ def prepare_train_test_split(
 	# Determine class labels in stable order
 	class_labels = sorted({str(v) for v in group_assignments.values()})
 
-	# Choose a common axis from the first valid dataset
-	common_axis: np.ndarray | None = None
-	for ds_name in group_assignments.keys():
-		df = raman_data.get(ds_name)
-		if df is not None and not df.empty:
-			common_axis = _ensure_1d_numeric_axis(df.index)
-			break
-	if common_axis is None:
-		raise ValueError("No valid datasets found for ML preparation")
-
-	# Build per-dataset sample matrices (interpolated to common_axis)
-	per_dataset_X: Dict[str, np.ndarray] = {}
-	per_dataset_y: Dict[str, np.ndarray] = {}
-	per_dataset_ds_names: Dict[str, np.ndarray] = {}
-
-	for ds_name, label in group_assignments.items():
-		df = raman_data.get(ds_name)
-		if df is None:
-			raise ValueError(f"Dataset '{ds_name}' not found")
-		X_ds, y_ds, _, ds_names = _dataset_to_samples(
-			df=df,
-			dataset_name=ds_name,
-			label=str(label),
-			common_axis=common_axis,
-		)
-		per_dataset_X[ds_name] = X_ds
-		per_dataset_y[ds_name] = y_ds
-		per_dataset_ds_names[ds_name] = ds_names
-
-	create_logs(
-		"MLDataPreparation",
-		"ml_data_preparation",
-		f"Prepared {len(per_dataset_X)} datasets for ML (split_mode={split_mode}, train_ratio={train_ratio})",
-		status="debug",
-	)
-
 	# Split
-	if split_mode == "by_spectra":
-		X_all = np.vstack([per_dataset_X[k] for k in per_dataset_X.keys()])
-		y_all = np.concatenate([per_dataset_y[k] for k in per_dataset_y.keys()])
-		ds_all = np.concatenate([per_dataset_ds_names[k] for k in per_dataset_ds_names.keys()])
-
-		test_size = 1.0 - float(train_ratio)
-		try:
-			X_train, X_test, y_train, y_test, ds_train, ds_test = train_test_split(
-				X_all,
-				y_all,
-				ds_all,
-				test_size=test_size,
-				random_state=random_state,
-				stratify=y_all,
-			)
-		except ValueError:
-			# Fallback when stratify is not possible (too few samples)
-			X_train, X_test, y_train, y_test, ds_train, ds_test = train_test_split(
-				X_all,
-				y_all,
-				ds_all,
-				test_size=test_size,
-				random_state=random_state,
-				stratify=None,
-			)
-	else:
-		# Dataset-level split: split dataset names within each class label
+	# NOTE (leakage safety): for dataset-level split we choose the interpolation axis
+	# from *training* datasets only, avoiding even a subtle dependency on the test set.
+	if split_mode == "by_dataset":
 		train_datasets: List[str] = []
 		test_datasets: List[str] = []
 		rng = np.random.RandomState(random_state)
@@ -250,6 +190,41 @@ def prepare_train_test_split(
 				random_state=random_state,
 			)
 
+		# Choose a common axis from the first valid *training* dataset
+		common_axis: np.ndarray | None = None
+		for ds_name in train_datasets:
+			df = raman_data.get(ds_name)
+			if df is not None and not df.empty:
+				common_axis = _ensure_1d_numeric_axis(df.index)
+				break
+		if common_axis is None:
+			raise ValueError("No valid training datasets found for ML preparation")
+
+		# Build per-dataset sample matrices (interpolated to training-derived common_axis)
+		per_dataset_X: Dict[str, np.ndarray] = {}
+		per_dataset_y: Dict[str, np.ndarray] = {}
+		per_dataset_ds_names: Dict[str, np.ndarray] = {}
+		for ds_name, label in group_assignments.items():
+			df = raman_data.get(ds_name)
+			if df is None:
+				raise ValueError(f"Dataset '{ds_name}' not found")
+			X_ds, y_ds, _, ds_names = _dataset_to_samples(
+				df=df,
+				dataset_name=ds_name,
+				label=str(label),
+				common_axis=common_axis,
+			)
+			per_dataset_X[ds_name] = X_ds
+			per_dataset_y[ds_name] = y_ds
+			per_dataset_ds_names[ds_name] = ds_names
+
+		create_logs(
+			"MLDataPreparation",
+			"ml_data_preparation",
+			f"Prepared {len(per_dataset_X)} datasets for ML (split_mode={split_mode}, train_ratio={train_ratio})",
+			status="debug",
+		)
+
 		X_train = np.vstack([per_dataset_X[ds] for ds in train_datasets])
 		y_train = np.concatenate([per_dataset_y[ds] for ds in train_datasets])
 		ds_train = np.concatenate([per_dataset_ds_names[ds] for ds in train_datasets])
@@ -258,6 +233,79 @@ def prepare_train_test_split(
 		y_test = np.concatenate([per_dataset_y[ds] for ds in test_datasets])
 		ds_test = np.concatenate([per_dataset_ds_names[ds] for ds in test_datasets])
 
+		return PreparedSplit(
+			X_train=np.asarray(X_train, dtype=float),
+			X_test=np.asarray(X_test, dtype=float),
+			y_train=np.asarray(y_train, dtype=object),
+			y_test=np.asarray(y_test, dtype=object),
+			common_axis=np.asarray(common_axis, dtype=float),
+			sample_dataset_names_train=np.asarray(ds_train, dtype=object),
+			sample_dataset_names_test=np.asarray(ds_test, dtype=object),
+			class_labels=class_labels,
+		)
+
+	# --- by_spectra ---
+	# Choose a common axis from the first valid dataset (axis is not label-derived).
+	common_axis: np.ndarray | None = None
+	for ds_name in group_assignments.keys():
+		df = raman_data.get(ds_name)
+		if df is not None and not df.empty:
+			common_axis = _ensure_1d_numeric_axis(df.index)
+			break
+	if common_axis is None:
+		raise ValueError("No valid datasets found for ML preparation")
+
+	# Build per-dataset sample matrices (interpolated to common_axis)
+	per_dataset_X = {}
+	per_dataset_y = {}
+	per_dataset_ds_names = {}
+	for ds_name, label in group_assignments.items():
+		df = raman_data.get(ds_name)
+		if df is None:
+			raise ValueError(f"Dataset '{ds_name}' not found")
+		X_ds, y_ds, _, ds_names = _dataset_to_samples(
+			df=df,
+			dataset_name=ds_name,
+			label=str(label),
+			common_axis=common_axis,
+		)
+		per_dataset_X[ds_name] = X_ds
+		per_dataset_y[ds_name] = y_ds
+		per_dataset_ds_names[ds_name] = ds_names
+
+	create_logs(
+		"MLDataPreparation",
+		"ml_data_preparation",
+		f"Prepared {len(per_dataset_X)} datasets for ML (split_mode={split_mode}, train_ratio={train_ratio})",
+		status="debug",
+	)
+
+	# Split (spectra-level)
+	if split_mode == "by_spectra":
+		X_all = np.vstack([per_dataset_X[k] for k in per_dataset_X.keys()])
+		y_all = np.concatenate([per_dataset_y[k] for k in per_dataset_y.keys()])
+		ds_all = np.concatenate([per_dataset_ds_names[k] for k in per_dataset_ds_names.keys()])
+
+		test_size = 1.0 - float(train_ratio)
+		try:
+			X_train, X_test, y_train, y_test, ds_train, ds_test = train_test_split(
+				X_all,
+				y_all,
+				ds_all,
+				test_size=test_size,
+				random_state=random_state,
+				stratify=y_all,
+			)
+		except ValueError:
+			# Fallback when stratify is not possible (too few samples)
+			X_train, X_test, y_train, y_test, ds_train, ds_test = train_test_split(
+				X_all,
+				y_all,
+				ds_all,
+				test_size=test_size,
+				random_state=random_state,
+				stratify=None,
+			)
 	return PreparedSplit(
 		X_train=np.asarray(X_train, dtype=float),
 		X_test=np.asarray(X_test, dtype=float),

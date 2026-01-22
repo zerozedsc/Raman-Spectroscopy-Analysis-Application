@@ -171,7 +171,10 @@ class MatplotlibWidget(QWidget):
             # Prevent toolbars from collapsing to 0px height in tight layouts (seen in ML tab).
             self.toolbar.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             self.toolbar.setMinimumHeight(35)
-            self.toolbar.setStyleSheet("background-color: #dbdbdb; border-bottom: 1px solid #9a9b9c; font-color: #000000;")
+            # Qt stylesheet uses 'color', not 'font-color' (unknown property warnings otherwise).
+            self.toolbar.setStyleSheet(
+                "background-color: #FAFAFA; border-bottom: 1px solid #9a9b9c; color: #000000;"
+            )
         except Exception:
             pass
 
@@ -181,6 +184,14 @@ class MatplotlibWidget(QWidget):
         layout.setSpacing(0)
         layout.addWidget(self.toolbar)
         layout.addWidget(self.canvas)
+
+        # Layout behavior controls (used by update_plot_with_config)
+        # Some figures (notably image+scatter overlays) can appear to "shrink" if
+        # tight_layout() is applied repeatedly from multiple layers. We keep this
+        # configurable per widget/figure.
+        self._tight_layout_on_resize = True
+        self._tight_layout_pad = 1.2
+        self._tight_layout_rect = [0, 0.03, 1, 0.95]
 
     def add_custom_toolbar(self, widget: QWidget):
         """
@@ -213,6 +224,10 @@ class MatplotlibWidget(QWidget):
 
         super().resizeEvent(event)
         try:
+            if not getattr(self, "_tight_layout_on_resize", True):
+                self.canvas.draw_idle()
+                return
+
             # tight_layout() can emit UserWarning (printed to stderr) when the figure has
             # incompatible Axes (e.g., some colorbar / constrained layouts). Those warnings
             # are not exceptions, so we suppress them here to avoid terminal/log spam.
@@ -222,7 +237,12 @@ class MatplotlibWidget(QWidget):
                     message=r"This figure includes Axes that are not compatible with tight_layout.*",
                     category=UserWarning,
                 )
-                self.figure.tight_layout(pad=1.2)
+                pad = getattr(self, "_tight_layout_pad", 1.2)
+                rect = getattr(self, "_tight_layout_rect", None)
+                if rect is not None:
+                    self.figure.tight_layout(pad=pad, rect=rect)
+                else:
+                    self.figure.tight_layout(pad=pad)
             self.canvas.draw_idle()  # Non-blocking draw
         except Exception as e:
             # Silent fail on resize - layout incompatibility is acceptable here
@@ -915,6 +935,15 @@ class MatplotlibWidget(QWidget):
             hspace, wspace = config["subplot_spacing"]
             self.figure.subplots_adjust(hspace=hspace, wspace=wspace)
 
+        # Optional explicit subplots_adjust overrides (gives tighter fill than tight_layout)
+        if "subplots_adjust" in config:
+            try:
+                adj = config.get("subplots_adjust") or {}
+                if isinstance(adj, dict) and adj:
+                    self.figure.subplots_adjust(**adj)
+            except Exception as e:
+                create_logs(__name__, __file__, f"Failed to apply subplots_adjust: {e}", status="debug")
+
         # Copy axes with enhanced configuration
         for i, ax in enumerate(axes_list):
             # Determine subplot layout
@@ -1046,6 +1075,19 @@ class MatplotlibWidget(QWidget):
         # Apply figure-level configuration
         if "figure" in config:
             fig_cfg = config["figure"]
+
+            # Per-widget resize-layout behavior
+            try:
+                if "tight_layout_on_resize" in fig_cfg:
+                    self._tight_layout_on_resize = bool(fig_cfg.get("tight_layout_on_resize"))
+                if "tight_layout_pad" in fig_cfg:
+                    self._tight_layout_pad = float(fig_cfg.get("tight_layout_pad"))
+                if "tight_layout_rect" in fig_cfg:
+                    rect = fig_cfg.get("tight_layout_rect")
+                    self._tight_layout_rect = rect if rect is not None else None
+            except Exception:
+                pass
+
             if fig_cfg.get("constrained_layout", False):
                 self.figure.set_constrained_layout(True)
             elif fig_cfg.get("tight_layout", True):
@@ -1058,7 +1100,12 @@ class MatplotlibWidget(QWidget):
                             message=r"This figure includes Axes that are not compatible with tight_layout.*",
                             category=UserWarning,
                         )
-                        self.figure.tight_layout(pad=1.2, rect=[0, 0.03, 1, 0.95])
+                        pad = float(fig_cfg.get("tight_layout_pad", getattr(self, "_tight_layout_pad", 1.2)))
+                        rect = fig_cfg.get("tight_layout_rect", getattr(self, "_tight_layout_rect", [0, 0.03, 1, 0.95]))
+                        if rect is not None:
+                            self.figure.tight_layout(pad=pad, rect=rect)
+                        else:
+                            self.figure.tight_layout(pad=pad)
                 except Exception as e:
                     create_logs(
                         __name__,
@@ -1078,7 +1125,10 @@ class MatplotlibWidget(QWidget):
                         message=r"This figure includes Axes that are not compatible with tight_layout.*",
                         category=UserWarning,
                     )
-                    self.figure.tight_layout(pad=1.2, rect=[0, 0.03, 1, 0.95])
+                    self._tight_layout_on_resize = True
+                    self._tight_layout_pad = 1.2
+                    self._tight_layout_rect = [0, 0.03, 1, 0.95]
+                    self.figure.tight_layout(pad=self._tight_layout_pad, rect=self._tight_layout_rect)
             except Exception as e:
                 create_logs(
                     __name__,

@@ -783,6 +783,7 @@
         "keywords_hint": "カンマ区切り、大文字小文字を区別しない（例: ctrl, control, con）",
         "preview_title": "割り当てプレビュー",
         "unassigned_group": "未割り当て",
+        "include_in_analysis": "解析に使用",
         "conflict_warning": "警告: 一部のデータセットが複数グループに一致",
         "no_matches_warning": "警告: グループ '{group}' に一致するデータセットなし",
         "duplicate_name_error": "エラー: 重複するグループ名 '{name}'",

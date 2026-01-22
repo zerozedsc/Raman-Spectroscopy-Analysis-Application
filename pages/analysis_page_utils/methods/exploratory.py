@@ -397,6 +397,12 @@ def perform_pca_analysis(
         f"show_loadings={show_loadings}, show_scree={show_scree}, show_distributions={show_distributions}"
     )
 
+    # UX / safety: distributions rely on the same PCA outputs used by loadings.
+    # Users reported that enabling distributions alone can lead to failures; ensure loadings is on.
+    if show_distributions and not show_loadings:
+        _log_debug("Enabling show_loadings automatically because show_distributions=True")
+        show_loadings = True
+
     # ✅ FIX: Use interpolation to handle datasets with different wavenumber ranges
     # This resolves "ValueError: all input array dimensions except for concatenation axis must match"
     wavenumbers, X, labels = interpolate_to_common_wavenumbers_with_groups(
@@ -992,7 +998,8 @@ def perform_pca_analysis(
                 pc_scores = scores[mask, pc_idx]
 
                 # Robust color selection (avoid IndexError if palette shorter than groups)
-                color = colors[i % len(colors)] if colors else None
+                # colors may be a numpy array; never use it in boolean context (ambiguous truth value).
+                color = colors[i % len(colors)] if colors is not None and len(colors) > 0 else None
 
                 # Seaborn kdeplot with automatic bandwidth selection (better than manual KDE)
                 try:

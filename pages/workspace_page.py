@@ -3,11 +3,7 @@ from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QStackedWidget
 from PySide6.QtCore import Qt, Signal
 
 from components.app_tabs import AppTabBar
-from pages.data_package_page import DataPackagePage
-from pages.preprocess_page import PreprocessPage
-from pages.analysis_page import AnalysisPage
-from pages.home_page import HomePage
-from pages.machine_learning_page import MachineLearningPage
+from components.page_registry import create_workspace_pages
 from utils import *
 from configs.configs import *
 
@@ -41,11 +37,12 @@ class WorkspacePage(QWidget):
         self.page_stack.setObjectName("workspaceStack")
 
         # --- Instantiate all pages ---
-        self.home_page = HomePage()
-        self.data_page = DataPackagePage()
-        self.preprocessing_page = PreprocessPage()
-        self.analysis_page = AnalysisPage()
-        self.ml_page = MachineLearningPage()
+        pages = create_workspace_pages()
+        self.home_page = pages["home"]
+        self.data_page = pages["data"]
+        self.preprocessing_page = pages["preprocess"]
+        self.analysis_page = pages["analysis"]
+        self.ml_page = pages["ml"]
 
         # --- Add pages to the stack ---
         self.page_stack.addWidget(self.home_page)  # Index 0 - Home

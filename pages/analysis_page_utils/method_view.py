@@ -31,16 +31,18 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QMessageBox,
 )
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import QFont, QStandardItemModel, QStandardItem
 
-from components.widgets import load_icon, GroupTreeManager, DynamicParameterWidget
+from components.widgets import load_icon, DynamicParameterWidget
+
+from .tab_group_manager import TabGroupManager
 
 from .registry import ANALYSIS_METHODS
 from .group_assignment_table import GroupAssignmentTable
 
 # Import PROJECT_MANAGER for group persistence
-from utils import PROJECT_MANAGER
+from utils import PROJECT_MANAGER, register_groups_changed_listener
 
 # Import visualization helpers
 from .methods.exploratory import create_spectrum_preview_figure
@@ -625,7 +627,7 @@ def _v1_create_method_view(
                 f"Groups changed, saving {len(groups)} groups to ProjectManager",
                 status="debug",
             )
-            PROJECT_MANAGER.set_analysis_groups(groups)
+            PROJECT_MANAGER.set_analysis_groups(groups, origin="analysis")
 
         group_widget.groups_changed.connect(on_groups_changed)
 
@@ -1207,6 +1209,9 @@ class DatasetSelectionWidget(QWidget):
         self.mode = mode
         self.localize = localize_func
 
+        # Used to suppress persistence when rebuilding UI from external changes.
+        self._suspend_group_persist = False
+
         # Widgets
         self.simple_input = None
         self.group_manager = None
@@ -1359,8 +1364,8 @@ class DatasetSelectionWidget(QWidget):
 
             layout_s.addWidget(self.simple_input)
 
-            # PAGE 1: Group Tree
-            self.group_manager = GroupTreeManager(self.dataset_names, self.localize)
+            # PAGE 1: Grouped Mode (ML-style tabs)
+            self.group_manager = TabGroupManager(self.dataset_names, self.localize)
 
             # Load persisted groups (shared with ML) so Analysis grouped mode reflects them.
             try:
@@ -1368,15 +1373,30 @@ class DatasetSelectionWidget(QWidget):
             except Exception:
                 saved_groups = None
 
+            try:
+                saved_enabled = (
+                    PROJECT_MANAGER.get_analysis_group_enabled()
+                    if hasattr(PROJECT_MANAGER, "get_analysis_group_enabled")
+                    else None
+                )
+            except Exception:
+                saved_enabled = None
+
             if isinstance(saved_groups, dict) and saved_groups:
                 try:
-                    self.group_manager.set_groups(saved_groups)
+                    self.group_manager.set_groups(saved_groups, enabled=saved_enabled)
                 except Exception:
                     pass
 
             # Persist edits (drag/drop, create, rename, delete) back into the project.
             try:
                 self.group_manager.groups_changed.connect(self._persist_groups)
+            except Exception:
+                pass
+
+            # Runtime sync: refresh this UI when ML page updates groups.
+            try:
+                register_groups_changed_listener(self._on_external_groups_changed)
             except Exception:
                 pass
 
@@ -1464,7 +1484,17 @@ class DatasetSelectionWidget(QWidget):
 
         if self.radio_group.checkedId() == 1:
             # Grouped Mode
-            return self.group_manager.get_groups()
+
+            # Respect per-group "Use for analysis" ticks.
+            try:
+                groups = self.group_manager.get_enabled_groups()
+            except Exception:
+                groups = self.group_manager.get_groups()
+
+            # Drop empty groups to avoid confusing downstream methods.
+            if isinstance(groups, dict):
+                return {k: v for k, v in groups.items() if list(v or [])}
+            return groups
         else:
             # Simple Mode
             items = self.simple_input.selectedItems()
@@ -1472,10 +1502,60 @@ class DatasetSelectionWidget(QWidget):
 
     def _persist_groups(self, groups: dict):
         try:
+            if self._suspend_group_persist:
+                return
             if isinstance(groups, dict):
-                PROJECT_MANAGER.set_analysis_groups(groups)
+                PROJECT_MANAGER.set_analysis_groups(groups, origin="analysis")
+
+                # Persist enabled map (if supported by ProjectManager)
+                try:
+                    if hasattr(PROJECT_MANAGER, "set_analysis_group_enabled") and self.group_manager:
+                        PROJECT_MANAGER.set_analysis_group_enabled(
+                            self.group_manager.get_enabled_map(),
+                            origin="analysis",
+                        )
+                except Exception:
+                    pass
         except Exception:
             pass
+
+    def _on_external_groups_changed(self, origin: Optional[str] = None) -> None:
+        # Ignore updates originating from this view to avoid feedback loops.
+        if origin == "analysis":
+            return
+        # Defer UI rebuild to avoid interfering with in-progress drag/drop.
+        try:
+            QTimer.singleShot(0, self._reload_groups_from_project)
+        except Exception:
+            self._reload_groups_from_project()
+
+    def _reload_groups_from_project(self) -> None:
+        if not self.group_manager:
+            return
+        try:
+            saved_groups = PROJECT_MANAGER.get_analysis_groups()
+        except Exception:
+            saved_groups = None
+
+        try:
+            saved_enabled = (
+                PROJECT_MANAGER.get_analysis_group_enabled()
+                if hasattr(PROJECT_MANAGER, "get_analysis_group_enabled")
+                else None
+            )
+        except Exception:
+            saved_enabled = None
+
+        self._suspend_group_persist = True
+        try:
+            if isinstance(saved_groups, dict) and saved_groups:
+                self.group_manager.set_groups(saved_groups, enabled=saved_enabled)
+            else:
+                # Keep defaults when no groups are saved.
+                if hasattr(self.group_manager, "reset"):
+                    self.group_manager.reset(add_default=True)
+        finally:
+            self._suspend_group_persist = False
 
 
 class ResultsPanel(QWidget):
@@ -1796,18 +1876,17 @@ class MethodView(QWidget):
         row.addWidget(self.run_btn)
         parent_layout.addLayout(row)
 
-    def _build_right_panel(self):
-        """Creates the Results Panel."""
-        # Uses your existing utility function
-        return ResultsPanel(localize_func=self.localize, parent=self)
-
     def _handle_run_click(self):
         """Collects data and triggers the run callback."""
         # 1. Get Datasets
         selected_data = self.dataset_widget.get_selection()
 
         if not selected_data:
-            QMessageBox.warning(self, localize_func("ANALYSIS_PAGE.input_error_title"), localize_func("ANALYSIS_PAGE.input_error_no_dataset"))
+            QMessageBox.warning(
+                self,
+                self.localize("ANALYSIS_PAGE.input_error_title"),
+                self.localize("ANALYSIS_PAGE.input_error_no_dataset"),
+            )
             return
 
         # 2. Get Parameters (Pass the widget itself, logic handled downstream)

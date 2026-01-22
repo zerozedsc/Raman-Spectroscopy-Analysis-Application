@@ -5,6 +5,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
+from matplotlib import patheffects as pe
 
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
@@ -106,9 +107,10 @@ def create_pca_decision_boundary_figure(
 	Z = pipe.named_steps["clf"].predict(grid)
 	Z = Z.reshape(xx.shape)
 
-	# Colors
+	# Colors: ensure decision regions and scatter points share the same mapping.
 	base = plt.cm.get_cmap("tab10", max(2, len(labels)))
-	region_cmap = ListedColormap([base(i) for i in range(len(labels))])
+	label_to_color = {lab: base(i) for i, lab in enumerate(labels)}
+	region_cmap = ListedColormap([label_to_color[lab] for lab in labels])
 
 	fig = plt.Figure(figsize=figsize)
 	ax = fig.add_subplot(111)
@@ -135,23 +137,55 @@ def create_pca_decision_boundary_figure(
 			s=18,
 			alpha=0.85,
 			label=lab,
+			color=label_to_color.get(lab),
 			edgecolors="none",
+			zorder=2,
 		)
 
-	# Centroids
+	# Centroids + labels
+	# Use ax.text (data coords) instead of annotate-offset so MatplotlibWidget can
+	# copy labels reliably.
+	dx = (x_max - x_min) * 0.012
+	dy = (y_max - y_min) * 0.012
 	for i, lab in enumerate(labels):
 		m = y_int == i
 		if not np.any(m):
 			continue
 		cx = float(np.mean(pc1[m]))
 		cy = float(np.mean(pc2[m]))
-		ax.scatter([cx], [cy], s=70, marker="x", color="black")
-		ax.annotate(f"{lab} centroid", (cx, cy), xytext=(5, 5), textcoords="offset points", fontsize=9)
+		ax.scatter(
+			[cx],
+			[cy],
+			s=80,
+			marker="X",
+			color=label_to_color.get(lab),
+			edgecolors="black",
+			linewidths=1.0,
+			zorder=3,
+		)
+		lbl = ax.text(
+			cx + dx,
+			cy + dy,
+			str(lab),
+			fontsize=9,
+			fontweight="bold",
+			color=label_to_color.get(lab),
+			bbox=dict(boxstyle="round,pad=0.25", facecolor="white", edgecolor="none", alpha=0.85),
+			clip_on=False,
+			zorder=4,
+		)
+		try:
+			lbl.set_path_effects([pe.withStroke(linewidth=2.0, foreground="black", alpha=0.45)])
+		except Exception:
+			pass
 
 	ax.set_title(title)
 	ax.set_xlabel("PC1")
 	ax.set_ylabel("PC2")
 	ax.grid(True, alpha=0.25)
+	ax.set_aspect("auto")
+	ax.margins(x=0.02, y=0.02)
 	ax.legend(loc="best", fontsize=9)
-	fig.tight_layout()
+	# NOTE: don't call tight_layout() here. The embedded MatplotlibWidget manages
+	# layout, and repeated tight_layout() calls can cumulatively shrink the canvas.
 	return fig

@@ -2,7 +2,8 @@ import os
 import json
 import ast
 import datetime
-from typing import List, Dict, Any
+import weakref
+from typing import List, Dict, Any, Callable, Optional
 import pandas as pd
 import argparse
 from configs.configs import *
@@ -29,6 +30,49 @@ args, unknown = parser.parse_known_args()
 # This dictionary will hold the currently loaded DataFrames for the active project.
 # The keys are the user-defined dataset names.
 RAMAN_DATA: Dict[str, pd.DataFrame] = {}
+
+
+# --- Lightweight in-process notifications (UI sync) ---
+# We avoid making ProjectManager a QObject to keep changes small and safe.
+# Listeners are stored as weakrefs so pages can be GC'd without explicit unregister.
+_GROUPS_CHANGED_LISTENERS: List[object] = []
+
+
+def register_groups_changed_listener(cb: Callable[[Optional[str]], None]) -> None:
+    """Register a callback invoked when shared groups change.
+
+    Callback signature: cb(origin: str | None) -> None
+    """
+    try:
+        ref: object
+        if hasattr(cb, "__self__") and cb.__self__ is not None:
+            ref = weakref.WeakMethod(cb)  # type: ignore[arg-type]
+        else:
+            ref = weakref.ref(cb)  # type: ignore[arg-type]
+        _GROUPS_CHANGED_LISTENERS.append(ref)
+    except Exception:
+        # Best-effort; failing to register should not crash the app.
+        pass
+
+
+def _emit_groups_changed(origin: Optional[str] = None) -> None:
+    """Invoke registered listeners and prune dead weakrefs."""
+    dead: List[object] = []
+    for ref in list(_GROUPS_CHANGED_LISTENERS):
+        try:
+            cb = ref() if callable(ref) else None
+            if cb is None:
+                dead.append(ref)
+                continue
+            cb(origin)
+        except Exception:
+            # Listener errors must never crash core app.
+            continue
+    for ref in dead:
+        try:
+            _GROUPS_CHANGED_LISTENERS.remove(ref)
+        except Exception:
+            pass
 
 
 class ProjectManager:
@@ -476,7 +520,7 @@ class ProjectManager:
         mg = self.current_project_data.get("mlGroups", {})
         return mg if isinstance(mg, dict) else {}
 
-    def set_analysis_groups(self, groups: Dict[str, List[str]]):
+    def set_analysis_groups(self, groups: Dict[str, List[str]], *, origin: str | None = None):
         """
         Save group assignments for analysis methods.
 
@@ -486,11 +530,71 @@ class ProjectManager:
         # Keep analysis and ML groups synchronized.
         self.current_project_data["analysisGroups"] = groups
         self.current_project_data["mlGroups"] = groups
+
+        # Clean analysis enabled map to known groups (prevents stale names lingering).
+        try:
+            enabled_existing = self.current_project_data.get("analysisGroupEnabled", {})
+            enabled_clean: Dict[str, bool] = {}
+            if isinstance(enabled_existing, dict):
+                for gname in groups.keys():
+                    enabled_clean[str(gname)] = bool(enabled_existing.get(gname, True))
+            self.current_project_data["analysisGroupEnabled"] = enabled_clean
+        except Exception:
+            pass
         self.save_current_project()
+        try:
+            _emit_groups_changed(origin)
+        except Exception:
+            pass
         create_logs(
             "ProjectManager",
             "projects",
             f"Saved {len(groups)} shared groups (analysis + ML)",
+            status="info",
+        )
+
+    def get_analysis_group_enabled(self) -> Dict[str, bool]:
+        """Get Analysis group enabled/disabled state by group name."""
+        m = self.current_project_data.get("analysisGroupEnabled", {})
+        if not isinstance(m, dict):
+            return {}
+        out: Dict[str, bool] = {}
+        for k, v in m.items():
+            if not k:
+                continue
+            out[str(k)] = bool(v)
+        return out
+
+    def set_analysis_group_enabled(self, enabled: Dict[str, bool], *, origin: str | None = None):
+        """Persist Analysis group enabled flags.
+
+        Stored separately from the shared group mapping so ML can keep its own enabled map.
+        """
+        groups = self.get_analysis_groups() or {}
+        enabled_clean: Dict[str, bool] = {}
+        if isinstance(groups, dict) and isinstance(enabled, dict):
+            for gname in groups.keys():
+                enabled_clean[str(gname)] = bool(enabled.get(gname, True))
+        self.current_project_data["analysisGroupEnabled"] = enabled_clean
+        self.save_current_project()
+        try:
+            _emit_groups_changed(origin)
+        except Exception:
+            pass
+
+    def get_analysis_group_configs(self) -> List[Dict[str, Any]]:
+        """Get Analysis group creation configs (include/exclude keywords, auto-assign flags)."""
+        cfg = self.current_project_data.get("analysisGroupConfigs", [])
+        return cfg if isinstance(cfg, list) else []
+
+    def set_analysis_group_configs(self, configs: List[Dict[str, Any]]):
+        """Save Analysis group configs (from MultiGroupCreationDialog)."""
+        self.current_project_data["analysisGroupConfigs"] = configs
+        self.save_current_project()
+        create_logs(
+            "ProjectManager",
+            "projects",
+            f"Saved {len(configs)} Analysis group configs",
             status="info",
         )
 
@@ -521,7 +625,7 @@ class ProjectManager:
             out[str(k)] = bool(v)
         return out
 
-    def set_ml_groups_and_enabled(self, groups: Dict[str, List[str]], enabled: Dict[str, bool]):
+    def set_ml_groups_and_enabled(self, groups: Dict[str, List[str]], enabled: Dict[str, bool], *, origin: str | None = None):
         """Save ML groups + enabled flags in a single project write."""
         # Keep analysis and ML groups synchronized.
         self.current_project_data["analysisGroups"] = groups
@@ -533,6 +637,10 @@ class ProjectManager:
                 enabled_clean[str(gname)] = bool(enabled.get(gname, True))
         self.current_project_data["mlGroupEnabled"] = enabled_clean
         self.save_current_project()
+        try:
+            _emit_groups_changed(origin)
+        except Exception:
+            pass
         create_logs(
             "ProjectManager",
             "projects",

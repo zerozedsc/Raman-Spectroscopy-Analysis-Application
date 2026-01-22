@@ -50,9 +50,9 @@ from functions.visualization.model_evaluation import (
 )
 from functions.visualization.classification_report import create_classification_report_table
 from functions.visualization.pca_decision_boundary import create_pca_decision_boundary_figure
-from pages.machine_learning_page_utils.dnd_widgets import DatasetSourceList, GroupDropList
+from components.widgets.grouping.dnd_widgets import DatasetSourceList, GroupDropList
 from pages.machine_learning_page_utils.thread import MLTrainingOutput, MLTrainingThread
-from utils import LOCALIZE, PROJECT_MANAGER, RAMAN_DATA
+from utils import LOCALIZE, PROJECT_MANAGER, RAMAN_DATA, register_groups_changed_listener
 
 from components.widgets.icons import load_icon
 
@@ -140,6 +140,12 @@ class MachineLearningPage(QWidget):
 		self._connect_signals()
 		self.update_localized_text()
 		self.load_project_data()
+
+		# Runtime sync: refresh this page's groups when Analysis updates shared groups.
+		try:
+			register_groups_changed_listener(self._on_external_groups_changed)
+		except Exception:
+			pass
 
 		# Add page-specific styles for better visibility
 		self.setStyleSheet("""
@@ -1036,9 +1042,9 @@ class MachineLearningPage(QWidget):
 			groups[name] = ds_list
 			enabled[name] = bool(ui.include_checkbox.isChecked())
 		# Save groups + enabled flags in one project write
-		PROJECT_MANAGER.set_ml_groups_and_enabled(groups, enabled)
+		PROJECT_MANAGER.set_ml_groups_and_enabled(groups, enabled, origin="ml")
 
-	def _load_groups_from_project(self):
+	def _load_groups_from_project(self, *, persist_reconcile: bool = True):
 		"""Load group assignments from the project JSON and apply to the UI."""
 		if not PROJECT_MANAGER.current_project_data:
 			return
@@ -1083,11 +1089,23 @@ class MachineLearningPage(QWidget):
 		self._refresh_eval_label_choices()
 		self._suspend_group_persist = False
 		# Persist only if we actually changed something (and had a meaningful basis to reconcile).
+		# NOTE: Skip persistence during external refresh to prevent feedback loops.
+		if persist_reconcile:
+			try:
+				if clean != saved and available:
+					PROJECT_MANAGER.set_ml_groups_and_enabled(clean, enabled_map, origin="ml")
+			except Exception:
+				pass
+
+	def _on_external_groups_changed(self, origin: Optional[str] = None) -> None:
+		"""Refresh groups when another page updates the shared group map."""
+		if origin == "ml":
+			return
+		# Defer to the event loop so we don't rebuild tabs mid-drag.
 		try:
-			if clean != saved and available:
-				PROJECT_MANAGER.set_ml_groups(clean)
+			QTimer.singleShot(0, lambda: self._load_groups_from_project(persist_reconcile=False))
 		except Exception:
-			pass
+			self._load_groups_from_project(persist_reconcile=False)
 
 	def _build_group_assignments(self) -> Dict[str, str]:
 		assignments: Dict[str, str] = {}
@@ -1305,7 +1323,20 @@ class MachineLearningPage(QWidget):
 				title=LOCALIZE("ML_PAGE.results_pca_boundary"),
 			)
 			# Background is image-based; don't add colorbar (it tends to clutter this view).
-			self.pca_plot.update_plot_with_config(pca_fig, {"colorbar": False})
+			self.pca_plot.update_plot_with_config(
+				pca_fig,
+				{
+					"colorbar": False,
+					# Make this plot fill the canvas better and avoid cumulative shrink
+					# from repeated tight_layout calls during resize.
+					"subplots_adjust": {"left": 0.08, "right": 0.985, "bottom": 0.12, "top": 0.90},
+					"figure": {
+						"tight_layout": False,
+						"constrained_layout": False,
+						"tight_layout_on_resize": False,
+					},
+				},
+			)
 		except Exception as e:
 			self._append_log(f"[DEBUG] PCA boundary plot failed: {e}")
 

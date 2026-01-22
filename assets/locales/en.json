@@ -856,6 +856,7 @@
         "keywords_hint": "Comma-separated, case-insensitive (e.g., ctrl, control, con)",
         "preview_title": "Assignment Preview",
         "unassigned_group": "Unassigned",
+        "include_in_analysis": "Use for analysis",
         "conflict_warning": "Warning: Some datasets match multiple groups",
         "no_matches_warning": "Warning: Group '{group}' has no matching datasets",
         "duplicate_name_error": "Error: Duplicate group name '{name}'",
