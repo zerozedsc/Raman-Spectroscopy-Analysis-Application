@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import datetime
+import csv
+import json
 import os
+import re
+import importlib.util
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import joblib
 import numpy as np
@@ -36,12 +40,21 @@ from PySide6.QtWidgets import (
 )
 
 from components.widgets.matplotlib_widget import MatplotlibWidget
+from components.widgets.results_panel import apply_modern_tab_style
 from components.widgets.parameter_widgets import CustomDoubleSpinBox, CustomSpinBox
 from components.widgets.multi_group_dialog import MultiGroupCreationDialog
 from components.widgets.external_evaluation_dialog import ExternalEvaluationDialog
 from configs.configs import create_logs
 from configs.style.stylesheets import combine_styles, get_base_style, get_page_style
 from functions.ML import prepare_features_for_dataset
+from sklearn.metrics import (
+	accuracy_score,
+	balanced_accuracy_score,
+	brier_score_loss,
+	confusion_matrix,
+	f1_score,
+	roc_auc_score,
+)
 from functions.visualization.model_evaluation import (
 	create_confusion_matrix_figure,
 	create_feature_importance_figure,
@@ -98,6 +111,110 @@ class CardFrame(QFrame):
 		self.title_label.setText(title)
 
 
+def _sanitize_filename_component(text: str) -> str:
+	# Windows-safe filename component (keep it simple and predictable)
+	s = re.sub(r"[^A-Za-z0-9._-]+", "_", str(text or "").strip())
+	s = re.sub(r"_+", "_", s).strip("_")
+	return s or "untitled"
+
+
+class _DestinationDialog(QDialog):
+	"""Reusable destination dialog (folder + filename) with optional checkbox."""
+
+	def __init__(
+		self,
+		*,
+		title: str,
+		default_dir: str,
+		default_filename: str,
+		ok_text_key: str = "ML_PAGE.dialog_save",
+		cancel_text_key: str = "COMMON.cancel",
+		show_save_params: bool = False,
+		default_save_params: bool = True,
+		parent=None,
+	):
+		super().__init__(parent)
+		self.setWindowTitle(title)
+		self.setModal(True)
+
+		self._dir = str(default_dir or os.getcwd())
+		self._filename = str(default_filename or "")
+		self._save_params = bool(default_save_params)
+
+		root = QVBoxLayout(self)
+		root.setContentsMargins(16, 16, 16, 16)
+		root.setSpacing(12)
+
+		form = QFormLayout()
+		form.setVerticalSpacing(10)
+		form.setHorizontalSpacing(12)
+		root.addLayout(form)
+
+		# Destination folder
+		dir_row = QHBoxLayout()
+		dir_row.setContentsMargins(0, 0, 0, 0)
+		self.dir_edit = QLineEdit(self._dir)
+		self.dir_edit.setReadOnly(True)
+		browse_btn = QPushButton(LOCALIZE("ML_PAGE.dialog_browse"))
+		browse_btn.setCursor(Qt.PointingHandCursor)
+		browse_btn.setStyleSheet(get_base_style("secondary_button"))
+		browse_btn.clicked.connect(self._browse_dir)
+		dir_row.addWidget(self.dir_edit, 1)
+		dir_row.addWidget(browse_btn, 0)
+		form.addRow(QLabel(LOCALIZE("ML_PAGE.dialog_destination")), dir_row)
+
+		# File name
+		self.name_edit = QLineEdit(self._filename)
+		form.addRow(QLabel(LOCALIZE("ML_PAGE.dialog_filename")), self.name_edit)
+
+		# Optional checkbox
+		self.save_params_cb = None
+		if show_save_params:
+			self.save_params_cb = QCheckBox(LOCALIZE("ML_PAGE.dialog_save_params"))
+			self.save_params_cb.setChecked(bool(default_save_params))
+			root.addWidget(self.save_params_cb)
+
+		# Buttons
+		btn_row = QHBoxLayout()
+		btn_row.addStretch(1)
+		try:
+			cancel_text = LOCALIZE(cancel_text_key)
+		except Exception:
+			cancel_text = "Cancel"
+		cancel_btn = QPushButton(cancel_text)
+		cancel_btn.setCursor(Qt.PointingHandCursor)
+		cancel_btn.setStyleSheet(get_base_style("secondary_button"))
+		cancel_btn.clicked.connect(self.reject)
+		try:
+			ok_text = LOCALIZE(ok_text_key)
+		except Exception:
+			ok_text = "OK"
+		ok_btn = QPushButton(ok_text)
+		ok_btn.setCursor(Qt.PointingHandCursor)
+		ok_btn.setStyleSheet(get_base_style("primary_button"))
+		ok_btn.clicked.connect(self.accept)
+		btn_row.addWidget(cancel_btn)
+		btn_row.addWidget(ok_btn)
+		root.addLayout(btn_row)
+
+	def _browse_dir(self):
+		picked = QFileDialog.getExistingDirectory(self, LOCALIZE("ML_PAGE.dialog_destination"), self._dir)
+		if picked:
+			self._dir = str(picked)
+			self.dir_edit.setText(self._dir)
+
+	def selected_dir(self) -> str:
+		return str(self.dir_edit.text() or self._dir or os.getcwd())
+
+	def filename(self) -> str:
+		return str(self.name_edit.text() or "").strip()
+
+	def save_params(self) -> bool:
+		if self.save_params_cb is None:
+			return False
+		return bool(self.save_params_cb.isChecked())
+
+
 @dataclass
 class _GroupUi:
 	group_id: str
@@ -135,6 +252,10 @@ class MachineLearningPage(QWidget):
 		self._trained_class_labels: List[str] = []
 		self._trained_model_key: Optional[str] = None
 		self._trained_model_params: Dict = {}
+		self._last_train_context: Dict[str, object] = {}
+		self._last_report_rows: List[Dict[str, object]] = []
+
+		self._xgboost_available = bool(importlib.util.find_spec("xgboost") is not None)
 
 		self._setup_ui()
 		self._connect_signals()
@@ -168,6 +289,31 @@ class MachineLearningPage(QWidget):
 				spacing: 8px;
 				font-size: 13px;
 				color: #333;
+			}
+
+			/* Fix: Windows theme can render combo popup dark; force light popup like Analysis page */
+			QComboBox {
+				background: #ffffff;
+				color: #212529;
+				border: 1px solid #ced4da;
+				border-radius: 6px;
+				padding: 4px 8px;
+				min-height: 28px;
+			}
+			QComboBox:hover { border-color: #86b7fe; }
+			QComboBox:focus { border-color: #0078d4; }
+			QComboBox::drop-down {
+				border: none;
+				width: 26px;
+				background: #ffffff;
+			}
+			QComboBox QAbstractItemView {
+				background: #ffffff;
+				color: #212529;
+				selection-background-color: #0078d4;
+				selection-color: #ffffff;
+				outline: 0;
+				border: 1px solid #ced4da;
 			}
 		""")
 
@@ -326,6 +472,8 @@ class MachineLearningPage(QWidget):
 		self.model_combo.addItem("logistic_regression", userData="logistic_regression")
 		self.model_combo.addItem("svm", userData="svm")
 		self.model_combo.addItem("random_forest", userData="random_forest")
+		if self._xgboost_available:
+			self.model_combo.addItem("xgboost", userData="xgboost")
 		self.model_combo.setMinimumWidth(200)
 		model_sel_row.addWidget(self.model_method_label)
 		model_sel_row.addWidget(self.model_combo)
@@ -427,44 +575,19 @@ class MachineLearningPage(QWidget):
 		right_layout.setContentsMargins(16, 16, 16, 16)
 		right_layout.setSpacing(8)
 
+		# Results actions
+		right_actions = QHBoxLayout()
+		right_actions.setContentsMargins(0, 0, 0, 0)
+		right_actions.addStretch(1)
+		self.export_report_button = QPushButton()
+		self.export_report_button.setObjectName("mlExportReportButton")
+		self.export_report_button.setCursor(Qt.PointingHandCursor)
+		self.export_report_button.setStyleSheet(get_base_style("secondary_button"))
+		right_actions.addWidget(self.export_report_button)
+		right_layout.addLayout(right_actions)
+
 		self.results_tabs = QTabWidget()
-		self.results_tabs.setObjectName("mlResultsTabs")
-		self.results_tabs.setDocumentMode(True)
-		# Match Analysis page tab styling (improves tab-bar visibility/consistency)
-		self.results_tabs.setStyleSheet(
-			"""
-			QTabWidget#mlResultsTabs::pane {
-				border: none;
-				background: #ffffff;
-				padding-top: 10px;
-			}
-			QTabWidget#mlResultsTabs::tab-bar {
-				alignment: left;
-			}
-			QTabWidget#mlResultsTabs QTabBar {
-				background: #ffffff;
-				border-bottom: 1px solid #dee2e6;
-			}
-			QTabWidget#mlResultsTabs QTabBar::tab {
-				background: transparent;
-				color: #6c757d;
-				font-size: 13px;
-				font-weight: 600;
-				padding: 12px 20px;
-				border-bottom: 2px solid transparent;
-				margin-left: 8px;
-			}
-			QTabWidget#mlResultsTabs QTabBar::tab:hover {
-				color: #0078d4;
-				background-color: #f8f9fa;
-				border-radius: 4px 4px 0 0;
-			}
-			QTabWidget#mlResultsTabs QTabBar::tab:selected {
-				color: #0078d4;
-				border-bottom: 2px solid #0078d4;
-			}
-			"""
-		)
+		apply_modern_tab_style(self.results_tabs, object_name="mlResultsTabs")
 
 		self.cm_plot = MatplotlibWidget()
 		self.pca_plot = MatplotlibWidget()
@@ -486,8 +609,15 @@ class MachineLearningPage(QWidget):
 		self.report_table.verticalHeader().setVisible(False)
 		self.report_table.setStyleSheet("QTableWidget { border: 1px solid #dee2e6; }")
 
+		self.eval_summary_text = QTextEdit()
+		self.eval_summary_text.setReadOnly(True)
+		self.eval_summary_text.setStyleSheet(
+			"border: 1px solid #dee2e6; border-radius: 4px; padding: 8px; font-family: monospace; font-size: 12px;"
+		)
+
 		self.results_tabs.addTab(self.cm_plot, "")
 		self.results_tabs.addTab(self.report_table, "")
+		self.results_tabs.addTab(self.eval_summary_text, "")
 		self.results_tabs.addTab(self.pca_plot, "")
 		self.results_tabs.addTab(self.roc_plot, "")
 		self.results_tabs.addTab(self.fi_plot, "")
@@ -523,6 +653,7 @@ class MachineLearningPage(QWidget):
 		self.save_model_button.clicked.connect(self._save_model)
 		self.load_model_button.clicked.connect(self._load_model)
 		self.evaluate_button.clicked.connect(self._evaluate_external_dataset)
+		self.export_report_button.clicked.connect(self._export_classification_report)
 
 	def _build_model_param_tabs(self):
 		# Helper for tab inner layout
@@ -621,6 +752,40 @@ class MachineLearningPage(QWidget):
 		rf_form.addRow(mk_label("ML_PAGE.params_rf_random_state", "Random State"), self.rf_random_state)
 		self.model_params_stack.addTab(rf_tab, "random_forest")
 
+		# XGBoost (only if available)
+		if self._xgboost_available:
+			xgb_tab, xgb_form = make_param_tab(QFormLayout)
+			self.xgb_n_estimators = CustomSpinBox()
+			self.xgb_n_estimators.setRange(10, 5000)
+			self.xgb_n_estimators.setValue(300)
+			self.xgb_max_depth = CustomSpinBox()
+			self.xgb_max_depth.setRange(1, 32)
+			self.xgb_max_depth.setValue(6)
+			self.xgb_learning_rate = CustomDoubleSpinBox()
+			self.xgb_learning_rate.setRange(1e-4, 1.0)
+			self.xgb_learning_rate.setDecimals(6)
+			self.xgb_learning_rate.setValue(0.1)
+			self.xgb_subsample = CustomDoubleSpinBox()
+			self.xgb_subsample.setRange(0.1, 1.0)
+			self.xgb_subsample.setDecimals(3)
+			self.xgb_subsample.setValue(0.8)
+			self.xgb_colsample_bytree = CustomDoubleSpinBox()
+			self.xgb_colsample_bytree.setRange(0.1, 1.0)
+			self.xgb_colsample_bytree.setDecimals(3)
+			self.xgb_colsample_bytree.setValue(0.8)
+			self.xgb_reg_lambda = CustomDoubleSpinBox()
+			self.xgb_reg_lambda.setRange(0.0, 1000.0)
+			self.xgb_reg_lambda.setDecimals(6)
+			self.xgb_reg_lambda.setValue(1.0)
+
+			xgb_form.addRow(mk_label("ML_PAGE.params_xgb_trees", "Trees (n_estimators)"), self.xgb_n_estimators)
+			xgb_form.addRow(mk_label("ML_PAGE.params_xgb_max_depth", "Max depth"), self.xgb_max_depth)
+			xgb_form.addRow(mk_label("ML_PAGE.params_xgb_learning_rate", "Learning rate"), self.xgb_learning_rate)
+			xgb_form.addRow(mk_label("ML_PAGE.params_xgb_subsample", "Subsample"), self.xgb_subsample)
+			xgb_form.addRow(mk_label("ML_PAGE.params_xgb_colsample_bytree", "Colsample bytree"), self.xgb_colsample_bytree)
+			xgb_form.addRow(mk_label("ML_PAGE.params_xgb_reg_lambda", "L2 (lambda)"), self.xgb_reg_lambda)
+			self.model_params_stack.addTab(xgb_tab, "xgboost")
+
 		self._sync_model_param_tab()
 
 	def _sync_model_param_tab(self):
@@ -650,6 +815,11 @@ class MachineLearningPage(QWidget):
 		self.start_training_button.setText(LOCALIZE("ML_PAGE.start_training"))
 		self.save_model_button.setText(LOCALIZE("ML_PAGE.save_model"))
 		self.load_model_button.setText(LOCALIZE("ML_PAGE.load_model"))
+		self.export_report_button.setText(LOCALIZE("ML_PAGE.export_report"))
+		try:
+			self.export_report_button.setToolTip(LOCALIZE("ML_PAGE.export_report_tooltip"))
+		except Exception:
+			pass
 		self.evaluate_button.setText(LOCALIZE("ML_PAGE.evaluate_dataset"))
 		self.status_label.setText(LOCALIZE("ML_PAGE.status_ready"))
 
@@ -681,11 +851,19 @@ class MachineLearningPage(QWidget):
 		self.split_mode_combo.setItemText(0, LOCALIZE("ML_PAGE.split_by_spectra"))
 		self.split_mode_combo.setItemText(1, LOCALIZE("ML_PAGE.split_by_dataset"))
 
-		# Model method display text
-		self.model_combo.setItemText(0, LOCALIZE("ML_PAGE.model_linear_regression"))
-		self.model_combo.setItemText(1, LOCALIZE("ML_PAGE.model_logistic_regression"))
-		self.model_combo.setItemText(2, LOCALIZE("ML_PAGE.model_svm"))
-		self.model_combo.setItemText(3, LOCALIZE("ML_PAGE.model_random_forest"))
+		# Model method display text (robust to optional methods)
+		def _set_model_text(model_key: str, text: str) -> None:
+			for i in range(self.model_combo.count()):
+				if str(self.model_combo.itemData(i) or "") == model_key:
+					self.model_combo.setItemText(i, text)
+					return
+
+		_set_model_text("linear_regression", LOCALIZE("ML_PAGE.model_linear_regression"))
+		_set_model_text("logistic_regression", LOCALIZE("ML_PAGE.model_logistic_regression"))
+		_set_model_text("svm", LOCALIZE("ML_PAGE.model_svm"))
+		_set_model_text("random_forest", LOCALIZE("ML_PAGE.model_random_forest"))
+		if self._xgboost_available:
+			_set_model_text("xgboost", LOCALIZE("ML_PAGE.model_xgboost"))
 
 		# SVM parameter combo display text (keep userData stable for sklearn)
 		try:
@@ -713,10 +891,11 @@ class MachineLearningPage(QWidget):
 		# Results tabs
 		self.results_tabs.setTabText(0, LOCALIZE("ML_PAGE.results_confusion"))
 		self.results_tabs.setTabText(1, LOCALIZE("ML_PAGE.results_report"))
-		self.results_tabs.setTabText(2, LOCALIZE("ML_PAGE.results_pca_boundary"))
-		self.results_tabs.setTabText(3, LOCALIZE("ML_PAGE.results_roc"))
-		self.results_tabs.setTabText(4, LOCALIZE("ML_PAGE.results_importance"))
-		self.results_tabs.setTabText(5, LOCALIZE("ML_PAGE.results_distribution"))
+		self.results_tabs.setTabText(2, LOCALIZE("ML_PAGE.results_eval_summary"))
+		self.results_tabs.setTabText(3, LOCALIZE("ML_PAGE.results_pca_boundary"))
+		self.results_tabs.setTabText(4, LOCALIZE("ML_PAGE.results_roc"))
+		self.results_tabs.setTabText(5, LOCALIZE("ML_PAGE.results_importance"))
+		self.results_tabs.setTabText(6, LOCALIZE("ML_PAGE.results_distribution"))
 
 		# Classification report table headers
 		try:
@@ -763,6 +942,10 @@ class MachineLearningPage(QWidget):
 		self.progress.setValue(0)
 		self.status_label.setText(LOCALIZE("ML_PAGE.status_ready"))
 		self.log_text.clear()
+		try:
+			self.eval_summary_text.clear()
+		except Exception:
+			pass
 		self.dataset_source_list.clear()
 		self.eval_dataset_combo.clear()
 		self._trained_model = None
@@ -1154,6 +1337,18 @@ class MachineLearningPage(QWidget):
 				"max_depth": None if max_depth <= 0 else max_depth,
 				"random_state": int(self.rf_random_state.value()),
 			}
+		if key == "xgboost":
+			# NOTE: XGBoost UI is optional; guard against missing widgets.
+			if not hasattr(self, "xgb_n_estimators"):
+				return {}
+			return {
+				"n_estimators": int(self.xgb_n_estimators.value()),
+				"max_depth": int(self.xgb_max_depth.value()),
+				"learning_rate": float(self.xgb_learning_rate.value()),
+				"subsample": float(self.xgb_subsample.value()),
+				"colsample_bytree": float(self.xgb_colsample_bytree.value()),
+				"reg_lambda": float(self.xgb_reg_lambda.value()),
+			}
 		return {}
 
 	def _model_display_name(self, model_key: str | None) -> str:
@@ -1166,6 +1361,7 @@ class MachineLearningPage(QWidget):
 			"logistic_regression": LOCALIZE("ML_PAGE.model_logistic_regression"),
 			"svm": LOCALIZE("ML_PAGE.model_svm"),
 			"random_forest": LOCALIZE("ML_PAGE.model_random_forest"),
+			"xgboost": LOCALIZE("ML_PAGE.model_xgboost"),
 		}
 		return mapping.get(key, key.replace("_", " ").title())
 
@@ -1181,6 +1377,7 @@ class MachineLearningPage(QWidget):
 		self.random_state_spin.setEnabled(enabled)
 		self.save_model_button.setEnabled(enabled)
 		self.load_model_button.setEnabled(enabled)
+		self.export_report_button.setEnabled(enabled)
 		self.evaluate_button.setEnabled(enabled)
 		self.eval_dataset_combo.setEnabled(enabled)
 		self.eval_true_label_combo.setEnabled(enabled)
@@ -1202,6 +1399,22 @@ class MachineLearningPage(QWidget):
 			"by_spectra" if self.split_mode_combo.currentIndex() == 0 else "by_dataset"
 		)
 		random_state = int(self.random_state_spin.value())
+		# Capture context for later export / reproducibility
+		try:
+			group_names = sorted({(ui.name_edit.text() or "").strip() for ui in self._groups if (ui.name_edit.text() or "").strip()})
+		except Exception:
+			group_names = []
+		self._last_train_context = {
+			"model_key": str(model_key),
+			"model_params": dict(model_params),
+			"group_assignments": dict(assignments),
+			"group_names": group_names,
+			"class_labels": list(class_labels),
+			"train_ratio": float(train_ratio),
+			"split_mode": str(split_mode),
+			"random_state": int(random_state),
+			"started_at": datetime.datetime.now().isoformat(),
+		}
 
 		self._append_log(
 			f"[DEBUG] Start training: model={model_key} classes={class_labels} train_ratio={train_ratio} split_mode={split_mode}"
@@ -1233,12 +1446,277 @@ class MachineLearningPage(QWidget):
 		self._set_controls_enabled(True)
 		QMessageBox.critical(self, LOCALIZE("COMMON.error"), msg)
 
+	def _bootstrap_ci(
+		self,
+		*,
+		y_true: np.ndarray,
+		y_pred: np.ndarray,
+		metric: str,
+		labels: List[str],
+		n_boot: int = 300,
+		alpha: float = 0.05,
+		random_state: int = 0,
+	) -> Optional[Tuple[float, float]]:
+		"""Bootstrap CI over test samples (spectra-level).
+
+		Returns:
+			(lo, hi) or None if not computable.
+		"""
+		y_true = np.asarray(y_true, dtype=object)
+		y_pred = np.asarray(y_pred, dtype=object)
+		if y_true.shape[0] == 0 or y_pred.shape[0] != y_true.shape[0]:
+			return None
+
+		metric_key = str(metric or "").strip().lower()
+		if metric_key not in {"accuracy", "balanced_accuracy", "macro_f1"}:
+			return None
+
+		rng = np.random.RandomState(int(random_state))
+		idx = np.arange(y_true.shape[0])
+		vals: List[float] = []
+		for _ in range(int(n_boot)):
+			s = rng.choice(idx, size=idx.shape[0], replace=True)
+			yt = y_true[s]
+			yp = y_pred[s]
+			try:
+				if metric_key == "accuracy":
+					v = float(accuracy_score(yt, yp))
+				elif metric_key == "balanced_accuracy":
+					v = float(balanced_accuracy_score(yt, yp))
+				else:
+					v = float(f1_score(yt, yp, labels=list(labels), average="macro", zero_division=0))
+				vals.append(v)
+			except Exception:
+				continue
+
+		if len(vals) < max(20, int(n_boot) // 5):
+			return None
+		arr = np.asarray(vals, dtype=float)
+		lo = float(np.quantile(arr, alpha / 2.0))
+		hi = float(np.quantile(arr, 1.0 - alpha / 2.0))
+		return lo, hi
+
+	def _aggregate_dataset_majority_vote(
+		self,
+		*,
+		y_true: np.ndarray,
+		y_pred: np.ndarray,
+		ds_names: np.ndarray,
+	) -> Tuple[np.ndarray, np.ndarray]:
+		"""Aggregate spectrum predictions to dataset-level via majority vote."""
+		y_true = np.asarray(y_true, dtype=object)
+		y_pred = np.asarray(y_pred, dtype=object)
+		ds_names = np.asarray(ds_names, dtype=object)
+		if y_true.shape[0] == 0:
+			return np.asarray([], dtype=object), np.asarray([], dtype=object)
+		if not (y_true.shape[0] == y_pred.shape[0] == ds_names.shape[0]):
+			return np.asarray([], dtype=object), np.asarray([], dtype=object)
+
+		def _majority(arr: np.ndarray) -> object:
+			arr = np.asarray(arr, dtype=object)
+			vals, counts = np.unique(arr, return_counts=True)
+			if vals.shape[0] == 0:
+				return ""
+			return vals[int(np.argmax(counts))]
+
+		uniq_ds = sorted({str(x) for x in ds_names.tolist() if str(x)})
+		y_true_ds: List[object] = []
+		y_pred_ds: List[object] = []
+		for ds in uniq_ds:
+			mask = np.asarray([str(x) == ds for x in ds_names], dtype=bool)
+			if not np.any(mask):
+				continue
+			y_true_ds.append(_majority(y_true[mask]))
+			y_pred_ds.append(_majority(y_pred[mask]))
+		return np.asarray(y_true_ds, dtype=object), np.asarray(y_pred_ds, dtype=object)
+
+	def _build_eval_summary_text(self, out: MLTrainingOutput) -> str:
+		"""Build a research-friendly evaluation summary (human readable).
+
+		Focus:
+		- Split design and leakage risks
+		- Spectrum-level metrics (what we currently optimize)
+		- Dataset-level metrics (closer to "patient-level" when multiple spectra per dataset)
+		- Simple uncertainty via bootstrap CI (spectra-level)
+		"""
+		labels = list(out.split.class_labels or [])
+		split_mode = str((self._last_train_context or {}).get("split_mode") or "")
+		train_ratio = (self._last_train_context or {}).get("train_ratio")
+		random_state = int((self._last_train_context or {}).get("random_state") or 0)
+
+		y_true = np.asarray(out.split.y_test, dtype=object)
+		y_pred = np.asarray(out.y_pred, dtype=object)
+		ds_train = np.asarray(out.split.sample_dataset_names_train, dtype=object)
+		ds_test = np.asarray(out.split.sample_dataset_names_test, dtype=object)
+
+		train_ds = {str(x) for x in ds_train.tolist() if str(x)}
+		test_ds = {str(x) for x in ds_test.tolist() if str(x)}
+		overlap = sorted(train_ds.intersection(test_ds))
+
+		lines: List[str] = []
+		lines.append(f"{LOCALIZE('ML_PAGE.eval_summary_model')}: {self._model_display_name(out.model_key)}")
+		if split_mode:
+			tr = f"{float(train_ratio):.2f}" if isinstance(train_ratio, (int, float)) else str(train_ratio)
+			lines.append(f"{LOCALIZE('ML_PAGE.eval_summary_split')}: {split_mode} (train_ratio={tr}, seed={random_state})")
+		lines.append(
+			f"{LOCALIZE('ML_PAGE.eval_summary_counts')}: "
+			f"train={int(np.asarray(out.split.y_train).shape[0])} spectra / {len(train_ds)} datasets, "
+			f"test={int(y_true.shape[0])} spectra / {len(test_ds)} datasets"
+		)
+		if labels:
+			lines.append(f"{LOCALIZE('ML_PAGE.eval_summary_classes')}: {', '.join(map(str, labels))}")
+
+		if split_mode == "by_spectra":
+			lines.append("")
+			lines.append(f"{LOCALIZE('ML_PAGE.eval_summary_warning')}: {LOCALIZE('ML_PAGE.eval_summary_warning_by_spectra')}")
+		if overlap:
+			lines.append("")
+			lines.append(
+				f"{LOCALIZE('ML_PAGE.eval_summary_warning')}: "
+				+ LOCALIZE("ML_PAGE.eval_summary_warning_dataset_overlap").format(count=len(overlap))
+			)
+
+		# ---- Spectrum-level metrics ----
+		lines.append("")
+		lines.append(f"[{LOCALIZE('ML_PAGE.eval_summary_spectrum_level')}]" )
+		try:
+			acc = float(accuracy_score(y_true, y_pred))
+		except Exception:
+			acc = float("nan")
+		try:
+			bal = float(balanced_accuracy_score(y_true, y_pred))
+		except Exception:
+			bal = float("nan")
+		try:
+			macro_f1 = float(f1_score(y_true, y_pred, labels=labels, average="macro", zero_division=0))
+			micro_f1 = float(f1_score(y_true, y_pred, labels=labels, average="micro", zero_division=0))
+		except Exception:
+			macro_f1 = float("nan")
+			micro_f1 = float("nan")
+
+		lines.append(f"accuracy={acc:.4f}  balanced_accuracy={bal:.4f}  macro_f1={macro_f1:.4f}  micro_f1={micro_f1:.4f}")
+
+		ci_acc = self._bootstrap_ci(
+			y_true=y_true,
+			y_pred=y_pred,
+			metric="accuracy",
+			labels=labels,
+			n_boot=300,
+			random_state=random_state,
+		)
+		ci_bal = self._bootstrap_ci(
+			y_true=y_true,
+			y_pred=y_pred,
+			metric="balanced_accuracy",
+			labels=labels,
+			n_boot=300,
+			random_state=random_state,
+		)
+		ci_f1 = self._bootstrap_ci(
+			y_true=y_true,
+			y_pred=y_pred,
+			metric="macro_f1",
+			labels=labels,
+			n_boot=300,
+			random_state=random_state,
+		)
+		ci_parts: List[str] = []
+		if ci_acc:
+			ci_parts.append(f"accuracy_CI95=[{ci_acc[0]:.4f}, {ci_acc[1]:.4f}]")
+		if ci_bal:
+			ci_parts.append(f"balanced_accuracy_CI95=[{ci_bal[0]:.4f}, {ci_bal[1]:.4f}]")
+		if ci_f1:
+			ci_parts.append(f"macro_f1_CI95=[{ci_f1[0]:.4f}, {ci_f1[1]:.4f}]")
+		if ci_parts:
+			lines.append("  " + "  ".join(ci_parts))
+			lines.append(f"  {LOCALIZE('ML_PAGE.eval_summary_ci_note')}")
+
+		# Class-wise sensitivity/specificity (OvR)
+		try:
+			cm = confusion_matrix(y_true, y_pred, labels=labels)
+			cm = np.asarray(cm, dtype=float)
+			total = float(np.sum(cm))
+			lines.append("")
+			lines.append(f"{LOCALIZE('ML_PAGE.eval_summary_per_class')}:" )
+			for i, lab in enumerate(labels):
+				tp = cm[i, i]
+				fn = float(np.sum(cm[i, :]) - tp)
+				fp = float(np.sum(cm[:, i]) - tp)
+				tn = total - tp - fn - fp
+				sens = (tp / (tp + fn)) if (tp + fn) > 0 else float("nan")
+				spec = (tn / (tn + fp)) if (tn + fp) > 0 else float("nan")
+				lines.append(f"  {lab}: sensitivity(recall)={sens:.4f}  specificity={spec:.4f}")
+		except Exception:
+			pass
+
+		# Probabilistic metrics (if available)
+		if out.proba is not None:
+			proba = np.asarray(out.proba, dtype=float)
+			if proba.ndim == 2 and proba.shape[0] == y_true.shape[0] and labels:
+				try:
+					if len(labels) == 2:
+						pos_idx = 1
+						pos_label = labels[pos_idx]
+						y_bin = np.asarray([1 if str(v) == str(pos_label) else 0 for v in y_true], dtype=int)
+						score = proba[:, pos_idx]
+						auc = float(roc_auc_score(y_bin, score))
+						brier = float(brier_score_loss(y_bin, score))
+						lines.append("")
+						lines.append(f"auc(ROC)={auc:.4f}  brier={brier:.4f}")
+					else:
+						auc = float(
+							roc_auc_score(
+								y_true,
+								proba,
+								labels=labels,
+								multi_class="ovr",
+								average="macro",
+							)
+						)
+						lines.append("")
+						lines.append(f"auc_ovr_macro={auc:.4f}")
+				except Exception:
+					pass
+
+		# ---- Dataset-level metrics (majority vote) ----
+		y_true_ds, y_pred_ds = self._aggregate_dataset_majority_vote(
+			y_true=y_true,
+			y_pred=y_pred,
+			ds_names=ds_test,
+		)
+		if y_true_ds.shape[0] > 0:
+			lines.append("")
+			lines.append(f"[{LOCALIZE('ML_PAGE.eval_summary_dataset_level')}]" )
+			try:
+				acc_ds = float(accuracy_score(y_true_ds, y_pred_ds))
+			except Exception:
+				acc_ds = float("nan")
+			try:
+				bal_ds = float(balanced_accuracy_score(y_true_ds, y_pred_ds))
+			except Exception:
+				bal_ds = float("nan")
+			try:
+				macro_f1_ds = float(f1_score(y_true_ds, y_pred_ds, labels=labels, average="macro", zero_division=0))
+			except Exception:
+				macro_f1_ds = float("nan")
+			lines.append(
+				f"datasets={int(y_true_ds.shape[0])}  "
+				f"accuracy={acc_ds:.4f}  balanced_accuracy={bal_ds:.4f}  macro_f1={macro_f1_ds:.4f}"
+			)
+			lines.append(f"  {LOCALIZE('ML_PAGE.eval_summary_dataset_note')}")
+
+		return "\n".join(lines).strip() + "\n"
+
 	def _on_training_completed(self, out: MLTrainingOutput):
 		self._trained_model = out.model
 		self._trained_axis = np.asarray(out.split.common_axis, dtype=float)
 		self._trained_class_labels = list(out.split.class_labels)
 		self._trained_model_key = out.model_key
 		self._trained_model_params = dict(out.model_params)
+		try:
+			self._last_train_context["completed_at"] = datetime.datetime.now().isoformat()
+		except Exception:
+			pass
 		self._refresh_eval_label_choices()
 
 		self._append_log(f"[DEBUG] Accuracy: {out.accuracy:.4f}")
@@ -1252,6 +1730,12 @@ class MachineLearningPage(QWidget):
 			self._populate_report_table(rows)
 		except Exception as e:
 			self._append_log(f"[DEBUG] Report table failed: {e}")
+
+		# Evaluation summary (metrics + leakage warnings)
+		try:
+			self.eval_summary_text.setPlainText(self._build_eval_summary_text(out))
+		except Exception as e:
+			self._append_log(f"[DEBUG] Eval summary build failed: {e}")
 
 		# Confusion matrix
 		try:
@@ -1345,6 +1829,7 @@ class MachineLearningPage(QWidget):
 
 	def _populate_report_table(self, rows: List[Dict[str, object]]):
 		"""Populate the classification report table."""
+		self._last_report_rows = list(rows or [])
 		self.report_table.setRowCount(0)
 		if not rows:
 			return
@@ -1361,6 +1846,40 @@ class MachineLearningPage(QWidget):
 				it = QTableWidgetItem(str(v))
 				self.report_table.setItem(r, c, it)
 
+	def _default_report_export_dir(self) -> str:
+		project_path = PROJECT_MANAGER.current_project_data.get("projectFilePath")
+		if project_path:
+			root_dir = os.path.dirname(project_path)
+			out_dir = os.path.join(root_dir, "reports")
+			os.makedirs(out_dir, exist_ok=True)
+			return out_dir
+		return os.getcwd()
+
+	def _default_model_basename(self) -> str:
+		model_key = str(self._trained_model_key or (self.model_combo.currentData() or self.model_combo.currentText()) or "model")
+		model_part = _sanitize_filename_component(self._model_display_name(model_key))
+		groups = []
+		try:
+			groups = list(self._last_train_context.get("group_names") or [])
+		except Exception:
+			groups = []
+		if not groups:
+			try:
+				groups = [
+					(ui.name_edit.text() or "").strip()
+					for ui in self._groups
+					if (ui.name_edit.text() or "").strip() and bool(ui.include_checkbox.isChecked())
+				]
+			except Exception:
+				groups = []
+		group_part = "-".join(_sanitize_filename_component(g) for g in groups[:4])
+		ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+		base = f"{model_part}"
+		if group_part:
+			base += f"_{group_part}"
+		base += f"_{ts}"
+		return base
+
 	def _default_model_save_dir(self) -> str:
 		project_path = PROJECT_MANAGER.current_project_data.get("projectFilePath")
 		if project_path:
@@ -1376,15 +1895,26 @@ class MachineLearningPage(QWidget):
 			return
 
 		default_dir = self._default_model_save_dir()
-		default_name = f"ml_model_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pkl"
-		path, _ = QFileDialog.getSaveFileName(
-			self,
-			LOCALIZE("ML_PAGE.save_model"),
-			os.path.join(default_dir, default_name),
-			"Pickle (*.pkl)",
+		default_base = self._default_model_basename()
+		dlg = _DestinationDialog(
+			title=LOCALIZE("ML_PAGE.save_dialog_title"),
+			default_dir=default_dir,
+			default_filename=f"{default_base}.pkl",
+			ok_text_key="ML_PAGE.dialog_save",
+			show_save_params=True,
+			default_save_params=True,
+			parent=self,
 		)
-		if not path:
+		if dlg.exec() != QDialog.Accepted:
 			return
+		out_dir = dlg.selected_dir()
+		filename = dlg.filename()
+		if not filename:
+			return
+		if not filename.lower().endswith(".pkl"):
+			filename = f"{filename}.pkl"
+		path = os.path.join(out_dir, filename)
+		save_params_json = dlg.save_params()
 
 		payload = {
 			"model": self._trained_model,
@@ -1392,10 +1922,81 @@ class MachineLearningPage(QWidget):
 			"class_labels": self._trained_class_labels,
 			"model_key": self._trained_model_key,
 			"model_params": self._trained_model_params,
+			"train_context": dict(self._last_train_context or {}),
 			"trained_at": datetime.datetime.now().isoformat(),
 		}
 		joblib.dump(payload, path)
 		self._append_log(f"[DEBUG] Saved model to {path}")
+
+		if save_params_json:
+			try:
+				params_path = os.path.splitext(path)[0] + "_params.json"
+				params_payload = {
+					"trained_at": payload.get("trained_at"),
+					"model_key": self._trained_model_key,
+					"model_display": self._model_display_name(self._trained_model_key),
+					"model_params": dict(self._trained_model_params or {}),
+					"train_context": dict(self._last_train_context or {}),
+					"class_labels": list(self._trained_class_labels or []),
+				}
+				with open(params_path, "w", encoding="utf-8") as f:
+					json.dump(params_payload, f, ensure_ascii=False, indent=2)
+				self._append_log(f"[DEBUG] Saved params to {params_path}")
+			except Exception as e:
+				self._append_log(f"[DEBUG] Params JSON save failed: {e}")
+
+	def _export_classification_report(self):
+		# Prefer stored report rows, but fall back to reading the table.
+		rows: List[Dict[str, object]] = list(self._last_report_rows or [])
+		if not rows and self.report_table.rowCount() > 0:
+			for r in range(self.report_table.rowCount()):
+				row = {
+					"class": (self.report_table.item(r, 0).text() if self.report_table.item(r, 0) else ""),
+					"precision": (self.report_table.item(r, 1).text() if self.report_table.item(r, 1) else ""),
+					"recall": (self.report_table.item(r, 2).text() if self.report_table.item(r, 2) else ""),
+					"f1-score": (self.report_table.item(r, 3).text() if self.report_table.item(r, 3) else ""),
+					"support": (self.report_table.item(r, 4).text() if self.report_table.item(r, 4) else ""),
+				}
+				rows.append(row)
+		if not rows:
+			QMessageBox.warning(self, LOCALIZE("COMMON.warning"), LOCALIZE("ML_PAGE.error_no_report"))
+			return
+
+		default_dir = self._default_report_export_dir()
+		base = self._default_model_basename()
+		dlg = _DestinationDialog(
+			title=LOCALIZE("ML_PAGE.export_dialog_title"),
+			default_dir=default_dir,
+			default_filename=f"classification_report_{base}.csv",
+			ok_text_key="ML_PAGE.dialog_export",
+			show_save_params=False,
+			parent=self,
+		)
+		if dlg.exec() != QDialog.Accepted:
+			return
+		out_dir = dlg.selected_dir()
+		filename = dlg.filename()
+		if not filename:
+			return
+		if not filename.lower().endswith(".csv"):
+			filename = f"{filename}.csv"
+		path = os.path.join(out_dir, filename)
+
+		headers = ["class", "precision", "recall", "f1-score", "support"]
+		try:
+			with open(path, "w", newline="", encoding="utf-8") as f:
+				writer = csv.DictWriter(f, fieldnames=headers)
+				writer.writeheader()
+				for row in rows:
+					writer.writerow({h: row.get(h, "") for h in headers})
+			self._append_log(f"[DEBUG] Exported classification report to {path}")
+			try:
+				title = LOCALIZE("COMMON.info")
+			except Exception:
+				title = "Info"
+			QMessageBox.information(self, title, f"{LOCALIZE('ML_PAGE.export_report')}\n{path}")
+		except Exception as e:
+			QMessageBox.critical(self, LOCALIZE("COMMON.error"), str(e))
 
 	def _load_model(self):
 		default_dir = self._default_model_save_dir()
@@ -1414,6 +2015,10 @@ class MachineLearningPage(QWidget):
 		self._trained_class_labels = list(payload.get("class_labels") or [])
 		self._trained_model_key = payload.get("model_key")
 		self._trained_model_params = dict(payload.get("model_params") or {})
+		try:
+			self._last_train_context = dict(payload.get("train_context") or {})
+		except Exception:
+			self._last_train_context = {}
 		self._append_log(f"[DEBUG] Loaded model from {path}")
 		self._refresh_eval_label_choices()
 

@@ -35,6 +35,8 @@ Version: 2.0
 import sys
 import os
 import traceback
+import json
+import pickle
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -49,6 +51,9 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QStackedWidget,
     QListWidgetItem,
+    QLabel,
+    QPushButton,
+    QToolButton,
     QMessageBox,
     QProgressBar,
     QFrame,
@@ -96,6 +101,7 @@ class AnalysisHistoryItem:
         None  # {dataset: group} for group mode (P0-3 fix)
     )
     result: Optional[AnalysisResult] = None
+    storage_id: Optional[str] = None  # stable id for disk persistence + UI selection
 
     @property
     def display_name(self) -> str:
@@ -142,15 +148,193 @@ class AnalysisPage(QWidget):
         self.current_method_key = None
         self.current_result = None
         self.analysis_history: List[AnalysisHistoryItem] = []
+        self._history_by_id: Dict[str, AnalysisHistoryItem] = {}
 
         # Analysis thread
         self.analysis_thread: Optional[AnalysisThread] = None
+        # Cancellation / force-stop (detach) state
+        self._analysis_cancel_requested: bool = False
+        self._ignored_thread_ids: set[int] = set()
 
         # Export manager
         self.export_manager = ExportManager(self, self.localize, self.project_manager)
 
         # Build UI
         self._setup_ui()
+
+    # === Persistent analysis history (per project) ===
+    def load_project_data(self):
+        """WorkspacePage calls this after PROJECT_MANAGER.load_project()."""
+        try:
+            self._load_persisted_history()
+        except Exception as e:
+            create_logs(
+                "AnalysisPage",
+                "analysis_history",
+                f"Failed to load persisted analysis history: {e}",
+                status="warning",
+            )
+
+    def _get_history_storage_dir(self) -> str | None:
+        project_path = self.project_manager.current_project_data.get("projectFilePath")
+        if not project_path:
+            return None
+        project_root = os.path.dirname(project_path)
+        history_dir = os.path.join(project_root, "analysis_history")
+        os.makedirs(history_dir, exist_ok=True)
+        return history_dir
+
+    def _history_index_path(self) -> str | None:
+        d = self._get_history_storage_dir()
+        if not d:
+            return None
+        return os.path.join(d, "index.json")
+
+    def _load_persisted_history(self) -> None:
+        """Load persisted history metadata for the current project."""
+        history_dir = self._get_history_storage_dir()
+        if not history_dir:
+            self.analysis_history = []
+            self._history_by_id = {}
+            self._update_history_list()
+            return
+
+        index_path = self._history_index_path()
+        entries: list[dict] = []
+
+        if index_path and os.path.exists(index_path):
+            try:
+                with open(index_path, "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+                entries = payload.get("entries", []) if isinstance(payload, dict) else []
+            except Exception:
+                entries = []
+
+        # Fallback: scan for legacy/meta files if index is missing.
+        if not entries:
+            try:
+                for fname in os.listdir(history_dir):
+                    if fname.endswith(".meta.json"):
+                        with open(os.path.join(history_dir, fname), "r", encoding="utf-8") as f:
+                            meta = json.load(f)
+                        if isinstance(meta, dict):
+                            entries.append(meta)
+            except Exception:
+                pass
+
+        items: List[AnalysisHistoryItem] = []
+        by_id: Dict[str, AnalysisHistoryItem] = {}
+
+        for meta in entries:
+            try:
+                storage_id = str(meta.get("id") or "").strip()
+                ts = meta.get("timestamp")
+                timestamp = datetime.fromisoformat(ts) if isinstance(ts, str) else datetime.now()
+                category = str(meta.get("category") or "")
+                method_key = str(meta.get("method_key") or "")
+                method_name = str(meta.get("method_name") or method_key)
+                dataset_names = list(meta.get("dataset_names") or [])
+                group_labels = meta.get("group_labels")
+                if not isinstance(group_labels, dict):
+                    group_labels = None
+
+                item = AnalysisHistoryItem(
+                    timestamp=timestamp,
+                    category=category,
+                    method_key=method_key,
+                    method_name=method_name,
+                    dataset_names=[str(x) for x in dataset_names],
+                    parameters={},  # loaded lazily on click
+                    group_labels=group_labels,
+                    result=None,
+                    storage_id=storage_id or None,
+                )
+                if item.storage_id:
+                    by_id[item.storage_id] = item
+                items.append(item)
+            except Exception:
+                continue
+
+        # Sort newest first
+        items.sort(key=lambda it: it.timestamp, reverse=True)
+        self.analysis_history = items
+        self._history_by_id = by_id
+        self._update_history_list()
+
+    def _persist_history_item(self, item: AnalysisHistoryItem) -> None:
+        """Persist one history item's metadata + parameters for later restore."""
+        history_dir = self._get_history_storage_dir()
+        if not history_dir:
+            return
+
+        if not item.storage_id:
+            item.storage_id = item.timestamp.strftime("%Y%m%d_%H%M%S_%f")
+
+        meta_path = os.path.join(history_dir, f"{item.storage_id}.meta.json")
+        params_path = os.path.join(history_dir, f"{item.storage_id}.params.pkl")
+
+        meta = {
+            "id": item.storage_id,
+            "timestamp": item.timestamp.isoformat(),
+            "category": item.category,
+            "method_key": item.method_key,
+            "method_name": item.method_name,
+            "dataset_names": list(item.dataset_names or []),
+            "group_labels": item.group_labels or None,
+            "mode": "grouped" if item.group_labels else "simple",
+        }
+
+        try:
+            with open(meta_path, "w", encoding="utf-8") as f:
+                json.dump(meta, f, indent=2, ensure_ascii=False)
+        except Exception:
+            pass
+
+        # Parameters can contain non-JSON types; store as pickle.
+        try:
+            with open(params_path, "wb") as f:
+                pickle.dump(
+                    {
+                        "parameters": item.parameters,
+                        "group_labels": item.group_labels,
+                        "dataset_names": item.dataset_names,
+                    },
+                    f,
+                    protocol=pickle.HIGHEST_PROTOCOL,
+                )
+        except Exception as e:
+            create_logs(
+                "AnalysisPage",
+                "analysis_history",
+                f"Failed to persist params for history item {item.storage_id}: {e}",
+                status="warning",
+            )
+
+        # Update index
+        index_path = self._history_index_path()
+        if not index_path:
+            return
+
+        payload = {"version": 1, "entries": []}
+        try:
+            if os.path.exists(index_path):
+                with open(index_path, "r", encoding="utf-8") as f:
+                    existing = json.load(f)
+                if isinstance(existing, dict) and isinstance(existing.get("entries"), list):
+                    payload = existing
+        except Exception:
+            payload = {"version": 1, "entries": []}
+
+        # De-dup then prepend
+        entries = [e for e in payload.get("entries", []) if isinstance(e, dict) and e.get("id") != item.storage_id]
+        entries.insert(0, meta)
+        payload["entries"] = entries[:200]  # cap growth
+
+        try:
+            with open(index_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2, ensure_ascii=False)
+        except Exception:
+            pass
 
     def _setup_ui(self):
         """Setup main UI layout with stacked views."""
@@ -294,6 +478,7 @@ class AnalysisPage(QWidget):
             self.localize,
             self._run_analysis,
             self._show_startup_view,
+            on_stop=self._stop_analysis,
         )
 
         # Connect export buttons (plot export via matplotlib toolbar)
@@ -312,7 +497,12 @@ class AnalysisPage(QWidget):
             self.top_bar.title_label.setText(f"📊 {method_info['name']}")
 
     def _run_analysis(
-        self, category: str, method_key: str, dataset_selection, param_widget
+        self,
+        category: str,
+        method_key: str,
+        dataset_selection,
+        param_widget,
+        history_restore_id: str | None = None,
     ):
         """
         Execute analysis with selected parameters.
@@ -326,6 +516,22 @@ class AnalysisPage(QWidget):
                 - dict: Group assignments {group_label: [dataset_names]}
             param_widget: DynamicParameterWidget instance
         """
+        # Prevent running multiple analyses concurrently (starting a second analysis while
+        # another is running can overload CPU/memory and lead to confusing UI updates).
+        try:
+            if self.analysis_thread and self.analysis_thread.isRunning():
+                QMessageBox.information(
+                    self,
+                    self.localize("ANALYSIS_PAGE.validation_error_title"),
+                    self.localize("ANALYSIS_PAGE.running"),
+                )
+                return
+        except Exception:
+            pass
+
+        # Reset per-run cancellation state
+        self._analysis_cancel_requested = False
+
         # Get method info for validation
         method_info = ANALYSIS_METHODS[category][method_key]
         min_datasets = method_info.get("min_datasets", 1)
@@ -453,13 +659,12 @@ class AnalysisPage(QWidget):
         if group_labels:
             parameters["_group_labels"] = group_labels
 
-        # Disable run button during execution
-        self.method_view.run_btn.setEnabled(False)
-        self.method_view.run_btn.setText(self.localize("ANALYSIS_PAGE.running"))
-        
-        # Show loading overlay on results panel
-        if hasattr(self.method_view.results_panel, 'show_loading'):
-            self.method_view.results_panel.show_loading()
+        # Switch Run → Stop during execution (and show progress on results overlay)
+        if self.method_view:
+            self.method_view.set_running_state(True)
+
+        if hasattr(self.method_view.results_panel, "show_loading"):
+            self.method_view.results_panel.show_loading(self.localize("ANALYSIS_PAGE.running"))
         
         # Create and start analysis thread
         # AnalysisThread expects dataset_data as Dict[str, pd.DataFrame]
@@ -468,10 +673,16 @@ class AnalysisPage(QWidget):
         )
         self.analysis_thread.finished.connect(
             lambda result: self._on_analysis_finished(
-                result, category, method_key, selected_datasets, parameters
+                result,
+                category,
+                method_key,
+                selected_datasets,
+                parameters,
+                history_restore_id,
             )
         )
         self.analysis_thread.error.connect(self._on_analysis_error)
+        self.analysis_thread.cancelled.connect(self._on_analysis_cancelled)
         self.analysis_thread.progress.connect(self._on_analysis_progress)
 
         # Emit signal
@@ -487,6 +698,7 @@ class AnalysisPage(QWidget):
         method_key: str,
         dataset_names: list,
         parameters: Dict,
+        history_restore_id: str | None = None,
     ):
         """
         Handle completed analysis.
@@ -498,9 +710,21 @@ class AnalysisPage(QWidget):
             dataset_names: List of dataset names used
             parameters: Analysis parameters
         """
-        # Re-enable run button
-        self.method_view.run_btn.setEnabled(True)
-        self.method_view.run_btn.setText(self.localize("ANALYSIS_PAGE.start_analysis_button"))
+        # Ignore late results from a force-detached thread (safe "force stop").
+        try:
+            s = self.sender()
+            if s is not None and id(s) in self._ignored_thread_ids:
+                return
+            if self.analysis_thread is not None and s is not None and s is not self.analysis_thread:
+                return
+        except Exception:
+            pass
+
+        self._analysis_cancel_requested = False
+
+        # Restore Run state
+        if self.method_view:
+            self.method_view.set_running_state(False)
         
         # Hide loading overlay
         if hasattr(self.method_view.results_panel, 'hide_loading'):
@@ -518,13 +742,6 @@ class AnalysisPage(QWidget):
             self.method_view.results_panel, result, self.localize, MatplotlibWidget, method_name
         )
 
-        # P0-2: Limit history size to prevent memory leaks from figure storage
-        if len(self.analysis_history) >= MAX_HISTORY:
-            old_item = self.analysis_history.pop(0)
-            self._cleanup_history_item(old_item)
-
-        # Add to history (P0-3 fix: store full dataset list and group labels)
-        method_info = ANALYSIS_METHODS[category][method_key]
         # Extract group labels if present in parameters
         group_labels = (
             parameters.pop("_group_labels", None)
@@ -532,18 +749,43 @@ class AnalysisPage(QWidget):
             else None
         )
 
-        history_item = AnalysisHistoryItem(
-            timestamp=datetime.now(),
-            category=category,
-            method_key=method_key,
-            method_name=method_info["name"],
-            dataset_names=dataset_names,  # P0-3 fix: store full list
-            parameters=parameters,
-            group_labels=group_labels,  # P0-3 fix: store group labels for restoration
-            result=result,
-        )
-        self.analysis_history.append(history_item)
-        self._update_history_list()
+        # If this was triggered from history restore, update the existing item instead
+        # of creating a new entry.
+        if history_restore_id and history_restore_id in self._history_by_id:
+            hist = self._history_by_id[history_restore_id]
+            hist.parameters = parameters
+            hist.group_labels = group_labels
+            hist.result = result
+            try:
+                self._persist_history_item(hist)
+            except Exception:
+                pass
+            self._update_history_list()
+        else:
+            # P0-2: Limit history size to prevent memory leaks from figure storage
+            if len(self.analysis_history) >= MAX_HISTORY:
+                old_item = self.analysis_history.pop(0)
+                self._cleanup_history_item(old_item)
+                if old_item.storage_id and old_item.storage_id in self._history_by_id:
+                    self._history_by_id.pop(old_item.storage_id, None)
+
+            method_info = ANALYSIS_METHODS[category][method_key]
+            history_item = AnalysisHistoryItem(
+                timestamp=datetime.now(),
+                category=category,
+                method_key=method_key,
+                method_name=method_info["name"],
+                dataset_names=dataset_names,
+                parameters=parameters,
+                group_labels=group_labels,
+                result=result,
+            )
+            # Persist and index
+            self._persist_history_item(history_item)
+            if history_item.storage_id:
+                self._history_by_id[history_item.storage_id] = history_item
+            self.analysis_history.append(history_item)
+            self._update_history_list()
 
         # Emit signal
         self.analysis_finished.emit(category, method_key, result)
@@ -555,10 +797,21 @@ class AnalysisPage(QWidget):
         Args:
             error_msg: Error message
         """
-        # Re-enable run button
+        # Ignore late errors from a force-detached thread.
+        try:
+            s = self.sender()
+            if s is not None and id(s) in self._ignored_thread_ids:
+                return
+            if self.analysis_thread is not None and s is not None and s is not self.analysis_thread:
+                return
+        except Exception:
+            pass
+
+        self._analysis_cancel_requested = False
+
+        # Restore Run state
         if self.method_view:
-            self.method_view.run_btn.setEnabled(True)
-            self.method_view.run_btn.setText(self.localize("ANALYSIS_PAGE.start_analysis_button"))
+            self.method_view.set_running_state(False)
             
             # Hide loading overlay
             if hasattr(self.method_view.results_panel, 'hide_loading'):
@@ -583,6 +836,46 @@ class AnalysisPage(QWidget):
         # Emit signal
         self.error_occurred.emit(error_msg)
 
+    def _on_analysis_cancelled(self) -> None:
+        """Handle cooperative cancellation (Stop button)."""
+
+        # Ignore late cancelled signals from a force-detached thread.
+        try:
+            s = self.sender()
+            if s is not None and id(s) in self._ignored_thread_ids:
+                return
+            if self.analysis_thread is not None and s is not None and s is not self.analysis_thread:
+                return
+        except Exception:
+            pass
+
+        self._analysis_cancel_requested = False
+
+        try:
+            if self.method_view:
+                self.method_view.set_running_state(False)
+                if hasattr(self.method_view.results_panel, "hide_loading"):
+                    self.method_view.results_panel.hide_loading()
+        except Exception:
+            pass
+
+        try:
+            create_logs(
+                "_on_analysis_cancelled",
+                "analysis_page",
+                "Analysis cancelled by user",
+                status="info",
+            )
+        except Exception:
+            pass
+
+        # Optional: show a lightweight placeholder again.
+        try:
+            if self.method_view and hasattr(self.method_view.results_panel, "show_placeholder"):
+                self.method_view.results_panel.show_placeholder()
+        except Exception:
+            pass
+
     def _on_analysis_progress(self, progress: int):
         """
         Update progress during analysis.
@@ -590,32 +883,262 @@ class AnalysisPage(QWidget):
         Args:
             progress: Progress percentage (0-100)
         """
-        # Update button text with progress
-        if self.method_view:
-            self.method_view.run_btn.setText(
-                f"{self.localize('ANALYSIS_PAGE.running')}... ({progress}%)"
-            )
+        # Ignore late progress from a force-detached thread.
+        try:
+            s = self.sender()
+            if s is not None and id(s) in self._ignored_thread_ids:
+                return
+            if self.analysis_thread is not None and s is not None and s is not self.analysis_thread:
+                return
+        except Exception:
+            pass
+
+        # Show progress on results overlay (keep button as Stop)
+        try:
+            if self.method_view and hasattr(self.method_view.results_panel, "show_loading"):
+                self.method_view.results_panel.show_loading(
+                    f"{self.localize('ANALYSIS_PAGE.running')} ({progress}%)"
+                )
+        except Exception:
+            pass
+
+    def _stop_analysis(self) -> None:
+        """Stop the running analysis.
+
+        - First click: cooperative cancellation (best-effort).
+        - Second click (if still running): safe "force stop" by detaching the UI
+          from the worker thread so the app stays responsive. The computation may
+          still finish in the background, but its signals/results are ignored.
+        """
+
+        if not getattr(self, "analysis_thread", None):
+            return
+
+        try:
+            if self.analysis_thread and not self.analysis_thread.isRunning():
+                return
+        except Exception:
+            pass
+
+        # Second click: detach (safe force stop)
+        if self._analysis_cancel_requested:
+            try:
+                t = self.analysis_thread
+                if t is not None:
+                    self._ignored_thread_ids.add(id(t))
+            except Exception:
+                pass
+
+            # Restore UI immediately
+            try:
+                if self.method_view:
+                    self.method_view.set_running_state(False)
+                    if hasattr(self.method_view.results_panel, "hide_loading"):
+                        self.method_view.results_panel.hide_loading()
+                    if hasattr(self.method_view.results_panel, "show_placeholder"):
+                        self.method_view.results_panel.show_placeholder()
+            except Exception:
+                pass
+
+            try:
+                create_logs(
+                    "_stop_analysis",
+                    "analysis_page",
+                    "Force-stopped analysis UI (detached from worker thread)",
+                    status="warning",
+                )
+            except Exception:
+                pass
+
+            # Detach thread reference so a new run can start.
+            self.analysis_thread = None
+            self._analysis_cancel_requested = False
+            return
+
+        self._analysis_cancel_requested = True
+
+        # Keep Stop clickable: user can click again to force-detach if the worker is stuck
+        try:
+            if self.method_view:
+                self.method_view.set_running_state(True, enabled=True)
+        except Exception:
+            pass
+
+        try:
+            if self.method_view and hasattr(self.method_view.results_panel, "show_loading"):
+                self.method_view.results_panel.show_loading(self.localize("ANALYSIS_PAGE.stopping"))
+        except Exception:
+            pass
+
+        try:
+            self.analysis_thread.cancel()
+        except Exception:
+            pass
 
     def _update_history_list(self):
         """Update history sidebar with recent analyses."""
         history_list = self.history_sidebar.history_list
         history_list.clear()
 
-        # Add items in reverse chronological order
-        for idx, item in enumerate(reversed(self.analysis_history)):
+        # Add items in reverse chronological order with day headers.
+        last_day: str | None = None
+        for item in sorted(self.analysis_history, key=lambda it: it.timestamp, reverse=True):
+            day = item.timestamp.strftime("%Y-%m-%d")
+            if day != last_day:
+                header = QListWidgetItem(day)
+                header.setFlags(Qt.ItemIsEnabled)
+                header.setFont(QFont("Segoe UI", 9, QFont.Bold))
+                header.setForeground(Qt.gray)
+                history_list.addItem(header)
+                last_day = day
+
             list_item = QListWidgetItem()
+            dt_str = item.timestamp.strftime("%H:%M")
 
-            # Format: "🕐 14:35 | PCA | Dataset 1"
-            time_str = item.timestamp.strftime("%H:%M")
-            text = f"🕐 {time_str}\n{item.method_name}\n📁 {item.display_name}"  # P0-3: use display_name property
+            if item.group_labels:
+                group_names = sorted(set(item.group_labels.values()))
+                mode_line = "🔀 " + ", ".join(group_names[:4]) + ("…" if len(group_names) > 4 else "")
+            else:
+                mode_line = "🔹 " + self.localize("ANALYSIS_PAGE.simple_mode")
 
-            list_item.setText(text)
-            list_item.setData(
-                Qt.UserRole, len(self.analysis_history) - 1 - idx
-            )  # Store index
-            list_item.setFont(QFont("Segoe UI", 10))
+            # Store stable id when available; otherwise fallback to index.
+            list_item.setData(Qt.UserRole, item.storage_id)
+
+            # Custom widget so we can attach a per-item delete button.
+            w = QWidget()
+            w_layout = QVBoxLayout(w)
+            w_layout.setContentsMargins(8, 6, 8, 6)
+            w_layout.setSpacing(2)
+
+            top_row = QHBoxLayout()
+            top_row.setContentsMargins(0, 0, 0, 0)
+            top_row.setSpacing(6)
+
+            time_label = QLabel(f"🕐 {dt_str}")
+            time_label.setStyleSheet("font-size: 10px; color: #6c757d;")
+
+            delete_btn = QToolButton()
+            delete_btn.setObjectName("historyItemDeleteButton")
+            delete_btn.setToolTip(self.localize("ANALYSIS_PAGE.delete_history_item_tooltip"))
+            delete_btn.setFixedSize(26, 26)
+            delete_btn.setCursor(Qt.PointingHandCursor)
+            delete_btn.setFocusPolicy(Qt.NoFocus)
+            try:
+                delete_btn.setIcon(load_icon("trash_bin", QSize(14, 14), "#dc3545"))
+                delete_btn.setIconSize(QSize(14, 14))
+            except Exception:
+                delete_btn.setText("✕")
+            delete_btn.setStyleSheet(
+                """
+                QToolButton#historyItemDeleteButton {
+                    border: 1px solid transparent;
+                    border-radius: 6px;
+                    background: transparent;
+                    padding: 2px;
+                }
+                QToolButton#historyItemDeleteButton:hover {
+                    background: #ffecec;
+                    border-color: #ffb3b3;
+                }
+                QToolButton#historyItemDeleteButton:pressed {
+                    background: #ffd6d6;
+                }
+                """
+            )
+
+            if item.storage_id:
+                delete_btn.clicked.connect(lambda _=False, sid=item.storage_id: self._delete_history_item(sid))
+            else:
+                delete_btn.setEnabled(False)
+
+            top_row.addWidget(time_label)
+            top_row.addStretch()
+            top_row.addWidget(delete_btn)
+            w_layout.addLayout(top_row)
+
+            method_label = QLabel(str(item.method_name))
+            method_label.setStyleSheet("font-size: 12px; font-weight: 700; color: #2c3e50;")
+            w_layout.addWidget(method_label)
+
+            mode_label = QLabel(mode_line)
+            mode_label.setStyleSheet("font-size: 10px; color: #495057;")
+            w_layout.addWidget(mode_label)
+
+            path_label = QLabel(f"📁 {item.display_name}")
+            path_label.setStyleSheet("font-size: 10px; color: #6c757d;")
+            path_label.setWordWrap(True)
+            w_layout.addWidget(path_label)
 
             history_list.addItem(list_item)
+            list_item.setSizeHint(w.sizeHint())
+            history_list.setItemWidget(list_item, w)
+
+    def _delete_history_item(self, storage_id: str) -> None:
+        """Delete a single history entry (UI + persisted files)."""
+
+        if not storage_id:
+            return
+
+        hist = self._history_by_id.get(storage_id)
+        if hist is None:
+            return
+
+        # Confirm (deleting removes persisted restore files)
+        try:
+            ts = hist.timestamp.strftime("%Y-%m-%d %H:%M")
+        except Exception:
+            ts = ""
+        resp = QMessageBox.question(
+            self,
+            self.localize("ANALYSIS_PAGE.delete_history_item_title"),
+            self.localize(
+                "ANALYSIS_PAGE.delete_history_item_confirm",
+                method=str(hist.method_name or ""),
+                time=str(ts),
+            ),
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if resp != QMessageBox.Yes:
+            return
+
+        # Remove from disk
+        history_dir = self._get_history_storage_dir()
+        if history_dir:
+            for suffix in (".meta.json", ".params.pkl"):
+                p = os.path.join(history_dir, f"{storage_id}{suffix}")
+                try:
+                    if os.path.exists(p):
+                        os.remove(p)
+                except Exception:
+                    pass
+
+            # Update index.json if present
+            index_path = self._history_index_path()
+            if index_path and os.path.exists(index_path):
+                try:
+                    with open(index_path, "r", encoding="utf-8") as f:
+                        payload = json.load(f)
+                    if isinstance(payload, dict) and isinstance(payload.get("entries"), list):
+                        payload["entries"] = [
+                            e
+                            for e in payload.get("entries", [])
+                            if not (isinstance(e, dict) and str(e.get("id")) == storage_id)
+                        ]
+                        with open(index_path, "w", encoding="utf-8") as f:
+                            json.dump(payload, f, indent=2, ensure_ascii=False)
+                except Exception:
+                    pass
+
+        # Remove from memory
+        try:
+            self._cleanup_history_item(hist)
+        except Exception:
+            pass
+
+        self.analysis_history = [it for it in self.analysis_history if it.storage_id != storage_id]
+        self._history_by_id.pop(storage_id, None)
+        self._update_history_list()
 
     def _on_history_item_clicked(self, item: QListWidgetItem):
         """
@@ -624,51 +1147,148 @@ class AnalysisPage(QWidget):
         Args:
             item: Clicked history list item
         """
-        idx = item.data(Qt.UserRole)
-        history_item = self.analysis_history[idx]
+        storage_id = item.data(Qt.UserRole)
+        if not storage_id:
+            return
 
-        # Show method view for this analysis
+        history_item = self._history_by_id.get(storage_id)
+        if history_item is None:
+            return
+
+        # UX: show a loading overlay immediately when restoring.
+        try:
+            if self.method_view and hasattr(self.method_view.results_panel, "show_loading"):
+                self.method_view.results_panel.show_loading("⏳ Restoring...")
+        except Exception:
+            pass
+
+        # Load persisted parameters if needed
+        if not history_item.parameters and history_item.storage_id:
+            history_dir = self._get_history_storage_dir()
+            if history_dir:
+                params_path = os.path.join(history_dir, f"{history_item.storage_id}.params.pkl")
+                try:
+                    with open(params_path, "rb") as f:
+                        payload = pickle.load(f)
+                    if isinstance(payload, dict):
+                        history_item.parameters = payload.get("parameters") or {}
+                        gl = payload.get("group_labels")
+                        history_item.group_labels = gl if isinstance(gl, dict) else history_item.group_labels
+                        dn = payload.get("dataset_names")
+                        if isinstance(dn, list) and dn:
+                            history_item.dataset_names = [str(x) for x in dn]
+                except Exception:
+                    history_item.parameters = history_item.parameters or {}
+
+        # Show method view for this analysis (pass saved params so widgets are pre-filled)
+        self.current_view = "method"
+        self.current_category = history_item.category
+        self.current_method_key = history_item.method_key
+
+        # Use existing method builder but inject saved params
+        # (Keeps behavior identical for fresh analyses)
         self._show_method_view(history_item.category, history_item.method_key)
+        try:
+            # Rebuild params widget with saved params by recreating MethodView
+            if self.method_view:
+                # Replace method view with one that uses saved params
+                self.view_stack.removeWidget(self.method_view)
+                self.method_view.deleteLater()
+                self.method_view = None
 
-        # Restore parameters (if possible)
-        if self.method_view and hasattr(self.method_view, "param_widget"):
-            # Set dataset - handle both simple and group modes
-            # P0-3: Use dataset_names list instead of display string
-            dataset_widget = self.method_view.dataset_widget
-            if dataset_widget and history_item.dataset_names:
-                # Handle both QComboBox (single mode) and QListWidget (multi mode)
-                if hasattr(dataset_widget, "findText"):  # QComboBox (single dataset)
-                    if len(history_item.dataset_names) == 1:
-                        dataset_idx = dataset_widget.findText(
-                            history_item.dataset_names[0]
-                        )
-                        if dataset_idx >= 0:
-                            dataset_widget.setCurrentIndex(dataset_idx)
-                elif hasattr(
-                    dataset_widget, "findItems"
-                ):  # QListWidget (multi dataset)
-                    # Clear selection first
-                    dataset_widget.clearSelection()
-                    # Restore all selections
-                    for ds_name in history_item.dataset_names:
-                        items = dataset_widget.findItems(ds_name, Qt.MatchExactly)
-                        for item in items:
-                            item.setSelected(True)
+            dataset_names = list(self.raman_data.keys()) if self.raman_data else []
+            self.method_view = MethodView(
+                history_item.category,
+                history_item.method_key,
+                dataset_names,
+                self.localize,
+                self._run_analysis,
+                self._show_startup_view,
+                on_stop=self._stop_analysis,
+                saved_params=history_item.parameters,
+            )
 
-            # Restore parameters by recreating the widget with saved params
-            # The DynamicParameterWidget constructor accepts saved_params
-            # This will be handled by _show_method_view when it creates the widget
+            results_panel = self.method_view.results_panel
+            results_panel.export_data_btn.clicked.connect(self.method_view._handle_export_csv)
 
-            # Display cached result if available
-            if history_item.result:
-                populate_results_tabs(
-                    self.method_view.results_panel,
-                    history_item.result,
-                    self.localize,
-                    MatplotlibWidget,
-                    history_item.method_name,  # ✅ Pass method name for consistent behavior
+            self.view_stack.addWidget(self.method_view)
+            self.view_stack.setCurrentWidget(self.method_view)
+        except Exception:
+            pass
+
+        # Restore dataset selection and rerun (or show cached result if we have one).
+        if self.method_view and history_item.dataset_names:
+            ds_widget = self.method_view.dataset_widget
+            try:
+                if getattr(ds_widget, "mode", None) == "single":
+                    if ds_widget.simple_input and len(history_item.dataset_names) == 1:
+                        idx = ds_widget.simple_input.findText(history_item.dataset_names[0])
+                        if idx >= 0:
+                            ds_widget.simple_input.setCurrentIndex(idx)
+                else:
+                    # Multi mode
+                    if history_item.group_labels and getattr(ds_widget, "radio_group", None):
+                        # Enable grouped mode
+                        btn = ds_widget.radio_group.button(1)
+                        if btn is not None:
+                            btn.setChecked(True)
+
+                        # Convert dataset->group map into group->datasets
+                        groups: Dict[str, List[str]] = {}
+                        for ds_name, gname in history_item.group_labels.items():
+                            groups.setdefault(str(gname), []).append(str(ds_name))
+
+                        if getattr(ds_widget, "group_manager", None) is not None:
+                            ds_widget._suspend_group_persist = True
+                            try:
+                                ds_widget.group_manager.set_groups(groups)
+                            finally:
+                                ds_widget._suspend_group_persist = False
+                    else:
+                        # Simple multi-selection list
+                        if ds_widget.simple_input:
+                            ds_widget.simple_input.clearSelection()
+                            for i in range(ds_widget.simple_input.count()):
+                                li = ds_widget.simple_input.item(i)
+                                if li and li.text() in history_item.dataset_names:
+                                    li.setSelected(True)
+            except Exception:
+                pass
+
+        if history_item.result:
+            populate_results_tabs(
+                self.method_view.results_panel,
+                history_item.result,
+                self.localize,
+                MatplotlibWidget,
+                history_item.method_name,
+            )
+            self.current_result = history_item.result
+
+            # Cached result restore: hide loading immediately.
+            try:
+                if self.method_view and hasattr(self.method_view.results_panel, "hide_loading"):
+                    self.method_view.results_panel.hide_loading()
+            except Exception:
+                pass
+        else:
+            # Re-run analysis to regenerate results.
+            try:
+                selection = self.method_view.dataset_widget.get_selection()
+                self._run_analysis(
+                    history_item.category,
+                    history_item.method_key,
+                    selection,
+                    self.method_view.params_widget.dynamic_widget,
+                    history_restore_id=history_item.storage_id,
                 )
-                self.current_result = history_item.result
+            except Exception as e:
+                create_logs(
+                    "AnalysisPage",
+                    "analysis_history",
+                    f"Failed to rerun analysis from history: {e}",
+                    status="warning",
+                )
 
     def _cleanup_history_item(self, item: AnalysisHistoryItem):
         """
@@ -725,7 +1345,21 @@ class AnalysisPage(QWidget):
             for item in self.analysis_history:
                 self._cleanup_history_item(item)
             self.analysis_history.clear()
+            self._history_by_id = {}
             self._update_history_list()
+
+            # Also clear persisted history for this project.
+            try:
+                history_dir = self._get_history_storage_dir()
+                if history_dir and os.path.isdir(history_dir):
+                    for fname in os.listdir(history_dir):
+                        if fname.endswith((".meta.json", ".params.pkl", "index.json")):
+                            try:
+                                os.remove(os.path.join(history_dir, fname))
+                            except Exception:
+                                continue
+            except Exception:
+                pass
 
     def _on_dataset_changed(self):
         """Handle dataset changes (load/remove)."""

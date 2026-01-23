@@ -755,6 +755,46 @@ class PreprocessPage(QWidget):
         # Trigger selection changed event for the newly active tab
         self._on_dataset_selection_changed()
 
+        # Keep Select All button state in sync with the active tab
+        try:
+            self._update_select_all_button_state()
+        except Exception:
+            pass
+
+    def _update_select_all_button_state(self):
+        """Update Select All button tooltip/icon based on current selection state."""
+        if not hasattr(self, "select_all_btn") or self.select_all_btn is None:
+            return
+        if not hasattr(self, "dataset_list") or self.dataset_list is None:
+            return
+
+        total_items = self.dataset_list.count()
+        if total_items <= 0:
+            self.select_all_btn.setEnabled(False)
+            return
+        self.select_all_btn.setEnabled(True)
+
+        selected_items = self.dataset_list.selectedItems()
+        all_selected = len(selected_items) == total_items
+
+        # Tooltip reflects the action that will happen on click.
+        tooltip = (
+            LOCALIZE("PREPROCESS.deselect_all_button")
+            if all_selected
+            else LOCALIZE("PREPROCESS.select_all_button")
+        )
+        self.select_all_btn.setToolTip(tooltip)
+
+        # Icon reflects action: checkmark = select, minus = deselect
+        try:
+            if all_selected:
+                icon = load_icon("minus", QSize(14, 14), "#dc3545")
+            else:
+                icon = load_icon("checkmark", QSize(14, 14), "#0078d4")
+            self.select_all_btn.setIcon(icon)
+        except Exception:
+            pass
+
     def _toggle_select_all_datasets(self):
         """Toggle select all/deselect all for datasets in current tab."""
         current_list = self.dataset_list
@@ -774,9 +814,19 @@ class PreprocessPage(QWidget):
             # Select all items in current tab
             current_list.selectAll()
 
+        try:
+            self._update_select_all_button_state()
+        except Exception:
+            pass
+
     def _on_dataset_selection_changed(self):
         """Handle dataset selection changes across all tabs - syncs selection and updates visualization."""
         selected_items = self.dataset_list.selectedItems()
+
+        try:
+            self._update_select_all_button_state()
+        except Exception:
+            pass
 
         if not selected_items:
             self.plot_widget.clear_plot()

@@ -21,6 +21,119 @@ from scipy.cluster.hierarchy import dendrogram, linkage
 from scipy.signal import find_peaks
 
 
+def _as_float_1d(a: Any) -> np.ndarray:
+    """Convert an array-like to a 1D float numpy array."""
+    out = np.asarray(a, dtype=float).reshape(-1)
+    return out
+
+
+def _ensure_ascending_xy(x: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Ensure x is strictly ascending for interpolation, keeping y aligned."""
+    if x.size == 0:
+        return x, y
+    if x[0] > x[-1]:
+        x = x[::-1]
+        y = y[::-1]
+
+    # Remove duplicate x values (np.interp requires increasing x)
+    x_unique, unique_idx = np.unique(x, return_index=True)
+    y_unique = y[unique_idx]
+    return x_unique, y_unique
+
+
+def _compute_common_wavenumber_grid(
+    dataset_data: Dict[str, pd.DataFrame],
+    *,
+    max_points: Optional[int] = None,
+) -> np.ndarray:
+    """Compute a common overlapping wavenumber grid across datasets.
+
+    Uses the intersection of ranges to avoid extrapolation, and a representative
+    step based on the median spacing across datasets.
+    """
+    if not dataset_data:
+        return np.array([], dtype=float)
+
+    w_arrays: list[np.ndarray] = []
+    steps: list[float] = []
+    mins: list[float] = []
+    maxs: list[float] = []
+
+    for df in dataset_data.values():
+        w = _as_float_1d(df.index.values)
+        if w.size < 2:
+            continue
+        # Work in ascending order for robust range/step calculations
+        if w[0] > w[-1]:
+            w = w[::-1]
+        w_arrays.append(w)
+        mins.append(float(np.min(w)))
+        maxs.append(float(np.max(w)))
+        diffs = np.diff(w)
+        diffs = diffs[np.isfinite(diffs)]
+        if diffs.size:
+            steps.append(float(np.median(np.abs(diffs))))
+
+    if not w_arrays:
+        # Fallback: first dataset index
+        first_df = next(iter(dataset_data.values()))
+        return _as_float_1d(first_df.index.values)
+
+    start = max(mins)
+    end = min(maxs)
+    if not np.isfinite(start) or not np.isfinite(end) or start >= end:
+        # No overlap: fall back to first dataset index to avoid hard crash.
+        first_df = next(iter(dataset_data.values()))
+        return _as_float_1d(first_df.index.values)
+
+    step = float(np.median(steps)) if steps else None
+    if step is None or (not np.isfinite(step)) or step <= 0:
+        # Conservative fallback: use first dataset's spacing if available
+        w0 = w_arrays[0]
+        diffs0 = np.diff(w0)
+        step = float(np.median(np.abs(diffs0))) if diffs0.size else 1.0
+
+    # Inclusive grid (make sure end is included if possible)
+    n = int(np.floor((end - start) / step)) + 1
+    if n < 2:
+        # Very narrow overlap, just return two points
+        grid = np.array([start, end], dtype=float)
+    else:
+        grid = start + step * np.arange(n, dtype=float)
+        # Clip to end due to floating error
+        grid = grid[grid <= end + 1e-9]
+
+    if max_points is not None and max_points > 1 and grid.size > max_points:
+        idx = np.linspace(0, grid.size - 1, max_points, dtype=int)
+        grid = grid[idx]
+
+    return grid
+
+
+def _resample_dataframe_to_grid(df: pd.DataFrame, w_target: np.ndarray) -> pd.DataFrame:
+    """Resample a (wavenumber-indexed) spectra DataFrame to a target grid."""
+    w_target = _as_float_1d(w_target)
+    if w_target.size == 0:
+        return df
+
+    w_src = _as_float_1d(df.index.values)
+    out = {}
+    for col in df.columns:
+        y = _as_float_1d(df[col].values)
+        x_u, y_u = _ensure_ascending_xy(w_src, y)
+        if x_u.size < 2:
+            # Degenerate axis; keep constant if possible
+            out[col] = np.full_like(w_target, fill_value=float(y_u[0]) if y_u.size else np.nan)
+            continue
+        # Ensure target sits within source range to avoid extrapolation
+        w_min, w_max = float(x_u[0]), float(x_u[-1])
+        w_clipped = np.clip(w_target, w_min, w_max)
+        out[col] = np.interp(w_clipped, x_u, y_u)
+
+    resampled = pd.DataFrame(out, index=w_target)
+    return resampled
+
+
 def create_spectral_heatmap(
     dataset_data: Dict[str, pd.DataFrame],
     params: Dict[str, Any],
@@ -52,18 +165,23 @@ def create_spectral_heatmap(
     normalize = params.get("normalize", True)
     show_dendrograms = params.get("show_dendrograms", True)
 
+    # Optional: cap the number of wavenumbers for performance
+    max_wavenumbers = params.get("max_wavenumbers", None)
+
     # Combine all datasets
     all_spectra = []
     labels = []
 
+    wavenumbers = _compute_common_wavenumber_grid(dataset_data, max_points=max_wavenumbers)
+
     for dataset_name, df in dataset_data.items():
-        for col in df.columns:
-            all_spectra.append(df[col].values)
+        df_rs = _resample_dataframe_to_grid(df, wavenumbers)
+        for col in df_rs.columns:
+            all_spectra.append(df_rs[col].values)
             labels.append(f"{dataset_name}_{col}")
 
     # Create data matrix (rows=spectra, cols=wavenumbers)
-    data_matrix = np.array(all_spectra)
-    wavenumbers = dataset_data[list(dataset_data.keys())[0]].index.values
+    data_matrix = np.asarray(all_spectra, dtype=float)
 
     if progress_callback:
         progress_callback(30)
@@ -182,7 +300,7 @@ def create_spectral_heatmap(
     cbar.set_label("Normalized Intensity" if normalize else "Intensity", fontsize=12)
 
     # Labels
-    ax_heatmap.set_xlabel("Wavenumber Index", fontsize=12)
+    ax_heatmap.set_xlabel("Wavenumber (cm⁻¹)", fontsize=12)
     ax_heatmap.set_ylabel("Spectrum Index", fontsize=12)
     # ✅ USER FIX: Add more descriptive title explaining what hierarchical clustering shows
     title = "Hierarchical Clustering of Raman Spectra"
@@ -222,6 +340,7 @@ def create_spectral_heatmap(
             "labels": labels_ordered,
             "row_order": row_order,
             "col_order": col_order,
+            "wavenumbers": wavenumbers[col_order] if wavenumbers.size else wavenumbers,
         },
     }
 
@@ -255,8 +374,8 @@ def create_mean_spectra_overlay(
     alpha_individual = params.get("alpha_individual", 0.1)
     normalize = params.get("normalize", False)
 
-    # Get wavenumbers from first dataset
-    wavenumbers = dataset_data[list(dataset_data.keys())[0]].index.values
+    max_wavenumbers = params.get("max_wavenumbers", None)
+    wavenumbers = _compute_common_wavenumber_grid(dataset_data, max_points=max_wavenumbers)
 
     if progress_callback:
         progress_callback(30)
@@ -267,7 +386,8 @@ def create_mean_spectra_overlay(
     colors = plt.cm.tab10(np.linspace(0, 1, len(dataset_data)))
 
     for i, (dataset_name, df) in enumerate(dataset_data.items()):
-        data = df.values
+        df_rs = _resample_dataframe_to_grid(df, wavenumbers)
+        data = df_rs.values
 
         # Normalize if requested
         if normalize:
@@ -333,7 +453,7 @@ def create_mean_spectra_overlay(
         "data_table": None,
         "summary_text": summary,
         "detailed_summary": f"Datasets: {', '.join(dataset_data.keys())}",
-        "raw_results": {},
+        "raw_results": {"wavenumbers": wavenumbers},
     }
 
 
@@ -547,21 +667,23 @@ def create_correlation_heatmap(
     method = params.get("method", "pearson")
     colormap = params.get("colormap", "coolwarm")
     cluster = params.get("cluster", True)
+    max_wavenumbers = params.get("max_wavenumbers", None)
 
-    # P1-4 FIX: Handle multi-dataset input properly
+    # P1-4 FIX: Handle multi-dataset input properly (and differing wavenumber grids)
     multi_dataset_warning = ""
+    wavenumbers = _compute_common_wavenumber_grid(dataset_data, max_points=max_wavenumbers)
+
     if len(dataset_data) > 1:
-        # Concatenate all datasets for correlation analysis
+        # Resample each dataset to the common grid, then concatenate along columns (spectra)
         all_dfs = []
         for ds_name, ds_df in dataset_data.items():
-            all_dfs.append(ds_df)
-        # Concatenate along columns (spectra)
+            all_dfs.append(_resample_dataframe_to_grid(ds_df, wavenumbers))
         df = pd.concat(all_dfs, axis=1)
         dataset_name = f"{len(dataset_data)} datasets (concatenated)"
         multi_dataset_warning = f"\n⚠️ Note: {len(dataset_data)} datasets were concatenated for correlation analysis."
     else:
         dataset_name = list(dataset_data.keys())[0]
-        df = dataset_data[dataset_name]
+        df = _resample_dataframe_to_grid(dataset_data[dataset_name], wavenumbers)
 
     if progress_callback:
         progress_callback(30)
@@ -598,9 +720,35 @@ def create_correlation_heatmap(
     cbar = plt.colorbar(im, ax=ax)
     cbar.set_label("Correlation Coefficient", fontsize=12)
 
-    ax.set_xlabel("Wavenumber Index", fontsize=12)
-    ax.set_ylabel("Wavenumber Index", fontsize=12)
-    ax.set_title("Wavenumber Correlation Heatmap", fontsize=14, fontweight="bold")
+    ax.set_xlabel("Wavenumber (cm⁻¹)", fontsize=12)
+    ax.set_ylabel("Wavenumber (cm⁻¹)", fontsize=12)
+    title_method = "Pearson" if str(method).lower() == "pearson" else "Spearman" if str(method).lower() == "spearman" else str(method)
+    ax.set_title(
+        f"Wavenumber–Wavenumber Correlation Map ({title_method})",
+        fontsize=14,
+        fontweight="bold",
+        pad=14,
+    )
+
+    # Show a readable subset of tick labels (full matrix can have hundreds of variables)
+    try:
+        wn = np.asarray(corr_matrix_ordered.index, dtype=float)
+        n = int(wn.size)
+        n_ticks = 10 if n >= 10 else n
+        tick_idx = np.linspace(0, max(0, n - 1), num=max(2, n_ticks), dtype=int)
+        tick_idx = np.unique(tick_idx)
+        ax.set_xticks(tick_idx)
+        ax.set_yticks(tick_idx)
+        ax.set_xticklabels([f"{wn[i]:.0f}" for i in tick_idx], rotation=45, ha="right", fontsize=9)
+        ax.set_yticklabels([f"{wn[i]:.0f}" for i in tick_idx], fontsize=9)
+    except Exception:
+        pass
+
+    # Give labels room (especially when embedded with a colorbar)
+    try:
+        fig.subplots_adjust(left=0.14, bottom=0.18, right=0.88, top=0.92)
+    except Exception:
+        pass
 
     if progress_callback:
         progress_callback(90)
@@ -616,7 +764,10 @@ def create_correlation_heatmap(
         "data_table": corr_matrix_ordered,
         "summary_text": summary,
         "detailed_summary": f"Clustering: {cluster}",
-        "raw_results": {"correlation_matrix": corr_matrix_ordered.values},
+        "raw_results": {
+            "correlation_matrix": corr_matrix_ordered.values,
+            "wavenumbers": np.asarray(corr_matrix_ordered.index, dtype=float),
+        },
     }
 
 
@@ -671,30 +822,36 @@ def create_peak_scatter(
     if progress_callback:
         progress_callback(15)
 
-    # Get wavenumbers from first dataset
-    first_dataset_name = list(dataset_data.keys())[0]
-    wavenumbers = dataset_data[first_dataset_name].index.values
+    # IMPORTANT: datasets may have different wavenumber axes (grouped mode).
+    # Resample onto a common overlapping grid to prevent boolean-index mismatch
+    # and ensure peak extraction is comparable across datasets.
+    wavenumbers = _compute_common_wavenumber_grid(dataset_data)
+    dataset_data_rs: Dict[str, pd.DataFrame] = {
+        name: _resample_dataframe_to_grid(df, wavenumbers)
+        for name, df in dataset_data.items()
+    }
 
     # Validate peak positions are within wavenumber range
-    wn_min, wn_max = wavenumbers.min(), wavenumbers.max()
+    wn_min, wn_max = float(np.nanmin(wavenumbers)), float(np.nanmax(wavenumbers))
     valid_peaks = []
-    warnings = []
+    warning_messages: list[str] = []
 
     for i, peak_pos in enumerate(peak_positions, 1):
         if peak_pos < wn_min or peak_pos > wn_max:
-            warnings.append(
+            warning_messages.append(
                 f"Peak {i} ({peak_pos} cm⁻¹) is outside data range [{wn_min:.0f}, {wn_max:.0f}]"
             )
         else:
             valid_peaks.append(peak_pos)
 
-    if len(valid_peaks) < 2:
+    min_required_peaks = 3 if use_3d else 2
+    if len(valid_peaks) < min_required_peaks:
         # Not enough valid peaks - return error info
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.text(
             0.5,
             0.5,
-            f"Error: Not enough valid peaks\n\n{chr(10).join(warnings)}",
+            f"Error: Not enough valid peaks\n\n{chr(10).join(warning_messages)}",
             ha="center",
             va="center",
             fontsize=12,
@@ -707,9 +864,9 @@ def create_peak_scatter(
             "primary_figure": fig,
             "secondary_figure": None,
             "data_table": pd.DataFrame(),
-            "summary_text": f"Error: {'; '.join(warnings)}",
+            "summary_text": f"Error: {'; '.join(warning_messages)}",
             "detailed_summary": "Please adjust peak positions to be within the wavenumber range.",
-            "raw_results": {"errors": warnings},
+            "raw_results": {"errors": warning_messages},
         }
 
     peak_positions = valid_peaks
@@ -720,7 +877,7 @@ def create_peak_scatter(
     # Extract peak intensities from all datasets
     peak_data = []
 
-    for dataset_name, df in dataset_data.items():
+    for dataset_name, df in dataset_data_rs.items():
         for col in df.columns:
             spectrum = df[col].values
 
@@ -733,6 +890,7 @@ def create_peak_scatter(
                 if np.abs(actual_wn - peak_pos) <= tolerance:
                     # Get local maximum within tolerance window for better peak detection
                     wn_mask = np.abs(wavenumbers - peak_pos) <= tolerance
+                    # NOTE: spectrum is aligned to wavenumbers after resampling above
                     local_intensities = spectrum[wn_mask]
                     if len(local_intensities) > 0:
                         # Use maximum intensity in the tolerance window
@@ -786,7 +944,7 @@ def create_peak_scatter(
     except ValueError:
         cmap = plt.cm.tab10
 
-    dataset_names = list(dataset_data.keys())
+    dataset_names = list(dataset_data_rs.keys())
     n_datasets = len(dataset_names)
     colors = [cmap(i / max(n_datasets - 1, 1)) for i in range(n_datasets)]
 
@@ -822,6 +980,12 @@ def create_peak_scatter(
         ax.set_title(
             "3D Peak Intensity Scatter Plot", fontsize=14, fontweight="bold", pad=20
         )
+
+        # Sensible default camera angle (aligns with waterfall's readability)
+        try:
+            ax.view_init(elev=float(params.get("elev", 20)), azim=float(params.get("azim", 45)))
+        except Exception:
+            pass
 
         if show_legend:
             ax.legend(loc="upper left", fontsize=9, framealpha=0.9)
@@ -875,7 +1039,22 @@ def create_peak_scatter(
         if show_legend:
             ax.legend(loc="best", fontsize=10, framealpha=0.9)
 
-    plt.tight_layout()
+    # Layout: tight_layout often fails (and spams warnings) for 3D axes.
+    try:
+        import warnings as _warnings
+
+        if use_3d:
+            fig.subplots_adjust(left=0.06, right=0.98, bottom=0.06, top=0.92)
+        else:
+            with _warnings.catch_warnings():
+                _warnings.filterwarnings(
+                    "ignore",
+                    message=r"This figure includes Axes that are not compatible with tight_layout.*",
+                    category=UserWarning,
+                )
+                fig.tight_layout(pad=1.0)
+    except Exception:
+        pass
 
     if progress_callback:
         progress_callback(75)
@@ -924,8 +1103,8 @@ def create_peak_scatter(
         f"Datasets: {len(dataset_names)}",
     ]
 
-    if warnings:
-        summary_lines.append(f"\n⚠️ Warnings: {'; '.join(warnings)}")
+    if warning_messages:
+        summary_lines.append(f"\n⚠️ Warnings: {'; '.join(warning_messages)}")
 
     # Detailed summary with statistics interpretation
     detailed_lines = ["Statistical Summary by Dataset and Peak:\n"]
@@ -962,7 +1141,7 @@ def create_peak_scatter(
             "tolerance": tolerance,
             "full_peak_data": peak_df_clean.to_dict(),
             "statistics": stats_data,
-            "warnings": warnings,
+            "warnings": warning_messages,
         },
     }
 

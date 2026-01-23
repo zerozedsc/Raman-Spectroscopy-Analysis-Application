@@ -76,6 +76,22 @@ try {
     if ($LASTEXITCODE -eq 0) {
         Write-Status "PyInstaller: $PyInstallerVersion" 'Success'
     }
+
+    # Check XGBoost (required for packaging if you want the XGBoost ML method available)
+    Write-Status "Checking XGBoost installation..." 'Info'
+    & $PythonCmd -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('xgboost') else 1)" 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Status "xgboost is installed" 'Success'
+    }
+    else {
+        Write-Status "xgboost not found for $PythonDisplay. Installing..." 'Warning'
+        & $PythonCmd -m pip install --upgrade xgboost
+        if ($LASTEXITCODE -ne 0) {
+            Write-Status "ERROR: Failed to install xgboost into the selected Python environment" 'Error'
+            exit 1
+        }
+        Write-Status "xgboost installed successfully" 'Success'
+    }
     else {
         Write-Status "PyInstaller not found for $PythonDisplay. Installing/Upgrading..." 'Warning'
         & $PythonCmd -m pip install --upgrade pyinstaller pyinstaller-hooks-contrib

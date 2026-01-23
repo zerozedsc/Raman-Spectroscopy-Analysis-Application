@@ -99,8 +99,7 @@ class TabGroupManager(QWidget):
 		actions.setSpacing(10)
 
 		self.add_group_btn = QPushButton(
-			"+ "
-			+ (
+			(
 				self.localize("ANALYSIS_PAGE.create_groups_button")
 				if self.localize
 				else "Add Group"

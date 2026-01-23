@@ -4,7 +4,7 @@ Optimized Spec File with Splash Screen
 Created: 2026-01-07 19:43:34
 """
 
-from PyInstaller.utils.hooks import collect_submodules, collect_data_files
+from PyInstaller.utils.hooks import collect_submodules, collect_data_files, collect_dynamic_libs
 import os
 import sys
 
@@ -88,9 +88,13 @@ hiddenimports = [
     "pybaselines",
     "sklearn",
     "sklearn.preprocessing",
+    "sklearn.cross_decomposition",
     "sklearn.decomposition",
+    "sklearn.discriminant_analysis",
     "sklearn.linear_model",
+    "sklearn.covariance",
     "sklearn.ensemble",
+    "sklearn.cluster",
     "sklearn.metrics",
     "sklearn.model_selection",
     "tqdm",
@@ -107,8 +111,21 @@ try:
 except:
     pass
 
+# Optional: XGBoost (only if installed in build env)
+try:
+    hiddenimports += collect_submodules('xgboost')
+    datas += collect_data_files('xgboost')
+except:
+    pass
+
 # ============== BINARIES ==============
 binaries = []
+
+# Optional: XGBoost dynamic libraries (xgboost.dll, etc.)
+try:
+    binaries += collect_dynamic_libs('xgboost')
+except:
+    pass
 if is_windows:
     dll_path = os.path.join(spec_root, 'drivers')
     if os.path.exists(dll_path):

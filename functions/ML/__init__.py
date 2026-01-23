@@ -32,6 +32,7 @@ from .linear_regression import train_linear_regression, train_linear_regression_
 from .logistic_regression import train_logistic_regression  # noqa: F401
 from .svm import train_svm_classifier  # noqa: F401
 from .random_forest import train_random_forest_classifier  # noqa: F401
+from .xgboost import train_xgboost_classifier  # noqa: F401
 
 
 __all__ = [
@@ -50,4 +51,5 @@ __all__ = [
 	"train_logistic_regression",
 	"train_svm_classifier",
 	"train_random_forest_classifier",
+	"train_xgboost_classifier",
 ]

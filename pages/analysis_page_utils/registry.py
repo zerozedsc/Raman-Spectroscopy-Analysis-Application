@@ -48,9 +48,9 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                 },
                 "max_loadings_components": {
                     "type": "spinbox",
-                    "default": 3,
-                    "range": (1, 5),
-                    "label": "Loading Components to Plot (max 5)",
+                    "default": 1,
+                    "range": (1, 100),
+                    "label": "Loading Components to Plot",
                 },
                 "show_scree": {
                     "type": "checkbox",
@@ -64,9 +64,20 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                 },
                 "n_distribution_components": {
                     "type": "spinbox",
-                    "default": 3,
-                    "range": (1, 6),
-                    "label": "Distribution Components (max 6)",
+                    "default": 1,
+                    "range": (1, 100),
+                    "label": "Distribution Components",
+                },
+                "enable_pca_lda": {
+                    "type": "checkbox",
+                    "default": False,
+                    "label": "Enable PCA→LDA (decision boundary)",
+                },
+                "pca_lda_cv_folds": {
+                    "type": "spinbox",
+                    "default": 5,
+                    "range": (2, 20),
+                    "label": "PCA→LDA CV folds",
                 },
             },
             "function": "perform_pca_analysis",
@@ -210,6 +221,40 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                     "default": True,
                     "label": "Show Elbow Plot",
                 },
+                "elbow_max_k": {
+                    "type": "spinbox",
+                    "default": 10,
+                    "range": (3, 30),
+                    "label": "Elbow Plot Max k",
+                },
+                "show_silhouette": {
+                    "type": "checkbox",
+                    "default": False,
+                    "label": "Show Silhouette Validation",
+                },
+                "silhouette_k_min": {
+                    "type": "spinbox",
+                    "default": 2,
+                    "range": (2, 50),
+                    "label": "Silhouette Min k",
+                },
+                "silhouette_k_max": {
+                    "type": "spinbox",
+                    "default": 10,
+                    "range": (2, 100),
+                    "label": "Silhouette Max k",
+                },
+                "silhouette_use_pca": {
+                    "type": "checkbox",
+                    "default": True,
+                    "label": "Silhouette: Use PCA (faster)",
+                },
+                "silhouette_pca_components": {
+                    "type": "spinbox",
+                    "default": 10,
+                    "range": (2, 100),
+                    "label": "Silhouette PCA Components",
+                },
                 "random_seed": {
                     "type": "spinbox",
                     "default": 42,
@@ -219,6 +264,202 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
             },
             "function": "perform_kmeans_clustering",
         },
+
+        "pls_da": {
+            "name": "PLS-DA (Partial Least Squares Discriminant Analysis)",
+            "description": "Supervised latent-variable projection maximizing class separation (chemometrics)",
+            "min_datasets": 2,
+            "max_datasets": None,
+            "dataset_selection_mode": "multi",
+            "params": {
+                "n_components": {
+                    "type": "spinbox",
+                    "default": 2,
+                    "range": (2, 50),
+                    "label": "Number of Components",
+                },
+                "scaling": {
+                    "type": "combo",
+                    "options": ["StandardScaler", "MinMaxScaler", "None"],
+                    "default": "StandardScaler",
+                    "label": "Scaling Method",
+                },
+                "cv_folds": {
+                    "type": "spinbox",
+                    "default": 5,
+                    "range": (2, 20),
+                    "label": "Cross-Validation Folds",
+                },
+                "show_vip": {
+                    "type": "checkbox",
+                    "default": True,
+                    "label": "Show VIP Plot",
+                },
+                "show_loadings": {
+                    "type": "checkbox",
+                    "default": True,
+                    "label": "Show Component Weights",
+                },
+            },
+            "function": "perform_pls_da_analysis",
+        },
+
+
+        "mcr_als": {
+            "name": "MCR-ALS (Multivariate Curve Resolution)",
+            "description": "Non-negative spectral unmixing into component spectra and abundances",
+            "min_datasets": 1,
+            "max_datasets": None,
+            "dataset_selection_mode": "multi",
+            "params": {
+                "n_components": {
+                    "type": "spinbox",
+                    "default": 3,
+                    "range": (2, 20),
+                    "label": "Number of Components",
+                },
+                "max_iter": {
+                    "type": "spinbox",
+                    "default": 50,
+                    "range": (10, 500),
+                    "label": "Max Iterations",
+                },
+                "tol": {
+                    "type": "double_spinbox",
+                    "default": 0.0001,
+                    "range": (1e-6, 1e-2),
+                    "step": 0.0001,
+                    "label": "Convergence Tolerance",
+                },
+                "scaling": {
+                    "type": "combo",
+                    "options": ["None", "StandardScaler", "MinMaxScaler"],
+                    "default": "None",
+                    "label": "Scaling Method",
+                },
+                "nonneg_mode": {
+                    "type": "combo",
+                    "options": ["shift", "clip"],
+                    "default": "shift",
+                    "label": "Non-negativity Mode",
+                },
+            },
+            "function": "perform_mcr_als_analysis",
+        },
+
+        "nmf": {
+            "name": "NMF (Non-negative Matrix Factorization)",
+            "description": "Non-negative decomposition into basis spectra and coefficients",
+            "min_datasets": 1,
+            "max_datasets": None,
+            "dataset_selection_mode": "multi",
+            "params": {
+                "n_components": {
+                    "type": "spinbox",
+                    "default": 3,
+                    "range": (2, 20),
+                    "label": "Number of Components",
+                },
+                "max_iter": {
+                    "type": "spinbox",
+                    "default": 500,
+                    "range": (50, 3000),
+                    "label": "Max Iterations",
+                },
+                "nonneg_mode": {
+                    "type": "combo",
+                    "options": ["shift", "clip"],
+                    "default": "shift",
+                    "label": "Non-negativity Mode",
+                },
+            },
+            "function": "perform_nmf_analysis",
+        },
+
+        "ica": {
+            "name": "ICA (Independent Component Analysis)",
+            "description": "Blind source separation into statistically independent components",
+            "min_datasets": 1,
+            "max_datasets": None,
+            "dataset_selection_mode": "multi",
+            "params": {
+                "n_components": {
+                    "type": "spinbox",
+                    "default": 3,
+                    "range": (2, 20),
+                    "label": "Number of Components",
+                },
+                "scaling": {
+                    "type": "combo",
+                    "options": ["StandardScaler", "MinMaxScaler", "None"],
+                    "default": "StandardScaler",
+                    "label": "Scaling Method",
+                },
+                "max_iter": {
+                    "type": "spinbox",
+                    "default": 500,
+                    "range": (100, 5000),
+                    "label": "Max Iterations",
+                },
+            },
+            "function": "perform_ica_analysis",
+        },
+
+        "outlier_detection": {
+            "name": "Outlier Detection (QC)",
+            "description": "Identify anomalous spectra using robust distance or isolation methods",
+            "min_datasets": 1,
+            "max_datasets": None,
+            "dataset_selection_mode": "multi",
+            "params": {
+                "method": {
+                    "type": "combo",
+                    "options": ["mahalanobis_mcd", "elliptic_envelope", "isolation_forest"],
+                    "default": "isolation_forest",
+                    "label": "Method",
+                },
+                "contamination": {
+                    "type": "double_spinbox",
+                    "default": 0.05,
+                    "range": (0.01, 0.4),
+                    "step": 0.01,
+                    "label": "Contamination",
+                },
+                "scaling": {
+                    "type": "combo",
+                    "options": ["StandardScaler", "MinMaxScaler", "None"],
+                    "default": "StandardScaler",
+                    "label": "Scaling Method",
+                },
+                "detector_pca_components": {
+                    "type": "spinbox",
+                    "default": 20,
+                    "range": (2, 100),
+                    "label": "Detector PCA Components (speed/stability)",
+                },
+                "mcd_support_fraction": {
+                    "type": "double_spinbox",
+                    "default": 0.75,
+                    "range": (0.5, 1.0),
+                    "step": 0.05,
+                    "label": "MCD Support Fraction",
+                },
+                "iso_n_estimators": {
+                    "type": "spinbox",
+                    "default": 100,
+                    "range": (50, 500),
+                    "label": "IsolationForest Estimators",
+                },
+                "pca_components": {
+                    "type": "spinbox",
+                    "default": 5,
+                    "range": (2, 50),
+                    "label": "PCA Components (for plot)",
+                },
+            },
+            "function": "perform_outlier_detection",
+        },
+
     },
     "statistical": {
         "spectral_comparison": {
@@ -289,16 +530,28 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
         },
         "correlation_analysis": {
             "name": "Spectral Correlation Analysis",
-            "description": "Analyze correlations between spectral regions",
+            "description": "Analyze spectra–spectra similarity or wavenumber–wavenumber band co-variation",
             "min_datasets": 1,
-            "max_datasets": 1,
-            "dataset_selection_mode": "single",
+            "max_datasets": None,
+            "dataset_selection_mode": "multi",
             "params": {
+                "mode": {
+                    "type": "combo",
+                    "options": ["wavenumbers", "spectra"],
+                    "default": "wavenumbers",
+                    "label": "Correlation Mode",
+                },
                 "method": {
                     "type": "combo",
                     "options": ["pearson", "spearman", "kendall"],
                     "default": "pearson",
                     "label": "Correlation Method",
+                },
+                "max_wavenumbers": {
+                    "type": "spinbox",
+                    "default": 600,
+                    "range": (100, 2000),
+                    "label": "Max Wavenumbers (for map)",
                 },
                 "show_heatmap": {
                     "type": "checkbox",
@@ -314,6 +567,85 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                 },
             },
             "function": "perform_correlation_analysis"
+        },
+
+        "pairwise_tests": {
+            "name": "Pairwise Statistical Tests",
+            "description": "Wavenumber-wise significance testing between two groups",
+            "min_datasets": 2,
+            "max_datasets": 2,
+            "dataset_selection_mode": "multi",
+            # Pairwise tests must be a simple 2-dataset selection (grouped mode disabled)
+            "allow_grouped_mode": False,
+            "params": {
+                "test_type": {
+                    "type": "combo",
+                    "options": ["t_test", "mann_whitney", "wilcoxon"],
+                    "default": "t_test",
+                    "label": "Test Type",
+                },
+                "alpha": {
+                    "type": "double_spinbox",
+                    "default": 0.05,
+                    "range": (0.001, 0.2),
+                    "step": 0.005,
+                    "label": "Significance Level (α)",
+                },
+                "fdr_correction": {
+                    "type": "checkbox",
+                    "default": True,
+                    "label": "Apply FDR Correction",
+                },
+                "show_mean_overlay": {
+                    "type": "checkbox",
+                    "default": True,
+                    "label": "Show Mean Overlay",
+                },
+            },
+            "function": "perform_pairwise_statistical_tests",
+        },
+
+        "band_ratio": {
+            "name": "Band Ratio Analysis",
+            "description": "Compute biochemical band ratios (e.g., protein/lipid) per spectrum",
+            "min_datasets": 1,
+            "max_datasets": None,
+            "dataset_selection_mode": "multi",
+            # Band ratio expects direct dataset selection (grouped mode disabled)
+            "allow_grouped_mode": False,
+            "params": {
+                "band1_center": {
+                    "type": "spinbox",
+                    "default": 1650,
+                    "range": (200, 4000),
+                    "label": "Band 1 Center (cm⁻¹)",
+                },
+                "band1_width": {
+                    "type": "spinbox",
+                    "default": 20,
+                    "range": (1, 200),
+                    "label": "Band 1 Half-Width (cm⁻¹)",
+                },
+                "band2_center": {
+                    "type": "spinbox",
+                    "default": 1450,
+                    "range": (200, 4000),
+                    "label": "Band 2 Center (cm⁻¹)",
+                },
+                "band2_width": {
+                    "type": "spinbox",
+                    "default": 20,
+                    "range": (1, 200),
+                    "label": "Band 2 Half-Width (cm⁻¹)",
+                },
+                "measure": {
+                    "type": "combo",
+                    "options": ["area", "height"],
+                    "default": "area",
+                    "label": "Band Measure",
+                },
+            },
+            "function": "perform_band_ratio_analysis",
         }
         # NOTE: ANOVA temporarily disabled - not ready for production use
         # "anova_test": {
@@ -353,6 +685,12 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
             "max_datasets": None,
             "dataset_selection_mode": "multi",
             "params": {
+                "max_wavenumbers": {
+                    "type": "spinbox",
+                    "default": 1200,
+                    "range": (200, 5000),
+                    "label": "Max Wavenumbers (resample cap)",
+                },
                 "cluster_rows": {
                     "type": "checkbox",
                     "default": True,
@@ -390,40 +728,8 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
             },
             "function": "create_spectral_heatmap",
         },
-        "mean_spectra_overlay": {
-            "name": "Mean Spectra Overlay Plot",
-            "description": "Overlay mean spectra from different groups/datasets",
-            "min_datasets": 2,
-            "max_datasets": None,
-            "dataset_selection_mode": "multi",
-            "params": {
-                "show_std": {
-                    "type": "checkbox",
-                    "default": True,
-                    "label": "Show Standard Deviation",
-                },
-                "show_ci": {
-                    "type": "checkbox",
-                    "default": False,
-                    "label": "Show Confidence Intervals",
-                },
-                "alpha_fill": {
-                    "type": "double_spinbox",
-                    "default": 0.2,
-                    "range": (0.0, 1.0),
-                    "step": 0.05,
-                    "label": "Fill Transparency",
-                },
-                "line_width": {
-                    "type": "double_spinbox",
-                    "default": 1.5,
-                    "range": (0.5, 5.0),
-                    "step": 0.5,
-                    "label": "Line Width",
-                },
-            },
-            "function": "create_mean_spectra_overlay",
-        },
+        # NOTE: Mean Spectra Overlay Plot removed to reduce overlap with
+        # Pairwise Statistical Tests and Group Mean Spectral Comparison.
         "waterfall_plot": {
             "name": "Waterfall Plot",
             "description": "2D/3D visualization of multiple spectra with offset",
@@ -477,6 +783,12 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
             "max_datasets": None,
             "dataset_selection_mode": "multi",
             "params": {
+                "max_wavenumbers": {
+                    "type": "spinbox",
+                    "default": 600,
+                    "range": (100, 2000),
+                    "label": "Max Wavenumbers (resample cap)",
+                },
                 "method": {
                     "type": "combo",
                     "options": ["pearson", "spearman"],
@@ -570,6 +882,40 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                 },
             },
             "function": "create_peak_scatter",
+        },
+
+        "derivative_spectra": {
+            "name": "Derivative Spectra (Savitzky–Golay)",
+            "description": "Visualize 1st/2nd derivative spectra to enhance peak resolution",
+            "min_datasets": 1,
+            "max_datasets": None,
+            "dataset_selection_mode": "multi",
+            "params": {
+                "deriv_order": {
+                    "type": "combo",
+                    "options": [1, 2],
+                    "default": 1,
+                    "label": "Derivative Order",
+                },
+                "window_length": {
+                    "type": "spinbox",
+                    "default": 15,
+                    "range": (5, 301),
+                    "label": "Window Length (odd)",
+                },
+                "polyorder": {
+                    "type": "spinbox",
+                    "default": 3,
+                    "range": (2, 10),
+                    "label": "Polynomial Order",
+                },
+                "show_original": {
+                    "type": "checkbox",
+                    "default": True,
+                    "label": "Show Original (faint)",
+                },
+            },
+            "function": "create_derivative_spectra_plot",
         },
     },
 }

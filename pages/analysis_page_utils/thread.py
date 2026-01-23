@@ -28,31 +28,38 @@ from .methods import (
     perform_tsne_analysis,
     perform_hierarchical_clustering,
     perform_kmeans_clustering,
+    perform_pls_da_analysis,
+    perform_mcr_als_analysis,
+    perform_nmf_analysis,
+    perform_ica_analysis,
+    perform_outlier_detection,
     perform_spectral_comparison,
     perform_peak_analysis,
     perform_correlation_analysis,
     perform_anova_test,
+    perform_pairwise_statistical_tests,
+    perform_band_ratio_analysis,
+    create_derivative_spectra_plot,
     create_spectral_heatmap,
-    create_mean_spectra_overlay,
     create_waterfall_plot,
     create_correlation_heatmap,
     create_peak_scatter,
 )
 
 
-class AnalysisThread(QThread):
-    """
-    Worker thread for running analysis methods in background.
+class _AnalysisCancelledError(Exception):
+    """Internal exception used to abort analysis when cancellation is requested."""
 
-    Signals:
-        progress: Emits progress percentage (0-100)
-        finished: Emits AnalysisResult on successful completion
-        error: Emits error message string on failure
-    """
+    pass
+
+
+class AnalysisThread(QThread):
+    """Worker thread for running analysis methods in background."""
 
     progress = Signal(int)
     finished = Signal(AnalysisResult)
     error = Signal(str, str)  # error_message, traceback_str
+    cancelled = Signal()
 
     def __init__(
         self,
@@ -73,6 +80,9 @@ class AnalysisThread(QThread):
         try:
             start_time = time.time()
 
+            if self.is_interruption_requested():
+                raise _AnalysisCancelledError()
+
             # Get method info
             method_info = get_method_info(self.category, self.method_key)
             function_name = method_info["function"]
@@ -84,12 +94,19 @@ class AnalysisThread(QThread):
                 "perform_tsne_analysis": perform_tsne_analysis,
                 "perform_hierarchical_clustering": perform_hierarchical_clustering,
                 "perform_kmeans_clustering": perform_kmeans_clustering,
+                "perform_pls_da_analysis": perform_pls_da_analysis,
+                "perform_mcr_als_analysis": perform_mcr_als_analysis,
+                "perform_nmf_analysis": perform_nmf_analysis,
+                "perform_ica_analysis": perform_ica_analysis,
+                "perform_outlier_detection": perform_outlier_detection,
                 "perform_spectral_comparison": perform_spectral_comparison,
                 "perform_peak_analysis": perform_peak_analysis,
                 "perform_correlation_analysis": perform_correlation_analysis,
                 "perform_anova_test": perform_anova_test,
+                "perform_pairwise_statistical_tests": perform_pairwise_statistical_tests,
+                "perform_band_ratio_analysis": perform_band_ratio_analysis,
+                "create_derivative_spectra_plot": create_derivative_spectra_plot,
                 "create_spectral_heatmap": create_spectral_heatmap,
-                "create_mean_spectra_overlay": create_mean_spectra_overlay,
                 "create_waterfall_plot": create_waterfall_plot,
                 "create_correlation_heatmap": create_correlation_heatmap,
                 "create_peak_scatter": create_peak_scatter,
@@ -103,11 +120,17 @@ class AnalysisThread(QThread):
             # Update progress
             self.progress.emit(10)
 
+            if self.is_interruption_requested():
+                raise _AnalysisCancelledError()
+
             # Prepare data
             dataset_names = list(self.dataset_data.keys())
             n_spectra = sum(df.shape[1] for df in self.dataset_data.values())
 
             self.progress.emit(20)
+
+            if self.is_interruption_requested():
+                raise _AnalysisCancelledError()
 
             # Run analysis
             create_logs(
@@ -117,12 +140,20 @@ class AnalysisThread(QThread):
                 status="info",
             )
 
+            def _guarded_progress(p: int):
+                if self.is_interruption_requested():
+                    raise _AnalysisCancelledError()
+                self._update_progress(p)
+
             # Execute the analysis function
             result = analysis_function(
                 dataset_data=self.dataset_data,
                 params=self.params,
-                progress_callback=self._update_progress,
+                progress_callback=_guarded_progress,
             )
+
+            if self.is_interruption_requested():
+                raise _AnalysisCancelledError()
 
             execution_time = time.time() - start_time
 
@@ -170,6 +201,15 @@ class AnalysisThread(QThread):
                 status="info",
             )
 
+        except _AnalysisCancelledError:
+            create_logs(
+                "AnalysisThread",
+                "run_analysis",
+                "Analysis cancelled by user",
+                status="info",
+            )
+            self.cancelled.emit()
+
         except Exception as e:
             tb_str = traceback.format_exc()
             error_msg = f"Analysis failed: {str(e)}\n{tb_str}"
@@ -197,10 +237,10 @@ class AnalysisThread(QThread):
         - Memory leaks from interrupted Matplotlib rendering
         - Crashes from inconsistent thread state
         """
+        # IMPORTANT: Do not block the UI thread here. Cancellation is best-effort and
+        # must be handled cooperatively by analysis functions via progress callbacks.
         self._is_cancelled = True
         self.requestInterruption()  # Set Qt interruption flag
-        self.quit()  # Exit event loop
-        self.wait(5000)  # Wait max 5 seconds for clean termination
 
     def is_interruption_requested(self) -> bool:
         """

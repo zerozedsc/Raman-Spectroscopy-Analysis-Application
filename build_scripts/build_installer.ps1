@@ -77,6 +77,22 @@ try {
         Write-Status "ERROR: PyInstaller not found!" 'Error'
         exit 1
     }
+
+    # Check XGBoost (needed if you want the XGBoost ML method bundled)
+    Write-Status "Checking XGBoost installation..." 'Info'
+    & $PythonCmd -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('xgboost') else 1)" 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Status "xgboost is installed" 'Success'
+    }
+    else {
+        Write-Status "xgboost not found for $PythonDisplay. Installing..." 'Warning'
+        & $PythonCmd -m pip install --upgrade xgboost
+        if ($LASTEXITCODE -ne 0) {
+            Write-Status "ERROR: Failed to install xgboost into the selected Python environment" 'Error'
+            exit 1
+        }
+        Write-Status "xgboost installed successfully" 'Success'
+    }
     
     # Check for NSIS (optional but recommended)
     $NSISPath = "C:\Program Files (x86)\NSIS\makensis.exe"

@@ -51,6 +51,18 @@ BASE_STYLES = {
             width: 12px;
             height: 12px;
         }
+        /* Popup list (fixes black dropdown on some themes/platforms) */
+        QComboBox QAbstractItemView {
+            background-color: #ffffff;
+            color: #212529;
+            border: 1px solid #ced4da;
+            selection-background-color: #e3f2fd;
+            selection-color: #2c3e50;
+            outline: 0;
+        }
+        QComboBox QAbstractItemView::item {
+            padding: 6px 10px;
+        }
     """,
     "primary_button": """
         QPushButton {

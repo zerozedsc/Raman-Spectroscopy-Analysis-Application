@@ -120,6 +120,20 @@ class MLTrainingThread(QThread):
 				)
 				feature_importances = getattr(res.model, "feature_importances_", None)
 
+			elif self._model_key == "xgboost":
+				# Lazy import so the app can start even if xgboost isn't installed.
+				from functions.ML.xgboost import train_xgboost_classifier
+
+				res = train_xgboost_classifier(
+					split.X_train,
+					split.y_train,
+					split.X_test,
+					split.y_test,
+					random_state=self._random_state,
+					**self._model_params,
+				)
+				feature_importances = getattr(res.model, "feature_importances_", None)
+
 			else:
 				raise ValueError(f"Unknown model_key: {self._model_key}")
 

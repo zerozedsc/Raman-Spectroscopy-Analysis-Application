@@ -79,7 +79,7 @@ class GroupTreeManager(QWidget):
         """
 
         self.btn_create = QPushButton(
-            "➕ " + (self.localize("ANALYSIS_PAGE.create_groups_button") if self.localize else "Create Groups")
+             (self.localize("ANALYSIS_PAGE.create_groups_button") if self.localize else "➕Create Groups")
         )
         self.btn_create.setStyleSheet(btn_style)
         self.btn_create.clicked.connect(self.create_group_dialog)

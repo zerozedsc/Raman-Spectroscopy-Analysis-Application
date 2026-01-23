@@ -809,3 +809,54 @@ PROJECT_MANAGER = ProjectManager()
 # --- Shorthand Function ---
 def LOCALIZE(key, **kwargs):
     return LOCALIZEMANAGER.get(key, **kwargs)
+
+
+def restart_application(*, reason: str | None = None) -> bool:
+    """Restart the current application instance.
+
+    Works for:
+    - dev runs (python/uv): relaunches the current script with the same args
+    - frozen builds (portable/installed): relaunches the current executable
+
+    Returns:
+        True if a new process was spawned (best-effort), False otherwise.
+    """
+
+    try:
+        from PySide6.QtCore import QTimer
+        from PySide6.QtWidgets import QApplication
+        import subprocess
+        import sys
+        import os
+
+        is_frozen = bool(getattr(sys, "frozen", False))
+        if is_frozen:
+            cmd = [sys.executable] + sys.argv[1:]
+        else:
+            script = os.path.abspath(sys.argv[0])
+            cmd = [sys.executable, script] + sys.argv[1:]
+
+        create_logs(
+            "restart_application",
+            "app",
+            f"Restarting app (frozen={is_frozen}, reason={reason}): {cmd}",
+            status="info",
+        )
+
+        subprocess.Popen(cmd, cwd=os.getcwd(), env=os.environ.copy())
+
+        app = QApplication.instance()
+        if app is not None:
+            QTimer.singleShot(0, app.quit)
+        return True
+    except Exception as e:
+        try:
+            create_logs(
+                "restart_application",
+                "app",
+                f"Failed to restart application: {e}",
+                status="error",
+            )
+        except Exception:
+            pass
+        return False

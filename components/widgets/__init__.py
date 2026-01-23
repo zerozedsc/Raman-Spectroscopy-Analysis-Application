@@ -30,6 +30,7 @@ from .parameter_widgets import (
 from .views_widget import GroupTreeManager
 
 from .matplotlib_widget import MatplotlibWidget, plot_spectra
+from .component_selector_panel import ComponentSelectorPlotPanel
 from .icons import (
     load_icon,
     create_button_icon,
@@ -48,6 +49,7 @@ __all__ = [
     "DynamicParameterWidget",
     "MatplotlibWidget",
     "plot_spectra",
+    "ComponentSelectorPlotPanel",
     "load_icon",
     "create_button_icon",
     "create_toolbar_icon",

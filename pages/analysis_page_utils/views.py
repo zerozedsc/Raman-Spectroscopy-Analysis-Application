@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QToolButton,
     QFrame,
     QScrollArea,
     QGridLayout,
@@ -23,6 +24,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QGroupBox,
     QTextEdit,
+    QSizePolicy,
 )
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QFont, QPixmap
@@ -39,17 +41,26 @@ METHOD_IMAGES = {
     "tsne": "t-sne.png",
     "hierarchical_clustering": "hierarchical_clustering.png",
     "kmeans": "k-means.png",  # Fixed: was "kmeans_clustering"
+    "pls_da": "PLS-DA.png",
+    "lda": "lda.png",
+    "mcr_als": "MCR-ALS.png",
+    "nmf": "NMF.png",
+    "ica": "ica.png",
+    "outlier_detection": "outlier_detection.png",
     # Statistical methods
     "spectral_comparison": "spectral_comparison.png",
     "peak_analysis": "peak_analysis.png",
     "correlation_analysis": "correlation_analysis.png",
     "anova_test": "ANOVA.png",  # Fixed: was "anova"
+    "pairwise_tests": "pairwise-statistical.png",
+    "band_ratio": "band_ratio.png",
     # Visualization methods
     "heatmap": "spectral_heatmap.png",  # Fixed: was "spectral_heatmap"
     "mean_spectra_overlay": "mean_spectra_overlay.png",
     "waterfall_plot": "waterfall.png",
     "correlation_heatmap": "correlation_heatmap.png",
     "peak_intensity_scatter": "peak_intensity_scatter.png",
+    "derivative_spectra": "derivative_spectra.png",
 }
 
 
@@ -254,7 +265,8 @@ def create_method_card(
     layout.setContentsMargins(0, 0, 0, 0)
 
     # Add method image if available
-    if method_key in METHOD_IMAGES:
+    image_filename = METHOD_IMAGES.get(method_key, "")
+    if image_filename:
         image_label = QLabel()
         image_label.setAlignment(Qt.AlignCenter)
 
@@ -262,9 +274,7 @@ def create_method_card(
         base_dir = os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         )
-        image_path = os.path.join(
-            base_dir, "assets", "image", METHOD_IMAGES[method_key]
-        )
+        image_path = os.path.join(base_dir, "assets", "image", image_filename)
 
         if os.path.exists(image_path):
             pixmap = QPixmap(image_path)
@@ -369,14 +379,24 @@ def create_history_sidebar(localize_func: Callable) -> QWidget:
         }
     """
     )
-    sidebar.setMaximumWidth(280)
-    sidebar.setMinimumWidth(200)
+    # Expanded width range (used by horizontal collapse)
+    sidebar._expanded_min_width = 200
+    sidebar._expanded_max_width = 280
+    sidebar._collapsed_width = 44
+
+    sidebar.setMaximumWidth(sidebar._expanded_max_width)
+    sidebar.setMinimumWidth(sidebar._expanded_min_width)
+    sidebar.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
 
     layout = QVBoxLayout(sidebar)
     layout.setContentsMargins(12, 12, 12, 12)
     layout.setSpacing(12)
 
-    # Header
+    # Header row (title + collapse toggle)
+    header_row = QHBoxLayout()
+    header_row.setContentsMargins(0, 0, 0, 0)
+    header_row.setSpacing(8)
+
     header_label = QLabel("📜 " + localize_func("ANALYSIS_PAGE.history_title"))
     header_label.setStyleSheet(
         """
@@ -386,7 +406,42 @@ def create_history_sidebar(localize_func: Callable) -> QWidget:
         padding: 8px 0;
     """
     )
-    layout.addWidget(header_label)
+    header_row.addWidget(header_label)
+    header_row.addStretch(1)
+
+    toggle_btn = QToolButton()
+    toggle_btn.setObjectName("historyCollapseButton")
+    toggle_btn.setCursor(Qt.PointingHandCursor)
+    toggle_btn.setText("▾")
+    toggle_btn.setToolTip(
+        localize_func("ANALYSIS_PAGE.history_collapse_tooltip")
+        if callable(localize_func)
+        else "Collapse"
+    )
+    toggle_btn.setStyleSheet(
+        """
+        QToolButton#historyCollapseButton {
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 2px 8px;
+            background: white;
+            color: #2c3e50;
+            font-weight: 700;
+        }
+        QToolButton#historyCollapseButton:hover {
+            background: #e7f3ff;
+            border-color: #0078d4;
+        }
+        """
+    )
+    header_row.addWidget(toggle_btn)
+    layout.addLayout(header_row)
+
+    # Collapsible content container (hidden when sidebar is horizontally collapsed)
+    content = QWidget()
+    content_layout = QVBoxLayout(content)
+    content_layout.setContentsMargins(0, 0, 0, 0)
+    content_layout.setSpacing(12)
 
     # History list
     history_list = QListWidget()
@@ -411,17 +466,71 @@ def create_history_sidebar(localize_func: Callable) -> QWidget:
         }
     """
     )
-    layout.addWidget(history_list)
+    content_layout.addWidget(history_list)
 
     # Clear history button
     clear_btn = QPushButton(localize_func("ANALYSIS_PAGE.clear_history"))
     clear_btn.setObjectName("secondaryButton")
     clear_btn.setMinimumHeight(32)
-    layout.addWidget(clear_btn)
+    content_layout.addWidget(clear_btn)
+
+    layout.addWidget(content)
+
+    # Toggle behavior
+    sidebar._history_collapsed = False
+
+    def _apply_width(w: int) -> None:
+        # For splitter sidebars, using fixed min/max is more reliable than setFixedWidth.
+        sidebar.setMinimumWidth(int(w))
+        sidebar.setMaximumWidth(int(w))
+        sidebar.updateGeometry()
+
+    def _set_collapsed(collapsed: bool) -> None:
+        # Horizontal (right-to-left) collapse to free space for the main view.
+        sidebar._history_collapsed = bool(collapsed)
+
+        if sidebar._history_collapsed:
+            content.setVisible(False)
+            header_label.setVisible(False)
+            toggle_btn.setText("▸")
+            try:
+                toggle_btn.setToolTip(localize_func("ANALYSIS_PAGE.history_expand_tooltip"))
+            except Exception:
+                toggle_btn.setToolTip("Expand")
+            # Tighten margins for collapsed strip
+            layout.setContentsMargins(6, 8, 6, 8)
+            layout.setSpacing(8)
+            _apply_width(getattr(sidebar, "_collapsed_width", 44))
+        else:
+            content.setVisible(True)
+            header_label.setVisible(True)
+            toggle_btn.setText("◂")
+            try:
+                toggle_btn.setToolTip(localize_func("ANALYSIS_PAGE.history_collapse_tooltip"))
+            except Exception:
+                toggle_btn.setToolTip("Collapse")
+            layout.setContentsMargins(12, 12, 12, 12)
+            layout.setSpacing(12)
+            sidebar.setMinimumWidth(getattr(sidebar, "_expanded_min_width", 200))
+            sidebar.setMaximumWidth(getattr(sidebar, "_expanded_max_width", 280))
+            sidebar.updateGeometry()
+
+    def _toggle() -> None:
+        _set_collapsed(not bool(getattr(sidebar, "_history_collapsed", False)))
+
+    toggle_btn.clicked.connect(_toggle)
 
     # Store reference for external access
     sidebar.history_list = history_list
     sidebar.clear_btn = clear_btn
+    sidebar.toggle_btn = toggle_btn
+    sidebar.set_history_collapsed = _set_collapsed
+
+    # Default to expanded state, with a "collapse left" affordance.
+    try:
+        toggle_btn.setText("◂")
+    except Exception:
+        pass
 
     return sidebar
 

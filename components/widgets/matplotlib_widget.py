@@ -3,16 +3,66 @@ import os
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 from configs.configs import create_logs
+import matplotlib as mpl
+from matplotlib import font_manager
 from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
 from PySide6.QtCore import Qt, QSize
+from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
 from mpl_toolkits.mplot3d import Axes3D
 from typing import Optional, Dict, Any, List, Tuple
+
+
+_MATPLOTLIB_FONTS_CONFIGURED = False
+
+
+def _configure_matplotlib_fonts() -> None:
+    """Configure Matplotlib font fallback so Japanese text renders without glyph warnings.
+
+    This app ships fonts under assets/fonts for portable/installer builds.
+    Qt fonts are loaded via configs.configs.load_application_fonts(), but Matplotlib
+    needs its own font registration.
+    """
+    global _MATPLOTLIB_FONTS_CONFIGURED
+    if _MATPLOTLIB_FONTS_CONFIGURED:
+        return
+
+    try:
+        # Resolve assets path for both dev and PyInstaller frozen modes
+        if getattr(sys, "frozen", False):
+            base_path = getattr(sys, "_MEIPASS", os.getcwd())
+        else:
+            base_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        fonts_dir = os.path.join(base_path, "assets", "fonts")
+
+        if os.path.isdir(fonts_dir):
+            for fname in ("Inter.ttf", "Inter-Italic.ttf", "Noto Sans JP.ttf"):
+                fpath = os.path.join(fonts_dir, fname)
+                if os.path.isfile(fpath):
+                    try:
+                        font_manager.fontManager.addfont(fpath)
+                    except Exception:
+                        # Best-effort: if addfont is unavailable or fails, we still keep fallback.
+                        pass
+
+        # Prefer Inter for Latin UI, fall back to Noto Sans JP for CJK glyphs.
+        mpl.rcParams["font.family"] = "sans-serif"
+        mpl.rcParams["font.sans-serif"] = [
+            "Inter",
+            "Noto Sans JP",
+            "DejaVu Sans",
+            "Arial",
+        ]
+        mpl.rcParams["axes.unicode_minus"] = False
+    except Exception as e:
+        create_logs(__name__, __file__, f"Matplotlib font configuration failed: {e}", status="debug")
+    finally:
+        _MATPLOTLIB_FONTS_CONFIGURED = True
 
 
 def detect_signal_range(
@@ -152,6 +202,9 @@ class MatplotlibWidget(QWidget):
         super().__init__(parent)
         self.setObjectName("matplotlibWidget")
 
+        # Ensure bundled fonts are registered for Matplotlib (prevents CJK glyph warnings).
+        _configure_matplotlib_fonts()
+
         # --- Create a Figure and a Canvas ---
         self.figure = Figure(figsize=(5, 4), dpi=100, facecolor="whitesmoke")
         self.canvas = FigureCanvas(self.figure)
@@ -173,8 +226,42 @@ class MatplotlibWidget(QWidget):
             self.toolbar.setMinimumHeight(35)
             # Qt stylesheet uses 'color', not 'font-color' (unknown property warnings otherwise).
             self.toolbar.setStyleSheet(
-                "background-color: #FAFAFA; border-bottom: 1px solid #9a9b9c; color: #000000;"
+                """
+                QToolBar {
+                    background-color: #f8f9fa;
+                    border: none;
+                    border-bottom: 1px solid #dee2e6;
+                    color: #212529;
+                    spacing: 4px;
+                }
+                QToolButton {
+                    color: #212529;
+                    border: 1px solid transparent;
+                    border-radius: 6px;
+                    padding: 4px;
+                    margin: 2px;
+                }
+                QToolButton:hover {
+                    background-color: #e3f2fd;
+                    border-color: #cfe8ff;
+                }
+                QToolButton:pressed {
+                    background-color: #cfe8ff;
+                    border-color: #0078d4;
+                }
+                QToolButton:checked {
+                    background-color: #cfe8ff;
+                    border-color: #0078d4;
+                }
+                """
             )
+        except Exception:
+            pass
+
+        # Some environments/themes render the default Matplotlib toolbar icons with
+        # very low contrast. Re-tint the icons to a readable foreground.
+        try:
+            self._retint_toolbar_icons(QColor("#2c3e50"))
         except Exception:
             pass
 
@@ -192,6 +279,49 @@ class MatplotlibWidget(QWidget):
         self._tight_layout_on_resize = True
         self._tight_layout_pad = 1.2
         self._tight_layout_rect = [0, 0.03, 1, 0.95]
+
+    def _retint_toolbar_icons(self, color: QColor) -> None:
+        """Recolor the toolbar's QActions icons for better visibility."""
+
+        def _tint_icon(icon: QIcon) -> QIcon:
+            if icon.isNull():
+                return icon
+
+            sizes = icon.availableSizes()
+            if not sizes:
+                # Fallback size used by our toolbar.
+                sizes = [QSize(18, 18)]
+
+            out = QIcon()
+            for size in sizes:
+                pm = icon.pixmap(size)
+                if pm.isNull():
+                    continue
+
+                tinted = QPixmap(pm.size())
+                tinted.fill(Qt.GlobalColor.transparent)
+
+                p = QPainter(tinted)
+                try:
+                    # Use the icon's alpha as a mask.
+                    p.drawPixmap(0, 0, pm)
+                    p.setCompositionMode(QPainter.CompositionMode_SourceIn)
+                    p.fillRect(tinted.rect(), color)
+                finally:
+                    p.end()
+
+                out.addPixmap(tinted)
+
+            return out
+
+        if not hasattr(self, "toolbar") or self.toolbar is None:
+            return
+
+        for action in self.toolbar.actions():
+            try:
+                action.setIcon(_tint_icon(action.icon()))
+            except Exception:
+                continue
 
     def add_custom_toolbar(self, widget: QWidget):
         """
@@ -378,7 +508,19 @@ class MatplotlibWidget(QWidget):
         self.figure.clear()
         # This is a way to "copy" the contents of the new figure
         # to the existing figure managed by the canvas.
-        axes_list = new_figure.get_axes()
+        # NOTE: Skip source colorbar axes.
+        # We recreate colorbars from the copied mappables (imshow) below, and copying
+        # the original colorbar axes tends to leave an empty white strip on the right.
+        axes_list = []
+        for _ax in new_figure.get_axes():
+            try:
+                if hasattr(_ax, "_colorbar"):
+                    continue
+                if getattr(_ax, "get_label", None) and _ax.get_label() == "<colorbar>":
+                    continue
+            except Exception:
+                pass
+            axes_list.append(_ax)
 
         if not axes_list:
             # No axes to copy
@@ -388,13 +530,24 @@ class MatplotlibWidget(QWidget):
         # ✅ FIX: Preserve complex subplot layouts (GridSpec, dendrograms with heatmaps)
         # Instead of creating simple 1xN subplots, preserve the original axes positions
         for i, ax in enumerate(axes_list):
+            is_3d = False
+            try:
+                is_3d = getattr(ax, "name", "") == "3d" or isinstance(ax, Axes3D)
+            except Exception:
+                is_3d = False
+
             # Get the original axes position in figure coordinates
             try:
                 # Get the position of the original axes (left, bottom, width, height)
                 pos = ax.get_position()
 
-                # Create new axes at the same position
-                new_ax = self.figure.add_axes([pos.x0, pos.y0, pos.width, pos.height])
+                # Create new axes at the same position (preserve 3D projection when needed)
+                if is_3d:
+                    new_ax = self.figure.add_axes(
+                        [pos.x0, pos.y0, pos.width, pos.height], projection="3d"
+                    )
+                else:
+                    new_ax = self.figure.add_axes([pos.x0, pos.y0, pos.width, pos.height])
                 create_logs(
                     __name__,
                     __file__,
@@ -410,28 +563,57 @@ class MatplotlibWidget(QWidget):
                     status="debug",
                 )
                 if len(axes_list) == 1:
-                    new_ax = self.figure.add_subplot(111)
+                    if is_3d:
+                        new_ax = self.figure.add_subplot(111, projection="3d")
+                    else:
+                        new_ax = self.figure.add_subplot(111)
                 else:
-                    new_ax = self.figure.add_subplot(len(axes_list), 1, i + 1)
+                    if is_3d:
+                        new_ax = self.figure.add_subplot(len(axes_list), 1, i + 1, projection="3d")
+                    else:
+                        new_ax = self.figure.add_subplot(len(axes_list), 1, i + 1)
 
             # Copy all line plots from the original axes
             for line in ax.get_lines():
-                new_ax.plot(
-                    line.get_xdata(),
-                    line.get_ydata(),
-                    label=line.get_label(),
-                    color=line.get_color(),
-                    linestyle=line.get_linestyle(),
-                    linewidth=line.get_linewidth(),
-                    marker=line.get_marker(),
-                    markersize=line.get_markersize(),
-                )
+                try:
+                    if is_3d and hasattr(line, "get_data_3d"):
+                        x, y, z = line.get_data_3d()
+                        new_ax.plot(
+                            x,
+                            y,
+                            z,
+                            label=line.get_label(),
+                            color=line.get_color(),
+                            linestyle=line.get_linestyle(),
+                            linewidth=line.get_linewidth(),
+                            marker=line.get_marker(),
+                            markersize=line.get_markersize(),
+                            alpha=line.get_alpha() if hasattr(line, "get_alpha") else None,
+                        )
+                    else:
+                        new_ax.plot(
+                            line.get_xdata(),
+                            line.get_ydata(),
+                            label=line.get_label(),
+                            color=line.get_color(),
+                            linestyle=line.get_linestyle(),
+                            linewidth=line.get_linewidth(),
+                            marker=line.get_marker(),
+                            markersize=line.get_markersize(),
+                        )
+                except Exception as e:
+                    create_logs(
+                        __name__,
+                        __file__,
+                        f"Failed to copy line ({type(line).__name__}) to new axis: {e}",
+                        status="debug",
+                    )
 
             # ✅ FIX: Copy AxesImage objects (imshow/heatmaps) - CRITICAL FOR HEATMAPS
             # This was missing and caused blank heatmaps in Correlation Heatmap and Spectral Heatmap
             from matplotlib.image import AxesImage
 
-            images = ax.get_images()
+            images = [] if is_3d else ax.get_images()
             if images:
                 create_logs(
                     __name__,
@@ -447,6 +629,10 @@ class MatplotlibWidget(QWidget):
                         cmap = img.get_cmap()
                         alpha = img.get_alpha()
                         interpolation = img.get_interpolation()
+                        try:
+                            origin = img.get_origin()
+                        except Exception:
+                            origin = getattr(img, "origin", None)
 
                         # Get clim (color limits)
                         clim = img.get_clim()
@@ -458,6 +644,7 @@ class MatplotlibWidget(QWidget):
                             cmap=cmap,
                             alpha=alpha if alpha is not None else 1.0,
                             interpolation=interpolation,
+                            origin=origin,
                             aspect="auto",
                             vmin=clim[0],
                             vmax=clim[1],
@@ -476,6 +663,10 @@ class MatplotlibWidget(QWidget):
 
             # Copy scatter plots (PathCollections) and LineCollections from the original axes
             from matplotlib.collections import LineCollection, PathCollection
+            try:
+                from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+            except Exception:
+                Poly3DCollection = None
 
             for collection in ax.collections:
                 # Handle LineCollection (used in dendrograms, heatmaps, cluster plots)
@@ -503,36 +694,99 @@ class MatplotlibWidget(QWidget):
 
                 # Handle PathCollection (scatter plots)
                 if isinstance(collection, PathCollection):
-                    offsets = collection.get_offsets()
-                    if len(offsets) > 0:
+                    try:
                         # Get collection properties
                         facecolors = collection.get_facecolors()
                         edgecolors = collection.get_edgecolors()
-                        sizes = (
-                            collection.get_sizes()
-                            if hasattr(collection, "get_sizes")
-                            else [50]
-                        )
+                        sizes = collection.get_sizes() if hasattr(collection, "get_sizes") else [50]
                         label = collection.get_label()
+                        alpha = collection.get_alpha() or 1.0
 
-                        # Create scatter plot
-                        new_ax.scatter(
-                            offsets[:, 0],
-                            offsets[:, 1],
-                            c=facecolors if len(facecolors) > 0 else None,
-                            s=sizes[0] if len(sizes) > 0 else 50,
-                            edgecolors=edgecolors if len(edgecolors) > 0 else None,
-                            label=(
-                                label if label and not label.startswith("_") else None
-                            ),
-                            alpha=collection.get_alpha() or 1.0,
+                        if is_3d and hasattr(collection, "_offsets3d"):
+                            xs, ys, zs = collection._offsets3d
+                            if len(xs) > 0:
+                                new_ax.scatter(
+                                    xs,
+                                    ys,
+                                    zs,
+                                    c=facecolors if len(facecolors) > 0 else None,
+                                    s=sizes[0] if len(sizes) > 0 else 50,
+                                    edgecolors=edgecolors if len(edgecolors) > 0 else None,
+                                    label=(label if label and not label.startswith("_") else None),
+                                    alpha=alpha,
+                                )
+                        else:
+                            offsets = collection.get_offsets()
+                            if len(offsets) > 0:
+                                new_ax.scatter(
+                                    offsets[:, 0],
+                                    offsets[:, 1],
+                                    c=facecolors if len(facecolors) > 0 else None,
+                                    s=sizes[0] if len(sizes) > 0 else 50,
+                                    edgecolors=edgecolors if len(edgecolors) > 0 else None,
+                                    label=(label if label and not label.startswith("_") else None),
+                                    alpha=alpha,
+                                )
+                    except Exception as e:
+                        create_logs(
+                            __name__,
+                            __file__,
+                            f"Failed to copy scatter collection ({type(collection).__name__}): {e}",
+                            status="debug",
                         )
 
-            # Recreate patches (ellipses, rectangles, arrows) on new axis
-            # Patches can't be transferred between figures (RuntimeError), so we recreate them
-            # Skip if too many patches (likely heatmap/correlation plot with many cells)
-            num_patches = len(ax.patches)
-            create_logs(__name__, __file__, f"Found {num_patches} patches on axis", status="debug")
+                # Handle 3D filled polygons (waterfall Poly3DCollection)
+                if is_3d and Poly3DCollection is not None and isinstance(collection, Poly3DCollection):
+                    # This is a best-effort copy; lines are the primary visual, but polygons improve readability.
+                    try:
+                        verts = None
+                        if hasattr(collection, "get_verts"):
+                            verts = collection.get_verts()
+                        if verts:
+                            new_poly = Poly3DCollection(
+                                verts,
+                                alpha=collection.get_alpha(),
+                                facecolors=collection.get_facecolor(),
+                                edgecolors=collection.get_edgecolor(),
+                                linewidths=collection.get_linewidth(),
+                            )
+                            new_ax.add_collection3d(new_poly)
+                    except Exception:
+                        # Non-fatal: keep the 3D lines.
+                        pass
+
+            # Recreate patches on new axis
+            # NOTE: Some plot types (notably boxplot) store their visible boxes in `ax.artists`
+            # as PathPatch objects rather than in `ax.patches`. If we only copy `ax.patches`,
+            # the embedded view will lose the filled boxes and look "broken".
+            #
+            # Patches can't be transferred between figures (RuntimeError), so we recreate them.
+            # Skip if too many patch-like artists (likely heatmap/correlation plot with many cells).
+            from matplotlib.patches import Patch as _MplPatch
+
+            patch_candidates = []
+            try:
+                patch_candidates.extend(list(ax.patches))
+            except Exception:
+                pass
+            try:
+                patch_candidates.extend(
+                    [a for a in getattr(ax, "artists", []) if isinstance(a, _MplPatch)]
+                )
+            except Exception:
+                pass
+
+            _seen_patch_ids = set()
+            patches_to_copy = []
+            for _p in patch_candidates:
+                pid = id(_p)
+                if pid in _seen_patch_ids:
+                    continue
+                _seen_patch_ids.add(pid)
+                patches_to_copy.append(_p)
+
+            num_patches = len(patches_to_copy)
+            create_logs(__name__, __file__, f"Found {num_patches} patch-like artists on axis", status="debug")
 
             if num_patches > 100:
                 create_logs(
@@ -552,15 +806,86 @@ class MatplotlibWidget(QWidget):
 
                 from matplotlib.patches import (
                     Ellipse,
+                    PathPatch,
                     Rectangle,
                     Polygon,
                     FancyArrow,
                     FancyArrowPatch,
                 )
 
-                for patch in ax.patches:
+                for patch in patches_to_copy:
                     # Get patch properties
-                    if isinstance(patch, Ellipse):
+                    if isinstance(patch, PathPatch):
+                        # ✅ CRITICAL: boxplot "boxes" are PathPatch (often stored in ax.artists).
+                        # Recreate them with data coordinates on the new axes.
+                        try:
+                            new_patch = PathPatch(patch.get_path())
+                            try:
+                                new_patch.set_transform(new_ax.transData)
+                            except Exception:
+                                pass
+
+                            try:
+                                new_patch.set_facecolor(patch.get_facecolor())
+                            except Exception:
+                                pass
+                            try:
+                                new_patch.set_edgecolor(patch.get_edgecolor())
+                            except Exception:
+                                pass
+                            try:
+                                new_patch.set_linewidth(patch.get_linewidth())
+                            except Exception:
+                                pass
+                            try:
+                                new_patch.set_linestyle(patch.get_linestyle())
+                            except Exception:
+                                pass
+                            try:
+                                new_patch.set_alpha(patch.get_alpha())
+                            except Exception:
+                                pass
+                            try:
+                                new_patch.set_hatch(patch.get_hatch())
+                            except Exception:
+                                pass
+                            try:
+                                new_patch.set_fill(patch.get_fill())
+                            except Exception:
+                                pass
+                            try:
+                                if hasattr(patch, "get_zorder"):
+                                    new_patch.set_zorder(patch.get_zorder())
+                            except Exception:
+                                pass
+                            try:
+                                if hasattr(patch, "get_clip_on"):
+                                    new_patch.set_clip_on(patch.get_clip_on())
+                            except Exception:
+                                pass
+                            try:
+                                lbl = patch.get_label() if hasattr(patch, "get_label") else ""
+                                if lbl and not str(lbl).startswith("_"):
+                                    new_patch.set_label(lbl)
+                            except Exception:
+                                pass
+
+                            new_ax.add_patch(new_patch)
+                            create_logs(
+                                __name__,
+                                __file__,
+                                "Recreated PathPatch (e.g., boxplot box) on new axis",
+                                status="debug",
+                            )
+                        except Exception as e:
+                            create_logs(
+                                __name__,
+                                __file__,
+                                f"Failed to recreate PathPatch: {e}",
+                                status="debug",
+                            )
+
+                    elif isinstance(patch, Ellipse):
 
                         original_alpha = patch.get_alpha()
                         original_facecolor = patch.get_facecolor()
@@ -791,7 +1116,7 @@ class MatplotlibWidget(QWidget):
                             )
 
                         # Create new annotation on new axis
-                        new_ax.annotate(
+                        new_anno = new_ax.annotate(
                             text,
                             xy=xy,
                             xytext=xytext,
@@ -805,6 +1130,23 @@ class MatplotlibWidget(QWidget):
                             arrowprops=arrowprops,
                             zorder=10,
                         )
+
+                        # Enable draggable labels (peak labels, PCA peak tags, etc.)
+                        # This lets users manually adjust label placement.
+                        try:
+                            if hasattr(new_anno, "draggable"):
+                                try:
+                                    new_anno.draggable(use_blit=True)
+                                except TypeError:
+                                    # Older Matplotlib may not accept use_blit kwarg
+                                    new_anno.draggable()
+                        except Exception as e:
+                            create_logs(
+                                __name__,
+                                __file__,
+                                f"Failed to enable draggable annotation: {e}",
+                                status="debug",
+                            )
 
                         create_logs(
                             __name__,
@@ -827,6 +1169,99 @@ class MatplotlibWidget(QWidget):
             new_ax.set_xlim(ax.get_xlim())
             new_ax.set_ylim(ax.get_ylim())
 
+            # ✅ Preserve tick locations + labels (critical for categorical plots like boxplots)
+            # If we don't do this, the embedded axis will show default numeric ticks and lose
+            # dataset/group names and rotations.
+            try:
+                src_xticks = ax.get_xticks()
+                if src_xticks is not None:
+                    new_ax.set_xticks(src_xticks)
+            except Exception:
+                pass
+            try:
+                src_yticks = ax.get_yticks()
+                if src_yticks is not None:
+                    new_ax.set_yticks(src_yticks)
+            except Exception:
+                pass
+
+            def _copy_ticklabels(axis_name: str) -> None:
+                if axis_name == "x":
+                    src = ax.get_xticklabels()
+                    dst = new_ax.get_xticklabels()
+                    setter = new_ax.set_xticklabels
+                else:
+                    src = ax.get_yticklabels()
+                    dst = new_ax.get_yticklabels()
+                    setter = new_ax.set_yticklabels
+
+                if not src:
+                    return
+
+                texts = [t.get_text() for t in src]
+                if not any(str(s).strip() for s in texts):
+                    return
+
+                try:
+                    setter(texts)
+                except Exception:
+                    return
+
+                # Copy basic styling per tick label (rotation/alignment/font size/color)
+                try:
+                    dst = dst = (new_ax.get_xticklabels() if axis_name == "x" else new_ax.get_yticklabels())
+                    for t_new, t_src in zip(dst, src):
+                        try:
+                            t_new.set_rotation(t_src.get_rotation())
+                        except Exception:
+                            pass
+                        try:
+                            t_new.set_horizontalalignment(t_src.get_ha())
+                        except Exception:
+                            pass
+                        try:
+                            t_new.set_verticalalignment(t_src.get_va())
+                        except Exception:
+                            pass
+                        try:
+                            t_new.set_fontsize(t_src.get_fontsize())
+                        except Exception:
+                            pass
+                        try:
+                            t_new.set_fontweight(t_src.get_fontweight())
+                        except Exception:
+                            pass
+                        try:
+                            t_new.set_color(t_src.get_color())
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
+            try:
+                _copy_ticklabels("x")
+                _copy_ticklabels("y")
+            except Exception:
+                pass
+
+            if is_3d:
+                try:
+                    new_ax.set_zlabel(ax.get_zlabel())
+                except Exception:
+                    pass
+                try:
+                    new_ax.set_zlim(ax.get_zlim())
+                except Exception:
+                    pass
+                # Preserve camera angle when possible
+                try:
+                    elev = getattr(ax, "elev", None)
+                    azim = getattr(ax, "azim", None)
+                    if elev is not None and azim is not None:
+                        new_ax.view_init(elev=elev, azim=azim)
+                except Exception:
+                    pass
+
             # ✅ FIX: Add colorbar for heatmaps/imshow if images were copied
             # This ensures correlation heatmaps and spectral heatmaps have proper colorbars
             if images:
@@ -834,13 +1269,32 @@ class MatplotlibWidget(QWidget):
                 last_img = new_ax.get_images()
                 if last_img:
                     try:
-                        cbar = self.figure.colorbar(last_img[-1], ax=new_ax)
-                        # Try to copy colorbar label from original
-                        original_cbar_axes = [
-                            child
-                            for child in new_figure.get_axes()
-                            if hasattr(child, "_colorbar")
-                        ]
+                        cbar = self.figure.colorbar(
+                            last_img[-1],
+                            ax=new_ax,
+                            # Tighter default to avoid excessive right-side whitespace
+                            fraction=0.046,
+                            pad=0.02,
+                        )
+
+                        # Try to copy the original colorbar label, if present
+                        original_cbar_axes = []
+                        try:
+                            original_cbar_axes = [
+                                child
+                                for child in new_figure.get_axes()
+                                if hasattr(child, "_colorbar") or (getattr(child, "get_label", None) and child.get_label() == "<colorbar>")
+                            ]
+                        except Exception:
+                            original_cbar_axes = []
+
+                        if original_cbar_axes:
+                            try:
+                                label = (original_cbar_axes[0].get_ylabel() or "").strip()
+                                if label:
+                                    cbar.set_label(label)
+                            except Exception:
+                                pass
                         create_logs(__name__, __file__, "Added colorbar for heatmap", status="debug")
                     except Exception as e:
                         create_logs(__name__, __file__, f"Failed to add colorbar: {e}", status="debug")
@@ -866,13 +1320,69 @@ class MatplotlibWidget(QWidget):
         import warnings
 
         try:
+            # Dynamic rect: prevent clipping of long categorical tick labels (e.g., band ratio groups)
+            rect = list(getattr(self, "_tight_layout_rect", [0, 0.03, 1, 0.95]))
+            try:
+                bottom = float(rect[1])
+            except Exception:
+                bottom = 0.03
+
+            # Heuristic: if any axis has long / rotated x tick labels, reserve more bottom space.
+            try:
+                for _ax in self.figure.get_axes():
+                    # Skip colorbar axes (handled separately; avoid forcing huge margins)
+                    try:
+                        if getattr(_ax, "get_label", None) and _ax.get_label() == "<colorbar>":
+                            continue
+                    except Exception:
+                        pass
+
+                    try:
+                        xt = _ax.get_xticklabels()
+                    except Exception:
+                        xt = []
+
+                    if not xt:
+                        continue
+
+                    texts = [t.get_text() for t in xt]
+                    if not any(str(s).strip() for s in texts):
+                        continue
+
+                    max_len = 0
+                    try:
+                        max_len = int(max((len(str(s)) for s in texts), default=0))
+                    except Exception:
+                        max_len = 0
+
+                    max_rot = 0.0
+                    try:
+                        max_rot = float(max((abs(float(t.get_rotation() or 0.0)) for t in xt), default=0.0))
+                    except Exception:
+                        max_rot = 0.0
+
+                    needed = 0.03
+                    if max_rot >= 45 or max_len >= 18:
+                        needed = 0.26
+                    elif max_rot >= 30 or max_len >= 12:
+                        needed = 0.18
+                    if max_len >= 24:
+                        needed = 0.30
+
+                    bottom = max(bottom, needed)
+            except Exception:
+                pass
+
+            rect[1] = float(max(0.03, min(0.35, bottom)))
+            self._tight_layout_rect = rect
+
             with warnings.catch_warnings():
                 warnings.filterwarnings(
                     "ignore",
                     message=r"This figure includes Axes that are not compatible with tight_layout.*",
                     category=UserWarning,
                 )
-                self.figure.tight_layout(pad=1.2, rect=[0, 0.03, 1, 0.95])
+                self.figure.tight_layout(pad=getattr(self, "_tight_layout_pad", 1.2), rect=rect)
         except (ValueError, RuntimeWarning) as e:
             create_logs(
                 __name__,
@@ -1101,7 +1611,14 @@ class MatplotlibWidget(QWidget):
                             category=UserWarning,
                         )
                         pad = float(fig_cfg.get("tight_layout_pad", getattr(self, "_tight_layout_pad", 1.2)))
-                        rect = fig_cfg.get("tight_layout_rect", getattr(self, "_tight_layout_rect", [0, 0.03, 1, 0.95]))
+                        if getattr(self, "_tight_layout_rect", None) is None:
+                            # Leave room for labels; reserve extra space when colorbar/extra axes exist.
+                            self._tight_layout_rect = (
+                                [0.08, 0.10, 0.88, 0.95]
+                                if len(getattr(self.figure, "axes", []) or []) > 1
+                                else [0.08, 0.10, 0.98, 0.95]
+                            )
+                        rect = fig_cfg.get("tight_layout_rect", getattr(self, "_tight_layout_rect", None))
                         if rect is not None:
                             self.figure.tight_layout(pad=pad, rect=rect)
                         else:
@@ -1127,7 +1644,13 @@ class MatplotlibWidget(QWidget):
                     )
                     self._tight_layout_on_resize = True
                     self._tight_layout_pad = 1.2
-                    self._tight_layout_rect = [0, 0.03, 1, 0.95]
+                    # Default margins: give axes labels/ticks breathing room;
+                    # reserve right margin when a colorbar axis exists.
+                    self._tight_layout_rect = (
+                        [0.08, 0.10, 0.88, 0.95]
+                        if len(getattr(self.figure, "axes", []) or []) > 1
+                        else [0.08, 0.10, 0.98, 0.95]
+                    )
                     self.figure.tight_layout(pad=self._tight_layout_pad, rect=self._tight_layout_rect)
             except Exception as e:
                 create_logs(
@@ -1184,6 +1707,10 @@ class MatplotlibWidget(QWidget):
                     cmap = img.get_cmap()
                     alpha = img.get_alpha()
                     interpolation = img.get_interpolation()
+                    try:
+                        origin = img.get_origin()
+                    except Exception:
+                        origin = getattr(img, "origin", None)
                     clim = img.get_clim()
 
                     new_img = target_ax.imshow(
@@ -1192,6 +1719,7 @@ class MatplotlibWidget(QWidget):
                         cmap=cmap,
                         alpha=alpha if alpha is not None else 1.0,
                         interpolation=interpolation,
+                        origin=origin,
                         aspect="auto",
                         vmin=clim[0],
                         vmax=clim[1],
@@ -1253,6 +1781,7 @@ class MatplotlibWidget(QWidget):
             from matplotlib.patches import (
                 Ellipse,
                 Rectangle,
+                PathPatch,
                 FancyArrow,
                 FancyArrowPatch,
             )
@@ -1296,6 +1825,34 @@ class MatplotlibWidget(QWidget):
                         alpha=patch.get_alpha(),
                     )
                     target_ax.add_patch(new_patch)
+                elif isinstance(patch, PathPatch):
+                    # Boxplots (patch_artist=True) use PathPatch boxes.
+                    try:
+                        transform = None
+                        if patch.get_transform() == source_ax.transData:
+                            transform = target_ax.transData
+                        new_patch = PathPatch(
+                            patch.get_path(),
+                            facecolor=patch.get_facecolor(),
+                            edgecolor=patch.get_edgecolor(),
+                            linestyle=patch.get_linestyle(),
+                            linewidth=patch.get_linewidth(),
+                            alpha=patch.get_alpha(),
+                            transform=transform,
+                            label=(
+                                patch.get_label()
+                                if hasattr(patch, "get_label")
+                                and not patch.get_label().startswith("_")
+                                else None
+                            ),
+                        )
+                        try:
+                            new_patch.set_zorder(patch.get_zorder())
+                        except Exception:
+                            pass
+                        target_ax.add_patch(new_patch)
+                    except Exception:
+                        pass
                 elif isinstance(patch, FancyArrow):
                     new_patch = FancyArrow(
                         x=patch.get_x(),

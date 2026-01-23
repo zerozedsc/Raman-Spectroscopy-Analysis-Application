@@ -82,6 +82,16 @@ class SettingsDialog(QDialog):
             LOCALIZE("HOME_PAGE.settings_theme_label"),
             self.theme_combo
         )
+
+        # User requested: keep theme code, but hide/disable theme selection UI for now.
+        try:
+            theme_label = form_layout.labelForField(self.theme_combo)
+            if theme_label is not None:
+                theme_label.setVisible(False)
+            self.theme_combo.setVisible(False)
+            self.theme_combo.setEnabled(False)
+        except Exception:
+            pass
         
         layout.addLayout(form_layout)
         
@@ -506,12 +516,24 @@ class HomePage(QWidget):
                 # Save settings to config file
                 self._save_settings(settings)
                 
-                # Show restart message
+                # Restart immediately so language changes apply everywhere.
                 QMessageBox.information(
                     self,
                     LOCALIZE("HOME_PAGE.settings_dialog_title"),
-                    LOCALIZE("HOME_PAGE.settings_saved_message")
+                    LOCALIZE("HOME_PAGE.settings_saved_message"),
                 )
+
+                try:
+                    ok = restart_application(reason="settings_changed")
+                    if not ok:
+                        raise RuntimeError("restart_application returned False")
+                except Exception as e:
+                    create_logs(
+                        "HomePage",
+                        "settings",
+                        f"Failed to restart application after settings change: {e}",
+                        status="error",
+                    )
                 
                 create_logs(
                     "HomePage",

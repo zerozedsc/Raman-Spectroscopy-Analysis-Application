@@ -10,6 +10,7 @@ import pandas as pd
 import seaborn as sns  # ✅ Phase 4: Publication-quality statistical visualizations
 from typing import Dict, Any, Callable, Optional, Tuple, List
 import matplotlib
+import warnings
 
 from configs.configs import create_logs
 
@@ -22,7 +23,7 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.manifold import TSNE
 from sklearn.cluster import KMeans
-from scipy.cluster.hierarchy import dendrogram, linkage
+from scipy.cluster.hierarchy import dendrogram, linkage, fcluster
 from scipy.spatial.distance import pdist
 from scipy import stats
 from scipy.interpolate import interp1d
@@ -47,6 +48,33 @@ def _log_debug(message: str, *args) -> None:
         except Exception:
             message = f"{message} {args!r}"
     create_logs(__name__, __file__, message, status="debug")
+
+
+def _safe_tight_layout(fig: Figure, *, pad: float = 1.2, rect=None) -> None:
+    """Apply tight_layout without spamming warnings.
+
+    Some figures (legends, colorbars, 3D axes) are not compatible with tight_layout
+    and Matplotlib emits a UserWarning to stderr. For interactive GUI usage, repeated
+    redraws can flood logs/terminal.
+    """
+
+    try:
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=r"This figure includes Axes that are not compatible with tight_layout.*",
+                category=UserWarning,
+            )
+            if rect is not None:
+                fig.tight_layout(pad=pad, rect=rect)
+            else:
+                fig.tight_layout(pad=pad)
+    except Exception:
+        # Best-effort fallback
+        try:
+            fig.subplots_adjust(left=0.08, right=0.98, bottom=0.10, top=0.92)
+        except Exception:
+            pass
 
 
 # =============================================================================
@@ -382,6 +410,8 @@ def perform_pca_analysis(
     # Get parameters
     n_components = params.get("n_components", 3)
     scaling_type = params.get("scaling", "StandardScaler")
+    enable_pca_lda = params.get("enable_pca_lda", False)
+    pca_lda_cv_folds = params.get("pca_lda_cv_folds", 5)
     show_ellipses = params.get(
         "show_ellipses", True
     )  # Confidence ellipses (critical for Chemometrics)
@@ -513,6 +543,78 @@ def perform_pca_analysis(
             _log_debug(
                 f"Skipping ellipse for '{dataset_label}' (only {num_points} points, need ≥3)"
             )
+
+    # Optional: PCA→LDA overlay (decision boundary in PC1–PC2)
+    pca_lda_info = None
+    if enable_pca_lda:
+        try:
+            from matplotlib.colors import ListedColormap
+            from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+            from sklearn.model_selection import StratifiedKFold, cross_val_predict
+            from sklearn.metrics import confusion_matrix, accuracy_score
+
+            if scores.shape[1] < 2:
+                raise ValueError(
+                    "PCA→LDA requires at least 2 PCA components to plot the decision boundary."
+                )
+
+            X_2d = scores[:, :2]
+            label_to_int = {lab: idx for idx, lab in enumerate(unique_labels)}
+            y_int = np.array([label_to_int[l] for l in labels], dtype=int)
+
+            # Fit a simple LDA on the 2D PC scores
+            lda = LinearDiscriminantAnalysis()
+
+            # CV metrics (best-effort: reduce folds if a class has too few samples)
+            min_class_count = int(np.min(np.bincount(y_int))) if len(y_int) else 0
+            n_splits = int(max(2, min(pca_lda_cv_folds, min_class_count)))
+            cv_accuracy = None
+            cv_cm = None
+            if n_splits >= 2 and len(unique_labels) >= 2:
+                cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+                y_pred = cross_val_predict(lda, X_2d, y_int, cv=cv)
+                cv_accuracy = float(accuracy_score(y_int, y_pred))
+                cv_cm = confusion_matrix(y_int, y_pred)
+
+            lda.fit(X_2d, y_int)
+
+            # Decision regions
+            x_min, x_max = float(np.min(X_2d[:, 0]) - 1.0), float(np.max(X_2d[:, 0]) + 1.0)
+            y_min, y_max = float(np.min(X_2d[:, 1]) - 1.0), float(np.max(X_2d[:, 1]) + 1.0)
+            xx, yy = np.meshgrid(
+                np.linspace(x_min, x_max, 250),
+                np.linspace(y_min, y_max, 250),
+            )
+            grid = np.c_[xx.ravel(), yy.ravel()]
+            Z = lda.predict(grid).reshape(xx.shape)
+
+            # Use the same palette used for points (truncate if needed)
+            base_colors = [tuple(c[:3]) for c in colors[: len(unique_labels)]]
+            cmap = ListedColormap(base_colors)
+            # Make the overlay visible (users reported "no change"), but keep it subtle.
+            # Use a low zorder so points/ellipses stay on top.
+            ax1.contourf(xx, yy, Z, cmap=cmap, alpha=0.18, antialiased=True, zorder=0)
+
+            # Boundary lines
+            if len(unique_labels) == 2:
+                ax1.contour(xx, yy, Z, levels=[0.5], colors=["#333333"], linewidths=1.8, zorder=1)
+            else:
+                ax1.contour(xx, yy, Z, colors=["#333333"], linewidths=1.0, alpha=0.7, zorder=1)
+
+            pca_lda_info = {
+                "enabled": True,
+                "cv_folds_used": n_splits,
+                "cv_accuracy": cv_accuracy,
+                "cv_confusion_matrix": cv_cm,
+            }
+
+            _log_debug(
+                f"PCA→LDA overlay enabled (folds_used={n_splits}, cv_accuracy={cv_accuracy})"
+            )
+        except Exception as e:
+            # Never fail the PCA analysis just because LDA overlay failed
+            _log_debug(f"PCA→LDA overlay failed: {e}")
+            pca_lda_info = {"enabled": False, "error": str(e)}
 
     ax1.set_xlabel(
         f"PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%)",
@@ -833,9 +935,10 @@ def perform_pca_analysis(
     if show_loadings:
         _log_debug("Creating loadings figure with dynamic subplot layout...")
         
-        # Get max_loadings_components parameter (default 1, max 5)
-        max_loadings = params.get("max_loadings_components", 1)
-        max_loadings = min(max_loadings, n_components, 5)  # Ensure within bounds
+        # Get max_loadings_components parameter (default 2)
+        # Respect the requested count up to computed n_components.
+        max_loadings = params.get("max_loadings_components", 2)
+        max_loadings = min(max_loadings, n_components)  # Ensure within bounds
 
         _log_debug(f"Creating {max_loadings} loading subplot(s)")
         
@@ -909,15 +1012,39 @@ def perform_pca_analysis(
             # ✅ Annotate top 5 peak positions for this component (use truncated arrays)
             abs_loadings = np.abs(loadings_truncated)
             top_indices = np.argsort(abs_loadings)[-5:]  # Top 5 peaks
-            
-            for peak_idx in top_indices:
+
+            # Avoid overlapping labels by assigning discrete vertical levels.
+            # (This also makes dragging less necessary for typical cases.)
+            peak_idx_sorted = sorted(list(top_indices), key=lambda i: float(wn_truncated[i]))
+            wn_span = float(np.nanmax(wn_truncated) - np.nanmin(wn_truncated)) if len(wn_truncated) else 1.0
+            min_sep_wn = max(15.0, wn_span / 40.0)
+            used_levels: Dict[int, List[float]] = {lvl: [] for lvl in range(6)}
+
+            label_offsets: Dict[int, int] = {}
+            for peak_idx in peak_idx_sorted:
+                x = float(wn_truncated[peak_idx])
+                chosen_level = None
+                for lvl in range(6):
+                    if all(abs(x - prev_x) >= min_sep_wn for prev_x in used_levels[lvl]):
+                        chosen_level = lvl
+                        used_levels[lvl].append(x)
+                        break
+                if chosen_level is None:
+                    chosen_level = 5
+                    used_levels[chosen_level].append(x)
+
+                # Offset direction depends on sign of loading (keeps labels on the 'outside')
+                sign = 1 if float(loadings_truncated[peak_idx]) >= 0 else -1
+                label_offsets[int(peak_idx)] = sign * (12 + chosen_level * 10)
+
+            for peak_idx in peak_idx_sorted:
                 peak_wn = wn_truncated[peak_idx]
                 peak_val = loadings_truncated[peak_idx]
                 ax.plot(peak_wn, peak_val, 'o', color=colors[pc_idx], markersize=6, 
                        markeredgecolor='black', markeredgewidth=0.5)
                 ax.annotate(f'{peak_wn:.0f}', 
                            xy=(peak_wn, peak_val), 
-                           xytext=(0, 10 if peak_val > 0 else -15),
+                           xytext=(0, int(label_offsets.get(int(peak_idx), 10 if peak_val > 0 else -15))),
                            textcoords='offset points',
                            fontsize=8, fontweight='bold',
                            ha='center',
@@ -940,8 +1067,8 @@ def perform_pca_analysis(
     # === FIGURE 3: Score Distributions (CRITICAL for Raman classification) ===
     fig_distributions = None
     if show_distributions and len(unique_labels) > 1:
-        # Get number of components to show (default 1, max 6)
-        n_dist_comps = params.get("n_distribution_components", 1)
+        # Get number of components to show (default 2)
+        n_dist_comps = params.get("n_distribution_components", 2)
         n_pcs_to_plot = min(n_dist_comps, n_components)
         
         # ✅ Dynamic layout calculation (max 2 columns, auto rows)
@@ -1223,9 +1350,25 @@ def perform_pca_analysis(
     summary += f"  • Outliers:        Samples far from origin may be anomalous\n\n"
 
     if show_loadings:
-        max_loadings = params.get("max_loadings_components", 3)
-        max_loadings = min(max_loadings, n_components, 5)
+        max_loadings = params.get("max_loadings_components", 2)
+        max_loadings = min(max_loadings, n_components)
         summary += f"  Loading plots generated for first {max_loadings} component(s)\n"
+
+    if enable_pca_lda:
+        summary += "\n🧠 PCA→LDA (optional overlay)\n"
+        summary += f"{'─' * 55}\n"
+        if pca_lda_info and pca_lda_info.get("enabled"):
+            folds_used = pca_lda_info.get("cv_folds_used")
+            acc = pca_lda_info.get("cv_accuracy")
+            summary += f"  Enabled:          Yes\n"
+            if folds_used:
+                summary += f"  CV folds used:    {folds_used}\n"
+            if acc is not None:
+                summary += f"  CV accuracy:      {acc*100:.1f}%\n"
+        else:
+            summary += "  Enabled:          Yes (but overlay failed)\n"
+            if pca_lda_info and pca_lda_info.get("error"):
+                summary += f"  Error:            {pca_lda_info['error']}\n"
 
     summary += f"\n{'═' * 55}\n"
 
@@ -1292,9 +1435,17 @@ def perform_pca_analysis(
             "scores": scores,
             "loadings": pca.components_,
             "explained_variance": pca.explained_variance_ratio_,
+            "wavenumbers": wavenumbers,
             "labels": labels,
             "unique_labels": unique_labels,
-            "colors": colors  # Add colors for distributions update
+            "colors": colors,  # Add colors for distributions update
+            # Explicit, stable label→color mapping (prevents mismatches in dynamic UI)
+            "label_to_color": {
+                str(lab): tuple(float(c) for c in np.asarray(colors[idx]).ravel()[:4])
+                for idx, lab in enumerate(list(unique_labels))
+                if colors is not None and idx < len(colors)
+            },
+            "pca_lda": pca_lda_info,
         }
     }
 
@@ -1612,9 +1763,22 @@ def perform_hierarchical_clustering(
     # Create dendrogram
     fig, ax = plt.subplots(figsize=(12, 8))
 
-    # Calculate color threshold (70% of max distance)
-    max_d = np.max(Z[:, 2])
+    # Determine dendrogram color threshold
+    max_d = float(np.max(Z[:, 2])) if Z.size else 0.0
     color_threshold = 0.7 * max_d
+
+    # If user requested a specific number of clusters, choose the merge distance
+    # that yields (approximately) that many clusters.
+    try:
+        if n_clusters is not None:
+            k = int(n_clusters)
+            if k >= 2 and Z.shape[0] >= (k - 1):
+                # In linkage matrix, the (k-1)th from the end merge distance is a
+                # common heuristic threshold for k clusters.
+                color_threshold = float(Z[-(k - 1), 2])
+    except Exception:
+        # Fall back to 70% max distance
+        color_threshold = 0.7 * max_d
 
     # Plot dendrogram with improved visualization
     dend = dendrogram(
@@ -1644,39 +1808,67 @@ def perform_hierarchical_clustering(
     if params.get("show_labels", False):
         plt.setp(ax.get_xticklabels(), rotation=90)
     
-    # Add legend showing dataset ranges/colors
-    # Create dataset legend by analyzing sample indices
+    # Compute cluster assignments and add a clear legend
+    # NOTE: Coloring leaf labels provides a stable legend mapping that doesn't depend
+    # on SciPy's internal dendrogram branch coloring.
+    cluster_ids = None
+    try:
+        if n_clusters is not None:
+            cluster_ids = fcluster(Z, t=int(n_clusters), criterion="maxclust")
+        else:
+            cluster_ids = fcluster(Z, t=color_threshold, criterion="distance")
+    except Exception:
+        cluster_ids = None
+
+    if cluster_ids is not None and params.get("show_labels", False):
+        # Map clusters (1..k) to a high-contrast palette
+        unique_clusters = sorted(set(int(c) for c in cluster_ids))
+        colors = get_high_contrast_colors(len(unique_clusters))
+        cluster_to_color = {c: colors[i] for i, c in enumerate(unique_clusters)}
+
+        # dend['leaves'] are indices into the original observation order
+        leaves = dend.get("leaves", [])
+        ordered_cluster_ids = [int(cluster_ids[i]) for i in leaves]
+
+        # Color the tick labels by their assigned cluster
+        for tick_label, cid in zip(ax.get_xmajorticklabels(), ordered_cluster_ids):
+            tick_label.set_color(cluster_to_color.get(cid, "#000000"))
+
+        # Cluster legend
+        from matplotlib.patches import Patch
+
+        legend_handles = [
+            Patch(facecolor=cluster_to_color[c], edgecolor="#333333", label=f"Cluster {c}")
+            for c in unique_clusters
+        ]
+        ax.legend(
+            handles=legend_handles + [ax.lines[-1]],
+            loc="upper right",
+            fontsize=9,
+            framealpha=0.92,
+        )
+    
+    plt.tight_layout()
+    
+    # Dataset counts (stable, independent of dendrogram leaf order)
     dataset_ranges = []
     current_idx = 0
     for dataset_name, df in dataset_data.items():
         n_spectra = df.shape[1]
-        dataset_ranges.append({
-            'name': dataset_name,
-            'start': current_idx,
-            'end': current_idx + n_spectra - 1,
-            'count': n_spectra
-        })
+        dataset_ranges.append(
+            {
+                "name": dataset_name,
+                "start": current_idx,
+                "end": current_idx + n_spectra - 1,
+                "count": n_spectra,
+            }
+        )
         current_idx += n_spectra
-    
-    # Get unique colors from dendrogram
-    dendrogram_colors = set(dend['color_list'])
-    
-    # Create color-to-dataset mapping legend text
-    legend_text = "Dataset Ranges:\\n"
-    for ds_info in dataset_ranges:
-        legend_text += f"{ds_info['name']}: samples {ds_info['start']}-{ds_info['end']} (n={ds_info['count']})\\n"
-    
-    # Add text box with dataset information
-    ax.text(0.02, 0.98, legend_text.strip(),
-            transform=ax.transAxes,
-            fontsize=9,
-            verticalalignment='top',
-            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
-    
-    plt.tight_layout()
-    
+
     summary = f"Hierarchical clustering completed.\\n"
     summary += f"Linkage: {linkage_method}, Distance metric: {distance_metric}\\n"
+    if n_clusters is not None:
+        summary += f"Requested clusters: {int(n_clusters)} (color threshold = {color_threshold:.3g})\\n"
     summary += f"Total spectra: {X.shape[0]}\\n\\n"
     summary += "Dataset Information:\\n"
     for ds_info in dataset_ranges:
@@ -1721,12 +1913,26 @@ def perform_kmeans_clustering(
     max_iter = params.get("max_iter", 300)
     n_init = params.get("n_init", 10)
     show_pca = params.get("show_pca", True)
+    show_elbow = params.get("show_elbow", True)
+    elbow_max_k = params.get("elbow_max_k", 10)
+    show_silhouette = bool(params.get("show_silhouette", False))
+    silhouette_k_min = int(params.get("silhouette_k_min", 2))
+    silhouette_k_max = int(params.get("silhouette_k_max", 10))
+    silhouette_use_pca = bool(params.get("silhouette_use_pca", True))
+    silhouette_pca_components = int(params.get("silhouette_pca_components", 10))
 
     _log_debug("K-Means parameters received:")
     _log_debug(f"  n_clusters = {n_clusters} (type: {type(n_clusters).__name__})")
     _log_debug(f"  n_init = {n_init} (type: {type(n_init).__name__})")
     _log_debug(f"  max_iter = {max_iter} (type: {type(max_iter).__name__})")
     _log_debug(f"  show_pca = {show_pca}")
+    _log_debug(f"  show_elbow = {show_elbow}")
+    _log_debug(f"  elbow_max_k = {elbow_max_k}")
+    _log_debug(f"  show_silhouette = {show_silhouette}")
+    _log_debug(f"  silhouette_k_min = {silhouette_k_min}")
+    _log_debug(f"  silhouette_k_max = {silhouette_k_max}")
+    _log_debug(f"  silhouette_use_pca = {silhouette_use_pca}")
+    _log_debug(f"  silhouette_pca_components = {silhouette_pca_components}")
 
     # ✅ FIX: Use interpolation to handle datasets with different wavenumber ranges
     # This resolves "ValueError: all input array dimensions except for concatenation axis must match"
@@ -1756,6 +1962,139 @@ def perform_kmeans_clustering(
     _log_debug("Fitting KMeans model...")
     cluster_labels = kmeans.fit_predict(X)
     _log_debug(f"KMeans completed. Inertia: {kmeans.inertia_:.2f}")
+
+    # Optional validation plots (secondary figure): Elbow + Silhouette
+    secondary_fig = None
+    inertia_by_k = None
+    silhouette_by_k = None
+
+    if show_elbow or show_silhouette:
+        rows = int(bool(show_elbow)) + int(bool(show_silhouette))
+        secondary_fig, axes = plt.subplots(rows, 1, figsize=(9, 4.8 * rows), sharex=False)
+        if rows == 1:
+            axes = [axes]
+
+        ax_idx = 0
+
+        if show_elbow:
+            # Elbow plot: inertia for k=1..K
+            n_samples = int(X.shape[0])
+            try:
+                max_k_allowed = max(1, min(int(elbow_max_k), max(1, n_samples - 1)))
+            except Exception:
+                max_k_allowed = max(1, min(10, max(1, n_samples - 1)))
+
+            # Always include at least k=1 and k=2 when possible
+            if max_k_allowed < 2 and n_samples >= 2:
+                max_k_allowed = 2
+
+            ks = list(range(1, max_k_allowed + 1))
+            inertia_vals: list[float] = []
+            for k in ks:
+                km = KMeans(
+                    n_clusters=k,
+                    max_iter=max_iter,
+                    n_init=n_init,
+                    random_state=random_seed,
+                )
+                km.fit(X)
+                inertia_vals.append(float(km.inertia_))
+
+            inertia_by_k = {"k": ks, "inertia": inertia_vals}
+            ax_elbow = axes[ax_idx]
+            ax_elbow.plot(ks, inertia_vals, marker="o", linewidth=1.8)
+            ax_elbow.set_xlabel("k (number of clusters)", fontsize=11, fontweight="bold")
+            ax_elbow.set_ylabel("Inertia (within-cluster SSE)", fontsize=11, fontweight="bold")
+            ax_elbow.set_title("K-Means Elbow Plot", fontsize=13, fontweight="bold")
+            ax_elbow.grid(True, alpha=0.3)
+
+            # Highlight the chosen k if it is within the computed range
+            if n_clusters in ks:
+                chosen_idx = ks.index(n_clusters)
+                ax_elbow.scatter(
+                    [n_clusters],
+                    [inertia_vals[chosen_idx]],
+                    s=80,
+                    c="#d62728",
+                    edgecolors="black",
+                    zorder=5,
+                    label=f"Chosen k={n_clusters}",
+                )
+                ax_elbow.axvline(n_clusters, color="#d62728", linestyle="--", alpha=0.6)
+                ax_elbow.legend(loc="best", framealpha=0.9)
+
+            ax_idx += 1
+
+        if show_silhouette:
+            # Silhouette score curve over k range (computed on PCA-reduced space by default)
+            from sklearn.metrics import silhouette_score
+
+            n_samples = int(X.shape[0])
+            k_min = max(2, int(silhouette_k_min))
+            k_max = max(k_min, int(silhouette_k_max))
+            k_max = min(k_max, max(2, n_samples - 1))
+
+            # Feature space for silhouette (PCA speeds up + reduces noise)
+            Z = X
+            if silhouette_use_pca:
+                try:
+                    n_feat = int(X.shape[1])
+                    n_comp = max(2, min(int(silhouette_pca_components), n_feat, n_samples - 1))
+                    Z = PCA(n_components=n_comp).fit_transform(X)
+                except Exception:
+                    Z = X
+
+            ks = list(range(k_min, k_max + 1))
+            sil_vals: list[float] = []
+            for k in ks:
+                # Silhouette requires: 2 <= k < n_samples
+                if k < 2 or k >= n_samples:
+                    sil_vals.append(float("nan"))
+                    continue
+
+                if k == int(n_clusters):
+                    labels_k = cluster_labels
+                else:
+                    km = KMeans(
+                        n_clusters=k,
+                        max_iter=max_iter,
+                        n_init=n_init,
+                        random_state=random_seed,
+                    )
+                    labels_k = km.fit_predict(X)
+
+                try:
+                    sil = float(silhouette_score(Z, labels_k))
+                except Exception:
+                    sil = float("nan")
+                sil_vals.append(sil)
+
+            silhouette_by_k = {"k": ks, "silhouette": sil_vals}
+            ax_sil = axes[ax_idx]
+            ax_sil.plot(ks, sil_vals, marker="o", linewidth=1.8, color="#2ca02c")
+            ax_sil.set_xlabel("k (number of clusters)", fontsize=11, fontweight="bold")
+            ax_sil.set_ylabel("Silhouette score", fontsize=11, fontweight="bold")
+            ax_sil.set_title("Silhouette Score vs k", fontsize=13, fontweight="bold")
+            ax_sil.grid(True, alpha=0.3)
+
+            if int(n_clusters) in ks:
+                chosen_idx = ks.index(int(n_clusters))
+                ax_sil.scatter(
+                    [int(n_clusters)],
+                    [sil_vals[chosen_idx]],
+                    s=80,
+                    c="#d62728",
+                    edgecolors="black",
+                    zorder=5,
+                    label=f"Chosen k={n_clusters}",
+                )
+                ax_sil.axvline(int(n_clusters), color="#d62728", linestyle="--", alpha=0.6)
+                ax_sil.legend(loc="best", framealpha=0.9)
+
+        try:
+            secondary_fig.tight_layout()
+        except Exception:
+            pass
 
     if progress_callback:
         progress_callback(60)
@@ -1826,7 +2165,7 @@ def perform_kmeans_clustering(
 
     return {
         "primary_figure": fig,
-        "secondary_figure": None,
+        "secondary_figure": secondary_fig,
         "data_table": results_df,
         "summary_text": summary,
         "detailed_summary": f"Inertia: {kmeans.inertia_:.2f}\nIterations: {kmeans.n_iter_}",
@@ -1834,6 +2173,8 @@ def perform_kmeans_clustering(
             "kmeans_model": kmeans,
             "cluster_labels": cluster_labels,
             "cluster_centers": kmeans.cluster_centers_,
+            "elbow": inertia_by_k,
+            "silhouette": silhouette_by_k,
         },
         "loadings_figure": None,  # Clustering does not produce loadings
     }
@@ -1923,5 +2264,5 @@ def create_spectrum_preview_figure(
     # Adjust y-limits
     ax.set_ylim(-max_intensity_overall * 0.05, max_intensity_overall * 1.05)
     
-    fig.tight_layout(pad=1.2)
+    _safe_tight_layout(fig, pad=1.2)
     return fig

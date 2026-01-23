@@ -348,7 +348,19 @@ def create_logs(
     else:
         foldername = os.path.abspath(foldername)
 
-    filename = filename if filename.endswith(".log") else filename + ".log"
+    # Normalize filename to avoid callers passing absolute paths (e.g. __file__),
+    # which would cause os.path.join(folder, abs_path) to ignore `folder`.
+    try:
+        safe_name = os.path.basename(str(filename))
+    except Exception:
+        safe_name = "logs"
+
+    # Drop non-.log extensions (e.g. matplotlib_widget.py -> matplotlib_widget.log)
+    if safe_name.lower().endswith(".log"):
+        filename = safe_name
+    else:
+        filename = os.path.splitext(safe_name)[0] + ".log"
+
     full_filename = os.path.join(foldername, filename)
 
     # Check if logs directory exists, if not create it
