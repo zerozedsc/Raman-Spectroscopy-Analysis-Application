@@ -1431,6 +1431,36 @@ pip install --user -r requirements.txt
 3. Process in batches
 4. Use faster methods (e.g., Butterworth instead of ASLS)
 
+#### Problem: Analysis takes too long / Stop doesn't seem to work
+
+**Notes:** Some analysis methods run in a background worker thread. The Stop button uses a safe approach (request cancel, and if needed, detach UI and ignore late results).
+
+**Solutions:**
+1. Click **Stop** once to request cooperative cancellation.
+2. If it still keeps running, click **Stop** again to force-detach the UI (the app stays responsive and results from that run will be ignored).
+3. If you consistently see long runtimes for outlier detection, reduce the detector dimension (PCA components) and/or use IsolationForest (faster for high-dimensional spectra).
+
+#### Problem: Matplotlib warning “Glyph ... missing from font(s) DejaVu Sans” (Japanese text)
+
+**Cause:** Qt can load fonts for the UI, but Matplotlib needs its own font registration.
+
+**Solutions:**
+1. Ensure the bundled fonts exist under `assets/fonts/` (e.g., `Noto Sans JP.ttf`).
+2. Run the app from the project root so font paths resolve correctly.
+3. If you still see warnings in a frozen build, re-generate the build ensuring `assets/fonts` is included.
+
+#### Problem: Correlation heatmap axes/ticks are clipped or unreadable
+
+**Solutions:**
+1. Resize the plot panel larger (embedded plots re-layout on resize).
+2. For very large matrices, use downsampling settings (ticks may be hidden when too many variables).
+
+#### Problem: Band ratio x-axis labels are too long / overlap / plot looks cramped
+
+**Solutions:**
+1. The plot auto-reduces tick label font size and increases bottom margin for long names.
+2. If you still have overlap, shorten dataset names or reduce the number of groups shown.
+
 ### Data Import Issues
 
 #### Problem: "Unsupported file format"
