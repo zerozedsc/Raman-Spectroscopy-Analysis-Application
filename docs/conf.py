@@ -8,8 +8,8 @@ sys.path.insert(0, os.path.abspath('..'))
 
 # -- Project information -----------------------------------------------------
 project = 'Raman Spectroscopy Analysis Application'
-copyright = '2025-2026, Muhamad Helmi bin Rozain, University of Toyama'
-author = 'Muhamad Helmi bin Rozain'
+copyright = '2025-2026, Muhammad Helmi bin Rozain, University of Toyama'
+author = 'Muhammad Helmi bin Rozain'
 release = '1.0.0'
 
 # -- General configuration ---------------------------------------------------

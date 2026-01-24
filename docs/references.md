@@ -368,7 +368,7 @@ If you use this software in your research, please cite:
 
 ```bibtex
 @software{rozain2025raman,
-  author = {Rozain, Muhamad Helmi bin},
+  author = {Rozain, Muhammad Helmi bin},
   title = {Raman Spectroscopy Analysis Application: A Comprehensive Platform for Real-Time Spectral Classification},
   year = {2025},
   version = {1.0.0-alpha},
@@ -398,4 +398,4 @@ We welcome contributions to this reference list! If you know of relevant papers 
 ---
 
 **Last Updated**: 2026-01-24  
-**Maintained by**: Muhamad Helmi bin Rozain ([@zerozedsc](https://github.com/zerozedsc))
+**Maintained by**: Muhammad Helmi bin Rozain ([@zerozedsc](https://github.com/zerozedsc))

@@ -80,7 +80,7 @@ This project aims to address these challenges by:
 
 ### Academic Information
 
-**Student:** Muhamad Helmi bin Rozain (ムハマドヘルミビンロザイン)  
+**Student:** Muhammad Helmi bin Rozain (ムハマドヘルミビンロザイン)  
 **Student ID:** 12270294  
 **Institution:** University of Toyama (富山大学)  
 **Laboratory:** [Clinical Photonics and Information Engineering](http://www3.u-toyama.ac.jp/medphoto/)
@@ -1692,7 +1692,7 @@ This project is licensed under the **MIT License**.
 ```
 MIT License
 
-Copyright (c) 2024-2026 Muhamad Helmi bin Rozain
+Copyright (c) 2024-2026 Muhammad Helmi bin Rozain
 Laboratory for Clinical Photonics and Information Engineering
 University of Toyama
 
@@ -1777,7 +1777,7 @@ If you use this software in your research, please cite:
 
 ```bibtex
 @software{helmi2024raman,
-  author = {Rozain, Muhamad Helmi bin},
+  author = {Rozain, Muhammad Helmi bin},
   title = {Raman Spectroscopy Analysis Application: 
            Real-Time Classification Software for Disease Detection},
   year = {2024},
@@ -1793,7 +1793,7 @@ If you use this software in your research, please cite:
 
 ```bibtex
 @article{helmi2024raman_paper,
-  author = {Rozain, Muhamad Helmi bin and Oshima, Yusuke and Taketani, Hironori},
+  author = {Rozain, Muhammad Helmi bin and Oshima, Yusuke and Taketani, Hironori},
   title = {Open-Source Software for Real-Time Raman Spectroscopy Classification 
            and Disease Detection},
   journal = {Journal Name},
@@ -1810,7 +1810,7 @@ If you use this software in your research, please cite:
 
 ### Project Maintainer
 
-**Muhamad Helmi bin Rozain** (ムハマドヘルミビンロザイン)  
+**Muhammad Helmi bin Rozain** (ムハマドヘルミビンロザイン)  
 Student ID: 12270294  
 University of Toyama  
 Laboratory for Clinical Photonics and Information Engineering

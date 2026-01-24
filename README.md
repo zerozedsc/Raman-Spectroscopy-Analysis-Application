@@ -106,7 +106,7 @@ Download and run the installer from [Releases](https://github.com/zerozedsc/Rama
 **Laboratory:** [Clinical Photonics and Information Engineering](http://www3.u-toyama.ac.jp/medphoto/)  
 **Research Focus:** Pre-disease detection (未病), multiple myeloma (MM), MGUS classification
 
-**Student:** Muhamad Helmi bin Rozain (12270294)  
+**Student:** Muhammad Helmi bin Rozain (12270294)  
 **Supervisors:** 大嶋 佑介 (Oshima Yusuke), 竹谷 皓規 (Taketani Akinori)
 
 ### Research Applications
@@ -154,7 +154,7 @@ If you use this software in your research, please cite:
 
 ```bibtex
 @software{rozain2025raman,
-  author = {Rozain, Muhamad Helmi bin},
+  author = {Rozain, Muhammad Helmi bin},
   title = {Raman Spectroscopy Analysis Application: A Comprehensive Platform for Real-Time Spectral Classification},
   year = {2025},
   publisher = {GitHub},
@@ -168,8 +168,6 @@ If you use this software in your research, please cite:
 ## ⚖️ License
 
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
-
-**⚠️ Important Notice**: This software is intended for **research use only** and is **not approved for clinical diagnostic purposes**. Always consult qualified medical professionals for medical decisions.
 
 ---
 

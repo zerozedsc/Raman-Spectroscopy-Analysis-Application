@@ -8,7 +8,7 @@ The Raman Spectroscopy Analysis Application is designed for analyzing Raman spec
 
 ### Who developed this software?
 
-This software was developed by Muhamad Helmi bin Rozain as a final year project at the University of Toyama, under the Laboratory for Clinical Photonics and Information Engineering (臨床光情報工学研究室), supervised by 大嶋 佑介 (Oshima Yusuke) and 竹谷 皓規 (Taketani Akinori).
+This software was developed by Muhammad Helmi bin Rozain as a final year project at the University of Toyama, under the Laboratory for Clinical Photonics and Information Engineering (臨床光情報工学研究室), supervised by 大嶋 佑介 (Oshima Yusuke) and 竹谷 皓規 (Taketani Akinori).
 
 ### Is this software free?
 
@@ -287,7 +287,7 @@ In the Settings menu, adjust "Figure Export Settings".
 
 ```bibtex
 @software{rozain2025raman,
-  author = {Rozain, Muhamad Helmi bin},
+  author = {Rozain, Muhammad Helmi bin},
   title = {Raman Spectroscopy Analysis Application},
   year = {2025},
   publisher = {GitHub},

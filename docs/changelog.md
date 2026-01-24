@@ -201,7 +201,7 @@ This is the first alpha release of the Raman Spectroscopy Analysis Application, 
 ## Contributors
 
 ### Core Development
-- **Muhamad Helmi bin Rozain** - Lead Developer, BSc Student
+- **Muhammad Helmi bin Rozain** - Lead Developer, BSc Student
   - GitHub: [@zerozedsc](https://github.com/zerozedsc)
   - University of Toyama (富山大学)
 
@@ -231,7 +231,7 @@ If you use this software in your research, please cite:
 
 ```bibtex
 @software{rozain2025raman,
-  author = {Rozain, Muhamad Helmi bin},
+  author = {Rozain, Muhammad Helmi bin},
   title = {Raman Spectroscopy Analysis Application: A Comprehensive Platform for Real-Time Spectral Classification},
   year = {2025},
   version = {1.0.0-alpha},

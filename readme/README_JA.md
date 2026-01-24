@@ -80,7 +80,7 @@
 
 ### 学術情報
 
-**学生:** ムハマド ヘルミ ビン ロザイン (Muhamad Helmi bin Rozain)  
+**学生:** ムハマド ヘルミ ビン ロザイン (Muhammad Helmi bin Rozain)  
 **学籍番号:** 12270294  
 **所属:** 富山大学 工学部  
 **研究室:** [臨床フォトニクスおよび情報工学研究室](http://www3.u-toyama.ac.jp/medphoto/)
@@ -720,7 +720,7 @@ pip install -r requirements.txt
 ```
 MIT License
 
-Copyright (c) 2024-2026 Muhamad Helmi bin Rozain
+Copyright (c) 2024-2026 Muhammad Helmi bin Rozain
 Laboratory for Clinical Photonics and Information Engineering
 University of Toyama
 ```
@@ -752,7 +752,7 @@ University of Toyama
 
 ```bibtex
 @software{helmi2024raman,
-  author = {Rozain, Muhamad Helmi bin},
+  author = {Rozain, Muhammad Helmi bin},
   title = {Raman Spectroscopy Analysis Application: 
            Real-Time Classification Software for Disease Detection},
   year = {2024},

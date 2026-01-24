@@ -135,7 +135,7 @@ references
 **Institution:** University of Toyama (富山大学)  
 **Laboratory:** [Clinical Photonics and Information Engineering](http://www3.u-toyama.ac.jp/medphoto/)
 
-**Student:** Muhamad Helmi bin Rozain (12270294)  
+**Student:** Muhammad Helmi bin Rozain (12270294)  
 **Supervisors:** 大嶋 佑介 (Oshima Yusuke), 竹谷 皓規 (Taketani Akinori)
 
 ## 🤝 Contributing
