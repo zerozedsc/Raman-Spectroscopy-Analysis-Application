@@ -78,6 +78,7 @@ dev = [
     "sphinx>=7.0.0",
     "sphinx_rtd_theme>=2.0.0",
     "myst-parser>=2.0.0",
+    "linkify-it-py>=2.0.3",
 ]
 
 [tool.setuptools.packages.find]
