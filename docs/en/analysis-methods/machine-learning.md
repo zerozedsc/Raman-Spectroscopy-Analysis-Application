@@ -7,10 +7,11 @@ Comprehensive reference for classification and regression algorithms.
 - [Random Forest](#random-forest)
 - [XGBoost](#xgboost)
 - [Logistic Regression](#logistic-regression)
-- [Multi-Layer Perceptron (MLP)](#multi-layer-perceptron-mlp)
 - [Model Evaluation](#model-evaluation)
 - [Hyperparameter Optimization](#hyperparameter-optimization)
 - [Feature Importance](#feature-importance)
+
+**Note**: Multi-Layer Perceptron (MLP) and neural networks are planned for future releases.
 
 ---
 

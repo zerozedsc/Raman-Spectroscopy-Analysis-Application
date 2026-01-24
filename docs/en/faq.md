@@ -8,7 +8,7 @@ The Raman Spectroscopy Analysis Application is designed for analyzing Raman spec
 
 ### Who developed this software?
 
-This software was developed by Muhammad Helmi bin Rozain as a final year project at the University of Toyama, under the Laboratory for Clinical Photonics and Information Engineering (臨床光情報工学研究室), supervised by 大嶋 佑介 (Oshima Yusuke) and 竹谷 皓規 (Taketani Akinori).
+This software was developed by Muhammad Helmi bin Rozain as a final year project for BSc in Information Intelligence Engineering (工学部の知能情報工学コース、4年生、学部生) at the University of Toyama, under the Laboratory for Clinical Photonics and Information Engineering (臨床光情報工学研究室), supervised by 大嶋 佑介 (Oshima Yusuke) and 竹谷 皓規 (Taketani Akinori).
 
 ### Is this software free?
 
@@ -182,18 +182,6 @@ Check the console/log for error messages.
 
 **For classification:** Use scree plot elbow point (typically 5-10 components for Raman data)
 
-### What statistical test should I use?
-
-| Scenario                           | Test                                  |
-| ---------------------------------- | ------------------------------------- |
-| 2 groups, normal distribution      | Independent t-test                    |
-| 2 groups, non-normal distribution  | Mann-Whitney U test                   |
-| 2 groups, paired samples           | Paired t-test or Wilcoxon signed-rank |
-| >2 groups, normal distribution     | One-way ANOVA                         |
-| >2 groups, non-normal distribution | Kruskal-Wallis test                   |
-
-**Tip:** Mann-Whitney U is robust and works for most cases. When in doubt, use it.
-
 ### What is "multiple testing correction" and do I need it?
 
 When testing at many wavenumbers (~1400 points), you risk false positives. **Multiple testing correction** (e.g., FDR, Bonferroni) adjusts p-values to control false discovery rate.
@@ -220,12 +208,6 @@ When testing at many wavenumbers (~1400 points), you risk false positives. **Mul
 - Works well for linearly separable data
 - Fast training
 
-### What is GroupKFold and why should I use it?
-
-GroupKFold ensures **all spectra from the same patient/sample** stay together in either training or test set. This prevents data leakage when you have multiple spectra per patient.
-
-**Always use GroupKFold** if you have multiple spectra per patient/biological sample.
-
 ### How much data do I need?
 
 **Minimum:**
@@ -249,20 +231,9 @@ GroupKFold ensures **all spectra from the same patient/sample** stay together in
 
 **Check:**
 - Use external validation set
-- Verify GroupKFold is used correctly
+- Verify proper data splitting is used
 - Simplify model and see if performance drops
 - Check confusion matrix for patterns
-
-### What is SHAP and how do I use it?
-
-SHAP (SHapley Additive exPlanations) shows which wavenumbers (features) are most important for model predictions.
-
-**How to interpret SHAP plots:**
-- **Higher absolute SHAP value** = more important feature
-- **Positive SHAP** = increases probability of class 1
-- **Negative SHAP** = decreases probability of class 1
-
-Map important wavenumbers to biochemical assignments (e.g., 1650 cm⁻¹ = Amide I proteins).
 
 ## Export and Results Questions
 
@@ -295,31 +266,6 @@ In the Settings menu, adjust "Figure Export Settings".
   institution = {University of Toyama}
 }
 ```
-
-## Performance Questions
-
-### The application is slow. How can I speed it up?
-
-**For preprocessing:**
-- Use fewer CPU cores (Settings → Processing → CPU Cores)
-- Process smaller batches
-- Reduce smoothing window size
-
-**For analysis:**
-- Reduce number of components (PCA)
-- Use smaller sample size for preview
-- Close other applications
-
-**For machine learning:**
-- Reduce cross-validation folds
-- Use simpler model (Logistic Regression instead of XGBoost)
-- Reduce grid search parameters
-
-### How much RAM do I need?
-
-**Minimum:** 4 GB RAM
-**Recommended:** 8 GB RAM
-**For large datasets (>1000 spectra):** 16 GB RAM
 
 ## Language and Localization Questions
 

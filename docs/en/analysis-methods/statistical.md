@@ -6,7 +6,7 @@ Comprehensive reference for hypothesis testing and statistical methods.
 - [T-Tests](#t-tests)
 - [Mann-Whitney U Test](#mann-whitney-u-test)
 - [ANOVA](#anova-analysis-of-variance)
-- [Kruskal-Wallis Test](#kruskal-wallis-test)
+- [Pairwise Statistical Tests](#pairwise-statistical-tests)
 - [Correlation Analysis](#correlation-analysis)
 - [Multiple Testing Correction](#multiple-testing-correction)
 - [Effect Size Measures](#effect-size-measures)
@@ -190,9 +190,8 @@ print(f"95% CI: [{ci[0]:.3f}, {ci[1]:.3f}]")
 
 **Use alternatives when**:
 - ✗ Non-normal data → Mann-Whitney U
-- ✗ More than 2 groups → ANOVA
-- ✗ Paired data → Paired t-test
-- ✗ Categorical outcome → Chi-square test
+- ✗ More than 2 groups → ANOVA (or pairwise tests)
+- ✗ Paired data → Paired t-test or Wilcoxon signed-rank
 
 ---
 
@@ -302,86 +301,22 @@ print(f"p-value: {p_value:.4f}")
 
 if p_value < 0.05:
     print("Significant difference among groups")
-    print("Proceed to post-hoc tests")
 ```
 
-### Post-Hoc Tests
+**Important Note**: ANOVA is currently disabled in the application UI. For comparing two groups, use **Pairwise Statistical Tests** instead. For multiple group comparisons, manual statistical analysis is required.
 
-**Why Needed**: ANOVA tells you groups differ, not which ones
+### Post-Hoc Tests (For Reference Only)
 
-**Common Post-Hoc Tests**:
+**Note**: Post-hoc tests are not currently implemented in the application. This section is provided for reference if you need to perform these tests manually in Python.
 
-#### 1. Tukey's HSD (Honest Significant Difference)
+**Why Needed**: ANOVA tells you groups differ, but not which specific pairs are different
 
-**Most Conservative**: Controls family-wise error rate
+**Common Post-Hoc Methods**:
+- **Tukey's HSD**: Controls family-wise error rate (most conservative)
+- **Bonferroni**: Simple adjustment, divides α by number of comparisons
+- **Holm-Bonferroni**: Less conservative step-down procedure
 
-```python
-from scipy.stats import tukey_hsd
-
-# Tukey's HSD
-result = tukey_hsd(group1, group2, group3)
-
-# Pairwise comparisons
-print("Pairwise p-values:")
-print(result.pvalue)
-
-# Confidence intervals
-print("\nConfidence intervals for mean differences:")
-print(result.confidence_interval())
-```
-
-#### 2. Bonferroni Correction
-
-**Simple Method**: Divide α by number of comparisons
-
-```python
-from scipy import stats
-
-# Number of pairwise comparisons
-n_groups = 3
-n_comparisons = n_groups * (n_groups - 1) / 2  # 3 comparisons
-
-# Adjusted significance level
-alpha_corrected = 0.05 / n_comparisons  # 0.05 / 3 = 0.0167
-
-# Pairwise t-tests
-pairs = [
-    ('Group1', 'Group2', group1, group2),
-    ('Group1', 'Group3', group1, group3),
-    ('Group2', 'Group3', group2, group3)
-]
-
-for name1, name2, data1, data2 in pairs:
-    t_stat, p_value = stats.ttest_ind(data1, data2)
-    sig = "***" if p_value < alpha_corrected else "ns"
-    print(f"{name1} vs {name2}: p={p_value:.4f} {sig}")
-```
-
-#### 3. Holm-Bonferroni Method
-
-**Less Conservative**: Step-down procedure
-
-```python
-from statsmodels.stats.multitest import multipletests
-
-# Collect all p-values
-p_values = []
-for name1, name2, data1, data2 in pairs:
-    _, p = stats.ttest_ind(data1, data2)
-    p_values.append(p)
-
-# Apply Holm-Bonferroni correction
-reject, p_corrected, _, _ = multipletests(
-    p_values,
-    alpha=0.05,
-    method='holm'
-)
-
-# Display results
-for i, (name1, name2, _, _) in enumerate(pairs):
-    sig = "***" if reject[i] else "ns"
-    print(f"{name1} vs {name2}: p={p_corrected[i]:.4f} {sig}")
-```
+For two-group comparisons, use the **Pairwise Statistical Tests** feature in the application instead.
 
 ### Checking Assumptions
 
@@ -393,7 +328,7 @@ for i, group in enumerate([group1, group2, group3]):
     stat, p = stats.shapiro(group)
     print(f"Group {i+1} normality: p={p:.4f}")
     if p < 0.05:
-        print("  → Not normal, consider Kruskal-Wallis")
+        print("  → Not normal, consider Mann-Whitney for pairwise")
 
 # 2. Homogeneity of variance (Levene's test)
 stat, p = stats.levene(group1, group2, group3)
@@ -454,89 +389,101 @@ print(f"η² = {eta_squared:.3f}")
 
 **Use alternatives when**:
 - ✗ Two groups only → T-test
-- ✗ Non-normal data → Kruskal-Wallis
+- ✗ Non-normal data → Mann-Whitney U test (for 2 groups) or non-parametric methods
 - ✗ Unequal variances → Welch's ANOVA
 - ✗ Repeated measures → Repeated-measures ANOVA
 
+**Note**: ANOVA is available in the application but currently disabled in the UI. Use pairwise statistical tests for two-group comparisons.
+
 ---
 
-## Kruskal-Wallis Test
+## Pairwise Statistical Tests
 
-**Purpose**: Non-parametric alternative to one-way ANOVA
+**Purpose**: Compare two groups at each wavenumber across the spectrum
 
-### Theory
+### Available Tests
 
-**How It Works**:
-1. Rank all observations across groups
-2. Compare rank sums
-3. Test if medians differ
+The application provides three statistical tests for pairwise comparisons:
 
-**Null Hypothesis**: All groups have identical distributions
+#### 1. Independent T-Test (t_test)
 
-### Assumptions
+**Use When**: Comparing two independent groups, data approximately normal
 
-1. ✓ Independent observations
+**Assumptions**:
+1. ✓ Independent samples
+2. ✓ Approximately normal distribution
+3. ✓ Continuous data
+
+**Parameters**:
+- `alpha`: Significance level (default: 0.05)
+- `fdr_correction`: Apply FDR correction for multiple testing (default: True)
+
+#### 2. Mann-Whitney U Test (mann_whitney)
+
+**Use When**: Non-parametric alternative to t-test
+
+**Advantages**:
+- ✓ No normality assumption
+- ✓ Robust to outliers
+- ✓ Works with small samples
+
+**Parameters**:
+- `alpha`: Significance level (default: 0.05)
+- `fdr_correction`: Apply FDR correction (default: True)
+
+#### 3. Wilcoxon Signed-Rank Test (wilcoxon)
+
+**Use When**: Comparing paired samples (e.g., before/after measurements)
+
+**Assumptions**:
+1. ✓ Paired observations
 2. ✓ Ordinal or continuous data
-3. ✓ Similar distribution shapes
+3. ✓ Symmetric distribution of differences
 
-**Does NOT require**:
-- ✗ Normal distribution
-- ✗ Equal variances
+### Usage in Application
 
-### Usage Example
+```
+Analysis Page → Statistical Methods → Pairwise Statistical Tests
 
-```python
-from scipy import stats
-
-# Kruskal-Wallis test
-h_stat, p_value = stats.kruskal(
-    group1_data,
-    group2_data,
-    group3_data
-)
-
-print(f"H-statistic: {h_stat:.3f}")
-print(f"p-value: {p_value:.4f}")
-
-if p_value < 0.05:
-    print("Significant difference among groups")
-    print("Proceed to post-hoc tests")
+1. Select exactly 2 datasets to compare
+2. Choose test type: t_test, mann_whitney, or wilcoxon
+3. Set significance level (α)
+4. Enable/disable FDR correction
+5. Click "Run Analysis"
 ```
 
-### Post-Hoc Tests
+### Interpretation
 
-**Dunn's Test**: Pairwise comparisons with rank-based approach
+**Output Includes**:
+- **P-value plot**: Shows p-values across all wavenumbers
+- **Significance markers**: Regions where p < α (after correction)
+- **Mean overlay**: Mean spectra of both groups
+- **Summary statistics**: Number of significant wavenumbers
 
-```python
-from scikit_posthocs import posthoc_dunn
+**Example Interpretation**:
+```
+Results: Group A vs Group B
+- Significant wavenumbers: 145 out of 1400
+- FDR-corrected α: 0.05
+- Key regions: 1000-1100 cm⁻¹, 1600-1700 cm⁻¹
 
-# Dunn's test for pairwise comparisons
-import pandas as pd
-
-# Prepare data
-data_all = np.concatenate([group1, group2, group3])
-labels_all = (['Group1']*len(group1) + 
-              ['Group2']*len(group2) + 
-              ['Group3']*len(group3))
-
-df = pd.DataFrame({'value': data_all, 'group': labels_all})
-
-# Dunn's test
-dunn_result = posthoc_dunn(df, val_col='value', group_col='group', 
-                           p_adjust='bonferroni')
-
-print("\nDunn's test (Bonferroni-corrected p-values):")
-print(dunn_result)
+Interpretation: Groups differ significantly in protein (Amide I, 1650 cm⁻¹)
+and lipid regions (1000-1100 cm⁻¹).
 ```
 
-### When to Use
+### Best Practices
 
-**Use Kruskal-Wallis when**:
-- ✓ 3+ groups to compare
-- ✓ Non-normal data
-- ✓ Ordinal data
-- ✓ ANOVA assumptions violated
-- ✓ Outliers present
+**✅ Recommended**:
+- Always use FDR correction when testing across full spectrum
+- Use Mann-Whitney for non-normal data
+- Report both p-values and effect sizes
+- Verify biological relevance of significant regions
+
+**❌ Avoid**:
+- Testing without multiple testing correction
+- Ignoring assumption violations
+- Over-interpreting borderline significance
+- Comparing more than 2 groups (use appropriate multi-group method instead)
 
 ---
 

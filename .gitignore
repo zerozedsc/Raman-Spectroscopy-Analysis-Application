@@ -219,3 +219,5 @@ build_scripts/working_v1
 drivers/
 test.py
 .rtd-venv/
+docs_backup/
+docs_new/

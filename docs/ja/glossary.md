@@ -540,19 +540,6 @@ K平均法。最も基本的なクラスタリング手法。
 
 ---
 
-### MLP（Multi-Layer Perceptron）
-多層パーセプトロン。最も基本的なニューラルネットワーク。
-
-**構造**: 入力層、隠れ層（複数可）、出力層
-
-**活性化関数**: ReLU、tanh、sigmoid
-
-**用途**: 複雑な非線形パターンの学習
-
-**関連**: [Neural Network](#neural-network), [Deep Learning](#deep-learning)
-
----
-
 ### MSC（Multiplicative Scatter Correction）
 乗法的散乱補正。光散乱の影響を補正する前処理手法。
 
@@ -586,9 +573,9 @@ K平均法。最も基本的なクラスタリング手法。
 
 **学習**: バックプロパゲーション
 
-**種類**: MLP、CNN、RNN、Transformer
+**種類**: CNN、RNN、Transformer（多層パーセプトロンMLPは将来のリリースで予定）
 
-**関連**: [MLP](#mlp), [Deep Learning](#deep-learning)
+**関連**: [Deep Learning](#deep-learning)
 
 ---
 
@@ -886,21 +873,6 @@ ROC曲線。分類器の性能を評価するグラフ。
 **用途**: 適切な主成分数の決定（エルボーポイント）
 
 **関連**: [PCA](#pca), [Elbow Method](#elbow-method)
-
----
-
-### SHAP（SHapley Additive exPlanations）
-シャプレイ値。機械学習モデルの予測を説明する手法。
-
-**出力**: 各特徴量の各サンプルへの寄与度
-
-**表示**:
-- サマリープロット: 全体的な特徴量の重要度
-- フォースプロット: 個別サンプルの予測理由
-
-**用途**: ブラックボックスモデルの解釈
-
-**関連**: [Feature Importance](#feature-importance), [Explainable AI](#explainable-ai)
 
 ---
 

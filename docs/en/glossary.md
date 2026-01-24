@@ -342,7 +342,6 @@
 | MCR          | Multivariate Curve Resolution                      |
 | MGUS         | Monoclonal Gammopathy of Undetermined Significance |
 | ML           | Machine Learning                                   |
-| MLP          | Multi-Layer Perceptron                             |
 | MM           | Multiple Myeloma                                   |
 | MSC          | Multiplicative Scatter Correction                  |
 | NMF          | Non-negative Matrix Factorization                  |
@@ -354,7 +353,6 @@
 | QC           | Quality Control                                    |
 | RF           | Random Forest                                      |
 | ROC          | Receiver Operating Characteristic                  |
-| SHAP         | SHapley Additive exPlanations                      |
 | SMOTE        | Synthetic Minority Over-sampling Technique         |
 | SNV          | Standard Normal Variate                            |
 | SVM          | Support Vector Machine                             |

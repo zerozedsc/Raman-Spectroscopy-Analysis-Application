@@ -4,7 +4,7 @@
 
 import os
 import sys
-sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, os.path.abspath('../..'))
 
 # -- Project information -----------------------------------------------------
 project = 'Raman Spectroscopy Analysis Application'
@@ -26,6 +26,16 @@ extensions = [
     'myst_parser',  # For Markdown support
 ]
 
+# MyST Parser configuration for Markdown
+myst_enable_extensions = [
+    "linkify",  # Auto-detect URLs
+    "colon_fence",  # ::: fences
+    "deflist",  # Definition lists
+    "tasklist",  # Task lists
+    "html_image",  # HTML images
+    "html_admonition",  # HTML admonitions
+]
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
@@ -41,6 +51,9 @@ source_suffix = {
 
 # The master toctree document.
 master_doc = 'index'
+
+# Language setting
+language = 'en'
 
 # -- Options for HTML output -------------------------------------------------
 html_theme = 'sphinx_rtd_theme'
