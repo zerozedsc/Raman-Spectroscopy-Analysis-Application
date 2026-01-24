@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "raman-app"
 version = "0.1.0"
@@ -70,5 +74,13 @@ dependencies = [
 dev = [
     "watchdog",
     "pytest",
-    "black"
+    "black",
+    "sphinx>=7.0.0",
+    "sphinx_rtd_theme>=2.0.0",
+    "myst-parser>=2.0.0",
 ]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["components*", "configs*", "functions*", "pages*"]
+exclude = ["tests*", "docs*", "build_scripts*", "assets*", "readme*", ".AGI-BANKS*", ".docs*"]

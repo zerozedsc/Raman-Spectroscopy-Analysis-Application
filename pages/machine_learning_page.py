@@ -1365,6 +1365,36 @@ class MachineLearningPage(QWidget):
 		}
 		return mapping.get(key, key.replace("_", " ").title())
 
+	def _model_display_name_en(self, model_key: str | None) -> str:
+		"""English model name for plot text.
+
+		We intentionally keep Matplotlib result plots English-only to avoid glyph issues
+		when the UI language is Japanese.
+		"""
+		key = str(model_key or "").strip()
+		if not key:
+			return "Unknown"
+		mapping = {
+			"linear_regression": "Linear Regression",
+			"logistic_regression": "Logistic Regression",
+			"svm": "SVM",
+			"random_forest": "Random Forest",
+			"xgboost": "XGBoost",
+		}
+		return mapping.get(key, key.replace("_", " ").title())
+
+	def _build_plot_label_display_map(self, class_labels: list) -> Dict[str, str]:
+		"""Build a stable display-label map for ML plots.
+
+		We keep training/evaluation labels as-is (can be Japanese), but for the ML Results
+		plots we use English-only labels (Class 1, Class 2, ...).
+		"""
+		labels = [str(l) for l in (class_labels or [])]
+		out: Dict[str, str] = {}
+		for i, lab in enumerate(labels):
+			out[lab] = f"Class {i + 1}"
+		return out
+
 	def _set_controls_enabled(self, enabled: bool):
 		self.start_training_button.setEnabled(enabled)
 		self.add_group_button.setEnabled(enabled)
@@ -1739,12 +1769,14 @@ class MachineLearningPage(QWidget):
 
 		# Confusion matrix
 		try:
-			cm_title = f"{LOCALIZE('ML_PAGE.results_confusion')} (Model: {self._model_display_name(out.model_key)})"
+			label_display_map = self._build_plot_label_display_map(list(out.split.class_labels))
+			cm_title = f"Confusion Matrix (Model: {self._model_display_name_en(out.model_key)})"
 			cm_fig = create_confusion_matrix_figure(
 				y_true=out.split.y_test,
 				y_pred=out.y_pred,
 				class_labels=out.split.class_labels,
 				title=cm_title,
+				label_display_map=label_display_map,
 			)
 			self.cm_plot.update_plot_with_config(cm_fig, {"colorbar": True})
 		except Exception as e:
@@ -1757,7 +1789,8 @@ class MachineLearningPage(QWidget):
 					y_true=out.split.y_test,
 					y_score=out.proba,
 					class_labels=out.split.class_labels,
-					title=LOCALIZE("ML_PAGE.results_roc"),
+					title="ROC Curve",
+					label_display_map=label_display_map,
 				)
 				self.roc_plot.update_plot_with_config(roc_fig)
 			else:
@@ -1772,7 +1805,7 @@ class MachineLearningPage(QWidget):
 				fi_fig = create_feature_importance_figure(
 					feature_importances=out.feature_importances,
 					wavenumbers=out.split.common_axis,
-					title=LOCALIZE("ML_PAGE.results_importance"),
+					title="Feature Importance",
 				)
 				self.fi_plot.update_plot_with_config(fi_fig)
 			else:
@@ -1788,7 +1821,8 @@ class MachineLearningPage(QWidget):
 					y_true=out.split.y_test,
 					y_score=out.proba,
 					class_labels=out.split.class_labels,
-					title=LOCALIZE("ML_PAGE.results_distribution"),
+					title="Prediction Distribution",
+					label_display_map=label_display_map,
 				)
 				self.pd_plot.update_plot_with_config(pd_fig)
 			else:
@@ -1804,7 +1838,8 @@ class MachineLearningPage(QWidget):
 				y=np.asarray(out.split.y_train, dtype=object),
 				model_key=str(out.model_key),
 				model_params=dict(out.model_params),
-				title=LOCALIZE("ML_PAGE.results_pca_boundary"),
+				title="PCA + Decision Boundary",
+				label_display_map=label_display_map,
 			)
 			# Background is image-based; don't add colorbar (it tends to clutter this view).
 			self.pca_plot.update_plot_with_config(
@@ -2078,6 +2113,7 @@ class MachineLearningPage(QWidget):
 				counts[k] = counts.get(k, 0) + 1
 
 			class_labels = self._trained_class_labels or sorted({str(v) for v in np.asarray(y_pred).ravel()})
+			label_display_map = self._build_plot_label_display_map(list(class_labels))
 			y_true = None
 			if true_label:
 				y_true = np.asarray([true_label] * len(y_pred), dtype=object)
@@ -2097,12 +2133,13 @@ class MachineLearningPage(QWidget):
 				except Exception:
 					report_rows = []
 				try:
-					cm_title = f"{LOCALIZE('ML_PAGE.results_confusion')} (Model: {self._model_display_name(self._trained_model_key)})"
+					cm_title = f"Confusion Matrix (Model: {self._model_display_name_en(self._trained_model_key)})"
 					cm_fig = create_confusion_matrix_figure(
 						y_true=y_true,
 						y_pred=y_pred,
 						class_labels=class_labels,
 						title=cm_title,
+						label_display_map=label_display_map,
 					)
 				except Exception:
 					cm_fig = None
@@ -2113,7 +2150,8 @@ class MachineLearningPage(QWidget):
 						y_true=y_true,
 						y_score=proba,
 						class_labels=class_labels,
-						title=LOCALIZE("ML_PAGE.results_roc"),
+						title="ROC Curve",
+						label_display_map=label_display_map,
 					)
 				except Exception:
 					roc_fig = None
@@ -2124,7 +2162,8 @@ class MachineLearningPage(QWidget):
 						y_true=y_true,
 						y_score=proba,
 						class_labels=class_labels,
-						title=LOCALIZE("ML_PAGE.results_distribution"),
+						title="Prediction Distribution",
+						label_display_map=label_display_map,
 					)
 				except Exception:
 					pd_fig = None

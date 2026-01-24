@@ -20,8 +20,20 @@ import ramanspy as rp
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import roc_curve, auc
 from sklearn.manifold import TSNE
-from typing import List, Tuple, Dict, Union
+from typing import List, Tuple, Dict, Union, Optional
 from functions.configs import console_log
+
+
+def _display_label(label: str, label_display_map: Optional[Dict[str, str]]) -> str:
+    """Return a display-safe label for plots.
+
+    We keep model/metric computation keyed on the *original* labels, but allow plots
+    to use an alternate display label (e.g., forced English) to avoid CJK glyph issues
+    in embedded Matplotlib widgets.
+    """
+    if not label_display_map:
+        return str(label)
+    return str(label_display_map.get(str(label), str(label)))
 
 
 def create_confusion_matrix_figure(
@@ -33,6 +45,7 @@ def create_confusion_matrix_figure(
     normalize: bool = True,
     figsize: tuple = (6, 5),
     cmap: str = "Blues",
+    label_display_map: Optional[Dict[str, str]] = None,
 ) -> plt.Figure:
     """Create a confusion matrix heatmap figure for embedding in Qt.
 
@@ -74,11 +87,12 @@ def create_confusion_matrix_figure(
     im = ax.imshow(cm_display, cmap=cmap, interpolation="nearest", vmin=vmin, vmax=vmax)
     ax.set_aspect("equal")
 
-    # Ticks/labels
+    # Ticks/labels (allow overriding display labels)
+    display_labels = [_display_label(lab, label_display_map) for lab in class_labels]
     ax.set_xticks(np.arange(len(class_labels)))
     ax.set_yticks(np.arange(len(class_labels)))
-    ax.set_xticklabels(class_labels)
-    ax.set_yticklabels(class_labels)
+    ax.set_xticklabels(display_labels)
+    ax.set_yticklabels(display_labels)
     ax.set_xlabel("Predicted label")
     ax.set_ylabel("True label")
     # Add more context in the title (matches typical "reference" confusion matrix layouts)
@@ -123,6 +137,7 @@ def create_roc_curve_figure(
     class_labels: List[str],
     title: str = "ROC Curve",
     figsize: tuple = (6, 5),
+    label_display_map: Optional[Dict[str, str]] = None,
 ) -> plt.Figure:
     """Create ROC curve figure.
 
@@ -166,7 +181,8 @@ def create_roc_curve_figure(
         for i in range(n_classes):
             fpr[i], tpr[i], _ = roc_curve(Y[:, i], y_score[:, i])
             roc_auc[i] = auc(fpr[i], tpr[i])
-            ax.plot(fpr[i], tpr[i], linewidth=1.5, label=f"{class_labels[i]} (AUC={roc_auc[i]:.3f})")
+            disp = _display_label(class_labels[i], label_display_map)
+            ax.plot(fpr[i], tpr[i], linewidth=1.5, label=f"{disp} (AUC={roc_auc[i]:.3f})")
 
     ax.plot([0, 1], [0, 1], "k--", linewidth=1)
     ax.set_xlim(0.0, 1.0)
@@ -188,6 +204,7 @@ def create_prediction_distribution_figure(
     title: str = "Prediction Distribution",
     figsize: tuple = (6, 5),
     bins: int = 20,
+    label_display_map: Optional[Dict[str, str]] = None,
 ) -> plt.Figure:
     """Create a histogram of predicted probabilities.
 
@@ -213,8 +230,20 @@ def create_prediction_distribution_figure(
             y_int = np.asarray([label_to_idx.get(str(v), -1) for v in y_true], dtype=int)
             mask0 = y_int == 0
             mask1 = y_int == 1
-            ax.hist(score[mask0], bins=bins, alpha=0.65, label=class_labels[0], color="#1f77b4")
-            ax.hist(score[mask1], bins=bins, alpha=0.65, label=class_labels[1], color="#ff7f0e")
+            ax.hist(
+                score[mask0],
+                bins=bins,
+                alpha=0.65,
+                label=_display_label(class_labels[0], label_display_map),
+                color="#1f77b4",
+            )
+            ax.hist(
+                score[mask1],
+                bins=bins,
+                alpha=0.65,
+                label=_display_label(class_labels[1], label_display_map),
+                color="#ff7f0e",
+            )
             ax.legend(loc="best")
 
         ax.set_xlabel("Predicted probability")
@@ -222,7 +251,7 @@ def create_prediction_distribution_figure(
     # Multiclass: plot each class probability distribution
     elif y_score.ndim == 2 and y_score.shape[1] >= 3:
         n_classes = int(y_score.shape[1])
-        labels = list(class_labels)
+        labels = [_display_label(lab, label_display_map) for lab in list(class_labels)]
         if len(labels) != n_classes:
             labels = [f"class_{i}" for i in range(n_classes)]
         cmap = plt.get_cmap("tab10")

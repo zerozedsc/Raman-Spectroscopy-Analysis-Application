@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -59,6 +59,7 @@ def create_pca_decision_boundary_figure(
 	figsize: Tuple[int, int] = (8, 5),
 	grid_step: float = 0.2,
 	alpha_region: float = 0.25,
+	label_display_map: Optional[Dict[str, str]] = None,
 ) -> plt.Figure:
 	"""Create a PCA scatter plot with a decision boundary background.
 
@@ -130,13 +131,14 @@ def create_pca_decision_boundary_figure(
 
 	# Plot points
 	for i, lab in enumerate(labels):
+		disp = str(label_display_map.get(lab, lab)) if label_display_map else lab
 		m = y_int == i
 		ax.scatter(
 			pc1[m],
 			pc2[m],
 			s=18,
 			alpha=0.85,
-			label=lab,
+			label=disp,
 			color=label_to_color.get(lab),
 			edgecolors="none",
 			zorder=2,
@@ -151,6 +153,7 @@ def create_pca_decision_boundary_figure(
 		m = y_int == i
 		if not np.any(m):
 			continue
+		disp = str(label_display_map.get(lab, lab)) if label_display_map else lab
 		cx = float(np.mean(pc1[m]))
 		cy = float(np.mean(pc2[m]))
 		ax.scatter(
@@ -166,7 +169,7 @@ def create_pca_decision_boundary_figure(
 		lbl = ax.text(
 			cx + dx,
 			cy + dy,
-			str(lab),
+			str(disp),
 			fontsize=9,
 			fontweight="bold",
 			color=label_to_color.get(lab),
