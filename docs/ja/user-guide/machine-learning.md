@@ -6,18 +6,19 @@
 
 ## 📋 目次
 
-- [機械学習の基礎](#機械学習の基礎)
-- [データ準備](#データ準備)
-- [アルゴリズム選択](#アルゴリズム選択)
-- [モデルトレーニング](#モデルトレーニング)
-- [モデル評価](#モデル評価)
-- [ハイパーパラメータ調整](#ハイパーパラメータ調整)
-- [特徴量選択](#特徴量選択)
-- [モデルの解釈](#モデルの解釈)
-- [予測と実運用](#予測と実運用)
+- {ref}`機械学習の基礎 <ug-ml-basics>`
+- {ref}`データ準備 <ug-ml-data-prep>`
+- {ref}`アルゴリズム選択 <ug-ml-algorithms>`
+- {ref}`モデルトレーニング <ug-ml-training>`
+- {ref}`モデル評価 <ug-ml-evaluation>`
+- {ref}`ハイパーパラメータ調整 <ug-ml-hyperparams>`
+- {ref}`特徴量選択 <ug-ml-feature-selection>`
+- {ref}`モデルの解釈 <ug-ml-interpretation>`
+- {ref}`予測と実運用 <ug-ml-deployment>`
 
 ---
 
+(ug-ml-basics)=
 ## 機械学習の基礎
 
 ### 機械学習とは
@@ -95,6 +96,7 @@
 
 ---
 
+(ug-ml-data-prep)=
 ## データ準備
 
 ### データ分割
@@ -196,6 +198,7 @@ Fold 5: 84%
 
 ---
 
+(ug-ml-algorithms)=
 ## アルゴリズム選択
 
 ### Random Forest
@@ -485,6 +488,7 @@ max_iter: 100
 
 ---
 
+(ug-ml-training)=
 ## モデルトレーニング
 
 ### 基本的なトレーニング
@@ -569,6 +573,7 @@ n_iter: 30（30組み合わせを試す）
 
 ---
 
+(ug-ml-evaluation)=
 ## モデル評価
 
 ### 分類メトリクス
@@ -716,6 +721,7 @@ Fold 5: 86.5%
 
 ---
 
+(ug-ml-hyperparams)=
 ## ハイパーパラメータ調整
 
 ### 学習曲線
@@ -770,6 +776,7 @@ Y軸: スコア
 
 ---
 
+(ug-ml-feature-selection)=
 ## 特徴量選択
 
 ### 特徴量の重要度
@@ -829,6 +836,7 @@ n_features_to_select: 50-100
 
 ---
 
+(ug-ml-interpretation)=
 ## モデルの解釈
 
 ### 混同しやすいサンプルの分析
@@ -852,6 +860,7 @@ n_features_to_select: 50-100
 
 ---
 
+(ug-ml-deployment)=
 ## 予測と実運用
 
 ### 新しいデータへの予測
@@ -936,10 +945,10 @@ sample003.csv,C,0.20,0.30,0.50,Medium
 
 ## 🔗 関連ドキュメント
 
-- **[前処理ガイド](preprocessing_ja.md)** - データの前処理
-- **[分析ガイド](analysis_ja.md)** - 探索的分析
-- **[FAQ](../faq_ja.md)** - よくある質問
-- **[トラブルシューティング](../troubleshooting_ja.md)** - 問題解決
+- **[前処理ガイド](preprocessing.md)** - データの前処理
+- **[分析ガイド](analysis.md)** - 探索的分析
+- **[FAQ](../faq.md)** - よくある質問
+- **[トラブルシューティング](../troubleshooting.md)** - 問題解決
 
 ---
 

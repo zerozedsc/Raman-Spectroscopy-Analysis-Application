@@ -6,19 +6,20 @@
 
 ## 📋 目次
 
-- [インストール問題](#インストール問題)
-- [起動とクラッシュ](#起動とクラッシュ)
-- [データロード問題](#データロード問題)
-- [前処理エラー](#前処理エラー)
-- [分析エラー](#分析エラー)
-- [機械学習問題](#機械学習問題)
-- [パフォーマンス問題](#パフォーマンス問題)
-- [UI/表示問題](#ui表示問題)
-- [エクスポート問題](#エクスポート問題)
-- [プラットフォーム固有の問題](#プラットフォーム固有の問題)
+- {ref}`インストール問題 <troubleshooting-install>`
+- {ref}`起動とクラッシュ <troubleshooting-startup>`
+- {ref}`データロード問題 <troubleshooting-data-load>`
+- {ref}`前処理エラー <troubleshooting-preprocess>`
+- {ref}`分析エラー <troubleshooting-analysis>`
+- {ref}`機械学習問題 <troubleshooting-ml>`
+- {ref}`パフォーマンス問題 <troubleshooting-performance>`
+- {ref}`UI/表示問題 <troubleshooting-ui>`
+- {ref}`エクスポート問題 <troubleshooting-export>`
+- {ref}`プラットフォーム固有の問題 <troubleshooting-platform>`
 
 ---
 
+(troubleshooting-install)=
 ## インストール問題
 
 ### 問題1: "Python not found"エラー
@@ -168,6 +169,7 @@ pip install numpy==1.24.0 scipy==1.11.0 scikit-learn==1.3.0
 
 ---
 
+(troubleshooting-startup)=
 ## 起動とクラッシュ
 
 ### 問題5: アプリケーションが起動しない
@@ -291,7 +293,7 @@ sudo apt-get upgrade
 
 **診断**:
 
-```python
+```text
 # デバッグモードで実行
 python main.py --debug
 
@@ -317,7 +319,7 @@ python -m pdb main.py
    解決策: データサイズを減らす、RAMを増やす
 
 2. **スレッディング問題**
-   ```python
+   ```text
    # 設定で並列処理を無効化
    設定 → パフォーマンス → 
    「並列処理を使用」のチェックを外す
@@ -335,6 +337,7 @@ python -m pdb main.py
 
 ---
 
+(troubleshooting-data-load)=
 ## データロード問題
 
 ### 問題8: CSVファイルが読み込めない
@@ -360,7 +363,7 @@ UnicodeDecodeError: 'utf-8' codec can't decode byte
 ```
 
 解決策:
-```python
+```text
 # 異なるエンコーディングを試す
 # CSVをUTF-8で再保存
 
@@ -396,7 +399,7 @@ df = pd.read_csv('file.csv', sep=None, engine='python')
 ```
 
 解決策:
-```python
+```text
 # カンマが小数点の場合（ヨーロッパ形式）
 df = pd.read_csv('file.csv', decimal=',')
 
@@ -410,7 +413,7 @@ df = pd.read_csv('file.csv', decimal=',')
 ```
 
 解決策:
-```csv
+```text
 # 正しいフォーマット:
 Wavenumber,Sample1,Sample2
 400,0.123,0.145
@@ -460,7 +463,7 @@ df = pd.concat(chunks)
 ```
 
 **方法4: データ型の最適化**
-```python
+```text
 # float64 → float32に変換
 df = df.astype('float32')
 
@@ -476,7 +479,7 @@ df = df.astype('float32')
 **確認項目**:
 
 1. **波数の順序**
-   ```python
+   ```text
    # 昇順であるべき
    wavenumbers = [400, 401, 402, ..., 2000]
    
@@ -491,7 +494,7 @@ df = df.astype('float32')
    ```
 
 3. **外れ値**
-   ```python
+   ```text
    # 異常な値を確認
    データ → 統計 → 
    最小値、最大値、中央値を確認
@@ -503,6 +506,7 @@ df = df.astype('float32')
 
 ---
 
+(troubleshooting-preprocess)=
 ## 前処理エラー
 
 ### 問題11: ベースライン補正が機能しない
@@ -558,7 +562,7 @@ AsLS → AirPLS または Whittaker
 
 **解決策**:
 
-```python
+```text
 # 現在の設定
 window = 51  # 大きすぎる！
 polyorder = 3
@@ -589,7 +593,7 @@ polyorder = 2 または 3
 
 **診断**:
 
-```python
+```text
 # 正規化前後の統計を確認
 データ → 統計 → 
 各スペクトルの min, max, mean を確認
@@ -644,7 +648,7 @@ numpy.linalg.LinAlgError: Singular matrix
    ```
 
 2. **定数列（分散ゼロ）**
-   ```python
+   ```text
    # すべてのスペクトルで同じ値を持つ波数
    
    解決策:
@@ -675,6 +679,7 @@ numpy.linalg.LinAlgError: Singular matrix
 
 ---
 
+(troubleshooting-analysis)=
 ## 分析エラー
 
 ### 問題15: PCAで"explained variance"が低い
@@ -800,6 +805,7 @@ DBSCAN:
 
 ---
 
+(troubleshooting-ml)=
 ## 機械学習問題
 
 ### 問題18: モデルの精度が非常に低い（<60%）
@@ -808,7 +814,7 @@ DBSCAN:
 
 **診断**:
 
-```python
+```text
 # 学習曲線を確認
 機械学習 → 評価 → 学習曲線
 
@@ -939,7 +945,7 @@ ValueError: Found input variables with inconsistent numbers of samples: [100, 80
 
 **診断**:
 
-```python
+```text
 print(f"X shape: {X.shape}")  # (100, 1000)
 print(f"y shape: {y.shape}")  # (80,)
 → サンプル数が一致しない！
@@ -967,7 +973,7 @@ print(f"y shape: {y.shape}")  # (80,)
 ```
 
 **原因C: データ分割エラー**
-```python
+```text
 # 間違い
 X_train, X_test = train_test_split(X, test_size=0.3)
 y_train, y_test = train_test_split(y, test_size=0.3)
@@ -986,7 +992,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 **原因と解決策**:
 
 **原因A: tree_methodが最適でない**
-```python
+```text
 # 遅い（デフォルト）
 tree_method = 'auto'
 
@@ -1002,7 +1008,7 @@ tree_method: 'hist'
 ```
 
 **原因B: ハイパーパラメータ探索が広すぎる**
-```python
+```text
 # グリッドサーチの範囲を制限
 機械学習 → 設定 → グリッドサーチ → 
 パラメータ数を減らす
@@ -1021,7 +1027,7 @@ max_depth: [3, 5]        # [3, 5, 7, 10] の代わりに
 ```
 
 **原因D: n_estimatorsが大きすぎる**
-```python
+```text
 # 現在
 n_estimators = 1000  # 遅い
 
@@ -1032,6 +1038,7 @@ early_stopping_rounds = 10
 
 ---
 
+(troubleshooting-performance)=
 ## パフォーマンス問題
 
 ### 問題22: UI がフリーズする
@@ -1068,7 +1075,7 @@ early_stopping_rounds = 10
 
 **診断**:
 
-```python
+```text
 # メモリ使用量を監視
 # Linux
 watch -n 1 'ps aux | grep python'
@@ -1139,6 +1146,7 @@ Excel → CSV に変更
 
 ---
 
+(troubleshooting-ui)=
 ## UI/表示問題
 
 ### 問題25: 図が表示されない
@@ -1147,7 +1155,7 @@ Excel → CSV に変更
 
 **診断**:
 
-```python
+```text
 # Matplotlibバックエンドを確認
 python -c "import matplotlib; print(matplotlib.get_backend())"
 
@@ -1157,7 +1165,7 @@ python -c "import matplotlib; print(matplotlib.get_backend())"
 **解決策**:
 
 **方法1: バックエンドを変更**
-```python
+```text
 # matplotlibrcファイルを編集
 # Linux/macOS: ~/.matplotlib/matplotlibrc
 # Windows: %USERPROFILE%\.matplotlib\matplotlibrc
@@ -1264,6 +1272,7 @@ echo 'export QT_SCALE_FACTOR=1.5' >> ~/.bashrc
 
 ---
 
+(troubleshooting-export)=
 ## エクスポート問題
 
 ### 問題28: Excelエクスポートが失敗する
@@ -1272,7 +1281,7 @@ echo 'export QT_SCALE_FACTOR=1.5' >> ~/.bashrc
 
 **診断**:
 
-```python
+```text
 # openpyxl がインストールされているか確認
 pip list | grep openpyxl
 
@@ -1349,6 +1358,7 @@ DPI: 300（印刷用）または 600（高品質）
 
 ---
 
+(troubleshooting-platform)=
 ## プラットフォーム固有の問題
 
 ### Windows固有
@@ -1523,10 +1533,10 @@ GitHub Issueを作成する際に含めるべき情報:
 
 ## 📚 関連リソース
 
-- **[FAQ](faq_ja.md)** - よくある質問
-- **[ユーザーガイド](user-guide/index_ja.md)** - 完全な使用ガイド
-- **[インストールガイド](installation_ja.md)** - 詳細なインストール手順
-- **[開発ガイド](dev-guide/index_ja.md)** - 開発者向け情報
+- **[FAQ](faq.md)** - よくある質問
+- **[ユーザーガイド](user-guide/index.md)** - 完全な使用ガイド
+- **[インストールガイド](installation.md)** - 詳細なインストール手順
+- **[開発ガイド](dev-guide/index.md)** - 開発者向け情報
 
 ---
 

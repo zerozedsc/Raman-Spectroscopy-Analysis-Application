@@ -624,8 +624,8 @@ stats.print_stats(20)  # トップ20を表示
 
 プロジェクトへの貢献に感謝します！
 
-- すべての貢献者は [CONTRIBUTORS.md](../CONTRIBUTORS.md) に記載されます
-- 重要な貢献は [CHANGELOG.md](../CHANGELOG.md) に記録されます
+- すべての貢献者は [CONTRIBUTORS.md](https://github.com/your-org/raman-app/blob/main/CONTRIBUTORS.md) に記載されます
+- 重要な貢献は [CHANGELOG.md](https://github.com/your-org/raman-app/blob/main/CHANGELOG.md) に記録されます
 
 ---
 

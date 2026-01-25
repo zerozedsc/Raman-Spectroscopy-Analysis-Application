@@ -24,6 +24,8 @@ extensions = [
     'sphinx.ext.ifconfig',
     'sphinx.ext.githubpages',
     'myst_parser',  # For Markdown support
+    'sphinx_design',
+    'sphinxcontrib.mermaid',
 ]
 
 # MyST Parser configuration for Markdown
@@ -68,7 +70,6 @@ html_theme_options = {
     'sticky_navigation': True,
     'includehidden': True,
     'titles_only': False,
-    'display_version': True,
     'prev_next_buttons_location': 'bottom',
     'style_external_links': False,
 }
@@ -127,7 +128,9 @@ myst_enable_extensions = [
     "tasklist",
 ]
 
-# -- Multi-language support --------------------------------------------------
-language = 'en'
-locale_dirs = ['locale/']
-gettext_compact = False
+# Render fenced mermaid blocks (```mermaid) as directives when sphinxcontrib-mermaid is installed.
+myst_fence_as_directive = {"mermaid"}
+
+# -- Localization ------------------------------------------------------------
+# Translation builds and locale directory configuration are handled by
+# docs/conf.py (selected via READTHEDOCS_LANGUAGE).

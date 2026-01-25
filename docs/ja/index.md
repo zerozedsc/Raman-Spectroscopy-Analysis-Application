@@ -4,6 +4,98 @@
 
 ---
 
+## 📋 目次
+
+```{toctree}
+:maxdepth: 2
+:caption: クイックスタート
+
+getting-started/index
+installation
+quick-start
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: ユーザーガイド
+
+user-guide/index
+user-guide/interface-overview
+user-guide/importing-data
+user-guide/preprocessing
+user-guide/analysis
+user-guide/machine-learning
+user-guide/best-practices
+user-guide/exporting-results
+user-guide/project-management
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: 分析手法
+
+analysis-methods/index
+analysis-methods/preprocessing
+analysis-methods/exploratory
+analysis-methods/statistical
+analysis-methods/machine-learning
+analysis-methods/comparison-tables
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: API リファレンス
+
+api/index
+api/core
+api/pages
+api/components
+api/functions
+api/widgets
+```
+
+```{toctree}
+:maxdepth: 2
+:caption: 開発ガイド
+
+dev-guide/index
+dev-guide/architecture
+dev-guide/contributing
+dev-guide/build-system
+dev-guide/testing
+```
+
+```{toctree}
+:maxdepth: 1
+:caption: 追加リソース
+
+changelog
+faq
+troubleshooting
+glossary
+references
+roadmap
+```
+
+```{toctree}
+:hidden:
+
+getting-started
+installation
+quick-start
+
+analysis-methods/index
+api/index
+dev-guide/index
+
+user-guide/index
+user-guide/importing-data
+user-guide/data-import
+user-guide/preprocessing
+user-guide/analysis
+user-guide/machine-learning
+```
+
 ## 🚀 クイックスタート
 
 初めてご利用の方は、こちらからお始めください：
@@ -190,7 +282,7 @@
 
 ## 📝 ライセンス
 
-このプロジェクトはMITライセンスの下でライセンスされています。詳細は[LICENSE](../LICENSE)をご覧ください。
+このプロジェクトはMITライセンスの下でライセンスされています。詳細は[LICENSE](https://github.com/your-org/raman-app/blob/main/LICENSE)をご覧ください。
 
 ---
 
@@ -198,7 +290,7 @@
 
 - **[GitHubリポジトリ](https://github.com/your-org/raman-app)**
 - **[リリースノート](https://github.com/your-org/raman-app/releases)**
-- **[変更履歴](../CHANGELOG.md)**
+- **[変更履歴](https://github.com/your-org/raman-app/blob/main/CHANGELOG.md)**
 - **[ウェブサイト](https://raman-app.example.com)**
 
 ---
@@ -251,7 +343,7 @@ docs/
 
 ドキュメントは以下の言語で利用可能です：
 
-- **English** - [Documentation Home](index.md)
+- **English** - [Documentation Home](https://raman-spectroscopy-analysis.readthedocs.io/en/latest/)
 - **日本語** - このページ
 
 ---

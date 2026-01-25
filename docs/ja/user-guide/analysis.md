@@ -6,17 +6,18 @@
 
 ## 📋 目次
 
-- [探索的データ分析](#探索的データ分析)
-- [次元削減](#次元削減)
-- [クラスタリング](#クラスタリング)
-- [統計分析](#統計分析)
-- [相関分析](#相関分析)
-- [ピーク解析](#ピーク解析)
-- [結果の解釈](#結果の解釈)
-- [レポート作成](#レポート作成)
+- {ref}`探索的データ分析 <ug-analysis-exploratory>`
+- {ref}`次元削減 <ug-analysis-dim-reduction>`
+- {ref}`クラスタリング <ug-analysis-clustering>`
+- {ref}`統計分析 <ug-analysis-statistical>`
+- {ref}`相関分析 <ug-analysis-correlation>`
+- {ref}`ピーク解析 <ug-analysis-peaks>`
+- {ref}`結果の解釈 <ug-analysis-interpretation>`
+- {ref}`レポート作成 <ug-analysis-reporting>`
 
 ---
 
+(ug-analysis-exploratory)=
 ## 探索的データ分析
 
 ### データの概要把握
@@ -81,6 +82,7 @@
 
 ---
 
+(ug-analysis-dim-reduction)=
 ## 次元削減
 
 ### PCA（Principal Component Analysis）
@@ -309,6 +311,7 @@ n_iter: 1000
 
 ---
 
+(ug-analysis-clustering)=
 ## クラスタリング
 
 ### K-means
@@ -506,6 +509,7 @@ min_samples: 5
 
 ---
 
+(ug-analysis-statistical)=
 ## 統計分析
 
 ### t検定
@@ -696,6 +700,7 @@ ANOVA の結果と併記
 
 ---
 
+(ug-analysis-correlation)=
 ## 相関分析
 
 ### ピアソン相関
@@ -755,6 +760,7 @@ ANOVA の結果と併記
 
 ---
 
+(ug-analysis-peaks)=
 ## ピーク解析
 
 ### ピーク検出
@@ -825,6 +831,7 @@ width: 最小ピーク幅
 
 ---
 
+(ug-analysis-interpretation)=
 ## 結果の解釈
 
 ### PCA結果の解釈
@@ -904,6 +911,7 @@ PC1のローディングが大きい波数:
 
 ---
 
+(ug-analysis-reporting)=
 ## レポート作成
 
 ### 自動レポート生成
@@ -971,10 +979,10 @@ DPI: 300（標準）、600（高品質）
 
 ## 🔗 関連ドキュメント
 
-- **[前処理ガイド](preprocessing_ja.md)** - データの前処理
-- **[機械学習](machine-learning_ja.md)** - MLモデル構築
-- **[分析手法索引](../analysis-methods/index_ja.md)** - 詳細な手法説明
-- **[FAQ](../faq_ja.md)** - よくある質問
+- **[前処理ガイド](preprocessing.md)** - データの前処理
+- **[機械学習](machine-learning.md)** - MLモデル構築
+- **[分析手法索引](../analysis-methods/index.md)** - 詳細な手法説明
+- **[FAQ](../faq.md)** - よくある質問
 
 ---
 

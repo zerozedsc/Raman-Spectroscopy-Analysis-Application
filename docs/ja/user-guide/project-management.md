@@ -6,19 +6,20 @@
 
 ## 📋 目次
 
-- [プロジェクトの概念](#プロジェクトの概念)
-- [プロジェクトの作成](#プロジェクトの作成)
-- [プロジェクトの保存](#プロジェクトの保存)
-- [プロジェクトの読み込み](#プロジェクトの読み込み)
-- [データ管理](#データ管理)
-- [前処理パイプライン管理](#前処理パイプライン管理)
-- [分析結果の管理](#分析結果の管理)
-- [バージョン管理](#バージョン管理)
-- [テンプレート](#テンプレート)
-- [バックアップ戦略](#バックアップ戦略)
+- {ref}`プロジェクトの概念 <ug-project-concepts>`
+- {ref}`プロジェクトの作成 <ug-project-create>`
+- {ref}`プロジェクトの保存 <ug-project-save>`
+- {ref}`プロジェクトの読み込み <ug-project-load>`
+- {ref}`データ管理 <ug-project-data>`
+- {ref}`前処理パイプライン管理 <ug-project-preprocess>`
+- {ref}`分析結果の管理 <ug-project-results>`
+- {ref}`バージョン管理 <ug-project-versioning>`
+- {ref}`テンプレート <ug-project-templates>`
+- {ref}`バックアップ戦略 <ug-project-backup>`
 
 ---
 
+(ug-project-concepts)=
 ## プロジェクトの概念
 
 ### プロジェクトとは
@@ -63,6 +64,7 @@
 
 ---
 
+(ug-project-create)=
 ## プロジェクトの作成
 
 ### 新規プロジェクト
@@ -110,6 +112,7 @@ Cmd+N（macOS）
 
 ---
 
+(ug-project-save)=
 ## プロジェクトの保存
 
 ### 基本的な保存
@@ -203,6 +206,7 @@ project_name/
 
 ---
 
+(ug-project-load)=
 ## プロジェクトの読み込み
 
 ### プロジェクトを開く
@@ -258,6 +262,7 @@ Cmd+O（macOS）
 
 ---
 
+(ug-project-data)=
 ## データ管理
 
 ### データの整理
@@ -319,6 +324,7 @@ Cmd+O（macOS）
 
 ---
 
+(ug-project-preprocess)=
 ## 前処理パイプライン管理
 
 ### パイプラインの保存
@@ -393,6 +399,7 @@ Cmd+O（macOS）
 
 ---
 
+(ug-project-results)=
 ## 分析結果の管理
 
 ### 結果の保存
@@ -468,6 +475,7 @@ results/
 
 ---
 
+(ug-project-versioning)=
 ## バージョン管理
 
 ### プロジェクトのバージョニング
@@ -534,6 +542,7 @@ PCA: Explained variance 70% → 78%
 
 ---
 
+(ug-project-templates)=
 ## テンプレート
 
 ### テンプレートの作成
@@ -596,6 +605,7 @@ PCA: Explained variance 70% → 78%
 
 ---
 
+(ug-project-backup)=
 ## バックアップ戦略
 
 ### 自動バックアップ
@@ -838,10 +848,10 @@ ProjectRoot/
 
 ## 🔗 関連ドキュメント
 
-- **[データインポートガイド](importing-data_ja.md)** - データのロード
-- **[前処理ガイド](preprocessing_ja.md)** - データの前処理
-- **[分析ガイド](analysis_ja.md)** - データ分析
-- **[FAQ](../faq_ja.md)** - よくある質問
+- **[データインポートガイド](importing-data.md)** - データのロード
+- **[前処理ガイド](preprocessing.md)** - データの前処理
+- **[分析ガイド](analysis.md)** - データ分析
+- **[FAQ](../faq.md)** - よくある質問
 
 ---
 

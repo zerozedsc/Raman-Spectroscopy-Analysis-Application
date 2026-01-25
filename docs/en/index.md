@@ -59,7 +59,7 @@ The Raman Spectroscopy Analysis Application is an **open-source**, **cross-platf
 This documentation is available in:
 
 - **English** (You are here)
-- **日本語** (Japanese) - [Switch to Japanese](ja/index.md)
+- **日本語** (Japanese) - [Switch to Japanese](https://raman-spectroscopy-analysis.readthedocs.io/ja/latest/)
 
 ## 📋 Table of Contents
 
@@ -112,10 +112,11 @@ api/widgets
 :maxdepth: 2
 :caption: Development
 
-development/architecture
-development/contributing
-development/build-system
-development/testing
+dev-guide/index
+dev-guide/architecture
+dev-guide/contributing
+dev-guide/build-system
+dev-guide/testing
 ```
 
 ```{toctree}
@@ -141,7 +142,7 @@ references
 
 ## 🤝 Contributing
 
-We welcome contributions from the community! See our [Contributing Guide](development/contributing.md) for details on:
+We welcome contributions from the community! See our [Contributing Guide](dev-guide/contributing.md) for details on:
 
 - Reporting bugs and requesting features
 - Submitting pull requests

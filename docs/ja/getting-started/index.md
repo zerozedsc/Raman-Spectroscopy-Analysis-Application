@@ -8,6 +8,16 @@
 
 このセクションでは、アプリケーションの使用方法を段階的に学べます。初心者から上級者まで、すべてのユーザー向けのチュートリアルとガイドを提供します。
 
+```{toctree}
+:hidden:
+:maxdepth: 1
+
+basic-workflow
+preprocessing-tutorial
+analysis-tutorial
+ml-tutorial
+```
+
 ---
 
 ## 🎯 学習パス
@@ -433,7 +443,7 @@ anomalies = detect_outliers(scores, threshold=3.0)
 4. 最適な正規化手法を選択
 5. 完全なパイプラインを文書化
 
-[ワークシートをダウンロード →](worksheets/preprocessing.pdf)
+ワークシート: 準備中（PDFは後日追加）
 
 ### ワークシート2: 探索的分析
 
@@ -446,7 +456,7 @@ anomalies = detect_outliers(scores, threshold=3.0)
 4. クラスタリングでグループを発見
 5. 結果を統合してレポート作成
 
-[ワークシートをダウンロード →](worksheets/exploratory.pdf)
+ワークシート: 準備中（PDFは後日追加）
 
 ### ワークシート3: モデル評価
 
@@ -459,7 +469,7 @@ anomalies = detect_outliers(scores, threshold=3.0)
 4. 混同行列を解釈
 5. 最適なモデルを選択して正当化
 
-[ワークシートをダウンロード →](worksheets/model-evaluation.pdf)
+ワークシート: 準備中（PDFは後日追加）
 
 ---
 

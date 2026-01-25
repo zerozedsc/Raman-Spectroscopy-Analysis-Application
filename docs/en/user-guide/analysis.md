@@ -3,15 +3,16 @@
 Complete guide to exploratory and statistical analysis of Raman spectroscopy data.
 
 ## Table of Contents
-- [Overview](#overview)
-- [Exploratory Analysis](#exploratory-analysis)
-- [Statistical Analysis](#statistical-analysis)
-- [Visualization Methods](#visualization-methods)
-- [Results Interpretation](#results-interpretation)
-- [Export and Reporting](#export-and-reporting)
+- {ref}`Overview <analysis-overview>`
+- {ref}`Exploratory Analysis <exploratory-analysis>`
+- {ref}`Statistical Analysis <statistical-analysis>`
+- {ref}`Visualization Methods <visualization-methods>`
+- {ref}`Results Interpretation <results-interpretation>`
+- {ref}`Export and Reporting <export-and-reporting>`
 
 ---
 
+(analysis-overview)=
 ## Overview
 
 ### Analysis Workflow
@@ -40,36 +41,15 @@ graph LR
 
 ### Analysis Page Interface
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│ Analysis Page                                    [⏸] [⏹]    │
-├───────────────┬──────────────────────────────────────────────┤
-│               │                                              │
-│ Input Data    │  Method Selection Tabs:                      │
-│ ☑ Dataset 1   │  [Exploratory] [Statistical] [Visualization] │
-│ ☑ Dataset 2   │                                              │
-│ ☐ Dataset 3   │  ┌────────────────────────────────────────┐ │
-│               │  │  PCA (Principal Component Analysis)     │ │
-│ Grouped Mode  │  │  • Reduce dimensionality                │ │
-│ ○ Ungrouped   │  │  • Visualize variance                   │ │
-│ ● Grouped     │  │  • Identify patterns                    │ │
-│               │  │                                         │ │
-│ Groups:       │  │  N Components: [3        ▼]            │ │
-│ ☑ Healthy     │  │  Scaling: [StandardScaler ▼]           │ │
-│ ☑ Disease A   │  │                                         │ │
-│ ☑ Disease B   │  │  [Run Analysis]                         │ │
-│               │  └────────────────────────────────────────┘ │
-│ [Run]         │                                              │
-│               │  Results Panel (appears after running):      │
-│               │  ┌────────────────────────────────────────┐ │
-│               │  │ [Scores Plot] [Loadings] [Scree Plot]  │ │
-│               │  │                                         │ │
-│               │  │  [Visualization Area]                   │ │
-│               │  │                                         │ │
-│               │  │  Explained Variance: 85.3%              │ │
-│               │  └────────────────────────────────────────┘ │
-└───────────────┴──────────────────────────────────────────────┘
-```
+![Analysis Page Layout](../../assets/screenshots/en/analysis-page.png)
+
+*Figure: Analysis page showing dataset selector (left), method selection tabs (top-center), parameter panel (center), and results panel (right/bottom)*
+
+> **Note**: The analysis page features:
+> - **Left Panel**: Input data selection with grouped/ungrouped mode
+> - **Top-Center**: Method category tabs (Exploratory, Statistical, Visualization)
+> - **Center**: Method selection and parameter configuration
+> - **Right/Bottom**: Results panel with interactive plots and summary statistics
 
 **Key Features**:
 - **Pause [⏸]**: Pause long-running operations
@@ -79,7 +59,7 @@ graph LR
 - **Interactive Plots**: Zoom, pan, and export
 
 ---
-
+(exploratory-analysis)=
 ## Exploratory Analysis
 
 ### Principal Component Analysis (PCA)
@@ -299,6 +279,7 @@ Inertia
 
 ---
 
+(statistical-analysis)=
 ## Statistical Analysis
 
 ### Pairwise Group Comparisons
@@ -468,6 +449,7 @@ I₁₆₅₅/I₁₄₄₅ ratio (Amide I / CH₂)
 
 ---
 
+(visualization-methods)=
 ## Visualization Methods
 
 ### Interactive Heatmap
@@ -542,6 +524,7 @@ Peak @ 1655 cm⁻¹
 
 ---
 
+(results-interpretation)=
 ## Results Interpretation
 
 ### Statistical Significance
@@ -625,6 +608,7 @@ Significant peak @ 1655 cm⁻¹ (Amide I)
 
 ---
 
+(export-and-reporting)=
 ## Export and Reporting
 
 ### Export Options
@@ -754,7 +738,7 @@ Figure → Export Settings
 - [Machine Learning Guide](machine-learning.md) - Next step: Build ML models
 - [Analysis Methods Reference](../analysis-methods/index.md) - Detailed method documentation
 - [Best Practices](best-practices.md) - Analysis recommendations
-- [FAQ - Analysis](../faq.md#analysis) - Common questions
+- {ref}`FAQ - Analysis <faq-analysis>` - Common questions
 
 ---
 

@@ -3,19 +3,20 @@
 Reference documentation for custom Qt widgets.
 
 ## Table of Contents
-- [Widget Architecture](#widget-architecture)
-- [Enhanced Parameter Widgets](#enhanced-parameter-widgets)
-- [Constrained Parameter Widgets](#constrained-parameter-widgets)
-- [Icons and Resources](#icons-and-resources)
-- [Matplotlib Widget](#matplotlib-widget)
-- [Component Selector Panel](#component-selector-panel)
-- [Results Panel Details](#results-panel-details)
-- [Views Widget](#views-widget)
-- [Grouping Widgets](#grouping-widgets)
-- [Custom Dialogs](#custom-dialogs)
+- {ref}`Widget Architecture <widget-architecture>`
+- {ref}`Enhanced Parameter Widgets <enhanced-parameter-widgets>`
+- {ref}`Constrained Parameter Widgets <constrained-parameter-widgets>`
+- {ref}`Icons and Resources <icons-and-resources>`
+- {ref}`Matplotlib Widget <matplotlib-widget>`
+- {ref}`Component Selector Panel <component-selector-panel>`
+- {ref}`Results Panel Details <results-panel-details>`
+- {ref}`Views Widget <views-widget>`
+- {ref}`Grouping Widgets <grouping-widgets>`
+- {ref}`Custom Dialogs <custom-dialogs>`
 
 ---
 
+(widget-architecture)=
 ## Widget Architecture
 
 ### Base Widget Principles
@@ -65,6 +66,7 @@ class CustomWidget(QWidget):
 
 ---
 
+(enhanced-parameter-widgets)=
 ## Enhanced Parameter Widgets
 
 ### components/widgets/enhanced_parameter_widgets.py
@@ -293,6 +295,7 @@ min_wn, max_wn = widget.get_value()  # Returns tuple
 
 ---
 
+(constrained-parameter-widgets)=
 ## Constrained Parameter Widgets
 
 ### components/widgets/constrained_parameter_widgets.py
@@ -373,6 +376,7 @@ widget = AutoValidatingComboBox(
 
 ---
 
+(icons-and-resources)=
 ## Icons and Resources
 
 ### components/widgets/icons.py
@@ -456,6 +460,7 @@ button.clicked.connect(self.start_analysis)
 
 ---
 
+(matplotlib-widget)=
 ## Matplotlib Widget
 
 ### components/widgets/matplotlib_widget.py
@@ -616,6 +621,7 @@ Enable hover tooltips showing (x, y) coordinates.
 
 ---
 
+(component-selector-panel)=
 ## Component Selector Panel
 
 ### components/widgets/component_selector_panel.py
@@ -652,30 +658,14 @@ pipeline = panel.get_pipeline()
 
 **UI Components**:
 
-```
-┌─────────────────────────────────────┐
-│ Method Categories                    │
-│ [Baseline] [Smoothing] [Norm] [...]  │
-├─────────────────────────────────────┤
-│ Available Methods                    │
-│ ┌────┐ ┌────┐ ┌────┐               │
-│ │AsLS│ │SavG│ │Norm│  [+ Add]      │
-│ └────┘ └────┘ └────┘               │
-├─────────────────────────────────────┤
-│ Pipeline Steps          [↑][↓][×]   │
-│                                      │
-│ 1. ☑ AsLS Baseline                  │
-│    λ: 100000, p: 0.01          [⚙] │
-│                                      │
-│ 2. ☑ Savitzky-Golay                │
-│    window: 11, order: 3        [⚙] │
-│                                      │
-│ 3. ☑ Vector Normalization           │
-│                                [⚙] │
-│                                      │
-│ [+ Add Step]                         │
-└─────────────────────────────────────┘
-```
+![Component selector panel (screenshot)](../../assets/screenshots/en/preprocessing-page.png)
+
+*Figure: Preprocessing page showing the pipeline builder (method categories, available methods, and pipeline steps)*
+
+Layout (high level):
+- Method categories (tabs)
+- Available methods list + add
+- Pipeline steps list (enable/disable, reorder, settings)
 
 **Methods**:
 
@@ -824,6 +814,7 @@ if not is_valid:
 
 ---
 
+(results-panel-details)=
 ## Results Panel Details
 
 ### components/widgets/results_panel.py
@@ -920,6 +911,7 @@ panel.export_all('results/session_20260124', format='xlsx')
 
 ---
 
+(views-widget)=
 ## Views Widget
 
 ### components/widgets/views_widget.py
@@ -999,6 +991,7 @@ table.export_selected('selected_spectra.csv', format='csv')
 
 ---
 
+(grouping-widgets)=
 ## Grouping Widgets
 
 ### components/widgets/grouping/
@@ -1032,24 +1025,9 @@ assignments = manager.get_group_assignments()
 
 **UI Layout**:
 
-```
-┌───────────────────────────────────────┐
-│ Groups                [+ New] [Edit]  │
-│ ┌─────────────────────────────────┐  │
-│ │ ● Control (n=25)          [...]  │  │
-│ │ ● Treatment (n=30)        [...]  │  │
-│ │ ● Unassigned (n=5)        [...]  │  │
-│ └─────────────────────────────────┘  │
-├───────────────────────────────────────┤
-│ Samples                [Select All]   │
-│ ☐ Sample1 → Control                   │
-│ ☐ Sample2 → Control                   │
-│ ☐ Sample3 → Treatment                 │
-│ ...                                    │
-│                                        │
-│ [Assign to Group ▼]                   │
-└───────────────────────────────────────┘
-```
+![Group management and sample assignment (screenshot)](../../assets/screenshots/en/ml-page.png)
+
+*Figure: ML page showing group management and sample assignment controls*
 
 **Methods**:
 
@@ -1129,6 +1107,7 @@ is_valid, warnings = manager.validate_groups()
 
 ---
 
+(custom-dialogs)=
 ## Custom Dialogs
 
 ### Parameter Editor Dialog
@@ -1339,7 +1318,7 @@ class LazyTableWidget(QTableWidget):
 - [Pages API](pages.md) - Application pages
 - [Components API](components.md) - High-level components
 - [Functions API](functions.md) - Processing functions
-- [User Guide: Interface](../user-guide/interface.md)
+- [User Guide: Interface](../user-guide/interface-overview.md)
 
 ---
 

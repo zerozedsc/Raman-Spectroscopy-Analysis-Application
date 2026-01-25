@@ -34,6 +34,7 @@ html_theme_options.update({
     'titles_only': False,
 })
 
-# Locale directories (for gettext if ever needed)
-locale_dirs = ['../docs/locale/']
+# Locale directory (only used if you manage translations via gettext catalogs)
+locale_dirs = ['../locale/']
 gettext_compact = False
+gettext_uuid = True

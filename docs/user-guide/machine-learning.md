@@ -19,41 +19,10 @@ Complete guide to building, training, evaluating, and deploying machine learning
 
 The ML page provides a complete workflow for supervised learning:
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│ Machine Learning Page                         [⏸] [⏹]        │
-├───────────────┬──────────────────────────────────────────────┤
-│               │  Algorithm Selection:                         │
-│ Training Data │  ┌─────────────────────────────────────────┐ │
-│ ☑ Dataset 1   │  │ [SVM] [RF] [XGBoost] [LR] [MLP]        │ │
-│ ☑ Dataset 2   │  └─────────────────────────────────────────┘ │
-│               │                                              │
-│ Groups:       │  Validation Strategy:                        │
-│ ☑ Healthy (0) │  ● GroupKFold (Patient-level) n=5           │
-│ ☑ Disease (1) │  ○ Stratified K-Fold                        │
-│               │  ○ Leave-One-Patient-Out (LOPOCV)           │
-│ Test Set      │  ○ Hold-out Test Set (20%)                  │
-│ ☐ External    │                                              │
-│               │  Hyperparameter Optimization:                │
-│ [Select Test] │  ○ None (use defaults)                      │
-│               │  ● Grid Search                               │
-│               │  ○ Random Search                             │
-│ [Train Model] │  ○ Bayesian Optimization                    │
-│               │                                              │
-│               │  [Configure] [Train Model]                   │
-├───────────────┴──────────────────────────────────────────────┤
-│  Results Dashboard (appears after training):                 │
-│  [Summary] [ROC Curves] [Confusion Matrix] [Feature Import]  │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │ Model: Random Forest                                   │  │
-│  │ Cross-Validation Accuracy: 92.3 ± 3.1%                 │  │
-│  │ Test Set Accuracy: 91.5%                               │  │
-│  │ AUC-ROC: 0.967                                         │  │
-│  │                                                        │  │
-│  │ [View Detailed Results] [Export Model] [Save Report]   │  │
-│  └────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────┘
-```
+![Machine Learning page layout (screenshot)](../assets/screenshots/en/ml-page.png)
+
+*Figure: Machine Learning page layout (algorithm selection, validation strategy, training controls, results dashboard).* \
+*Add the real screenshot at* `docs/assets/screenshots/en/ml-page.png`.
 
 ### When to Use ML
 

@@ -3,39 +3,26 @@
 Complete guide to the Raman Spectroscopy Analysis Application user interface.
 
 ## Table of Contents
-- [Main Window Layout](#main-window-layout)
-- [Navigation System](#navigation-system)
-- [Common UI Elements](#common-ui-elements)
-- [Keyboard Shortcuts](#keyboard-shortcuts)
-- [Customization](#customization)
+- {ref}`Main Window Layout <main-window-layout>`
+- {ref}`Navigation System <navigation-system>`
+- {ref}`Common UI Elements <common-ui-elements>`
+- {ref}`Keyboard Shortcuts <keyboard-shortcuts>`
+- {ref}`Customization <customization>`
 
 ---
 
+(main-window-layout)=
 ## Main Window Layout
 
 The application uses a modern tabbed interface with consistent organization across all pages.
 
 ### Window Structure
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Raman Spectroscopy Analysis Application         [_ □ X]    │
-├─────────────────────────────────────────────────────────────┤
-│  File  Edit  View  Tools  Settings  Help     [EN/JA] 🌙     │
-├─────────────────────────────────────────────────────────────┤
-│  🏠 Home  📦 Data  🔧 Preprocess  📊 Analysis  🤖 ML  💼 WS │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│                     [Main Content Area]                       │
-│                                                               │
-│                                                               │
-│                                                               │
-│                                                               │
-│                                                               │
-├─────────────────────────────────────────────────────────────┤
-│  Status: Ready | Project: blood_plasma_2026 | Memory: 45%   │
-└─────────────────────────────────────────────────────────────┘
-```
+![Main Window Layout](../../assets/screenshots/en/data-package-page.png)
+
+*Figure: Main application window showing title bar, menu bar, tab navigation, and status bar*
+
+> **Note**: Screenshot shows the default light theme. The actual screenshot will be captured and placed in `docs/assets/screenshots/en/data-package-page.png`.
 
 ### Key Components
 
@@ -76,6 +63,7 @@ The application uses a modern tabbed interface with consistent organization acro
 
 ---
 
+(navigation-system)=
 ## Navigation System
 
 ### Tab-Based Navigation
@@ -84,6 +72,12 @@ The application uses **page-based architecture** where each major function has i
 
 #### Home Page
 **Purpose**: Project dashboard and quick actions
+
+![Home Page](../../assets/screenshots/en/home-page.png)
+
+*Figure: Home page showing recent projects, quick actions, and system status*
+
+> **Note**: Screenshot will show the dashboard with recent projects list, quick start tutorials, and system overview.
 
 - Recent projects list
 - Quick start tutorials
@@ -99,6 +93,12 @@ The application uses **page-based architecture** where each major function has i
 #### Data Package Page
 **Purpose**: Data import, organization, and management
 
+![Data Package Page](../../assets/screenshots/en/data-package-page.png)
+
+*Figure: Data Package page with file browser, dataset list, and preview panel*
+
+> **Note**: Screenshot will show the file browser panel, data validation interface, and group assignment tools.
+
 - File browser for CSV/TXT import
 - Data validation and preview
 - Group assignment for samples
@@ -112,6 +112,12 @@ The application uses **page-based architecture** where each major function has i
 
 #### Preprocess Page
 **Purpose**: Build and apply preprocessing pipelines
+
+![Preprocessing Page](../../assets/screenshots/en/preprocessing-page.png)
+
+*Figure: Preprocessing page showing method selector, parameter panel, pipeline builder, and preview plot*
+
+> **Note**: Screenshot will show the 40+ preprocessing methods selector, parameter configuration panel, and real-time preview.
 
 - Method selector panel (40+ methods)
 - Parameter configuration
@@ -128,6 +134,12 @@ The application uses **page-based architecture** where each major function has i
 #### Analysis Page
 **Purpose**: Exploratory and statistical analysis
 
+![Analysis Page](../../assets/screenshots/en/analysis-page.png)
+
+*Figure: Analysis page with method categories, dataset selector, and interactive plot viewer*
+
+> **Note**: Screenshot will show the exploratory/statistical/visualization tabs, dataset selection panel, and results display.
+
 - Method category tabs (Exploratory, Statistical, Visualization)
 - Interactive plot viewers
 - Results export
@@ -141,6 +153,12 @@ The application uses **page-based architecture** where each major function has i
 
 #### Machine Learning Page
 **Purpose**: Train, validate, and deploy ML models
+
+![Machine Learning Page](../../assets/screenshots/en/ml-page.png)
+
+*Figure: Machine Learning page showing algorithm selector, hyperparameter tuning panel, and evaluation dashboard*
+
+> **Note**: Screenshot will show the ML algorithm selection, cross-validation setup, and model performance metrics.
 
 - Algorithm selection panel
 - Hyperparameter tuning
@@ -168,8 +186,9 @@ The application uses **page-based architecture** where each major function has i
 - Configure settings
 - Clean temporary files
 
----
+ ---
 
+(common-ui-elements)=
 ## Common UI Elements
 
 ### Panels and Widgets
@@ -178,17 +197,9 @@ The application uses **page-based architecture** where each major function has i
 
 Located on the left side of most pages for selecting input data.
 
-```
-┌─────────────────────────┐
-│ Input Datasets          │
-├─────────────────────────┤
-│ ☑ blood_plasma_001.csv  │
-│ ☑ blood_plasma_002.csv  │
-│ ☐ blood_plasma_003.csv  │
-│                         │
-│ [Select All] [Clear]    │
-└─────────────────────────┘
-```
+**Layout**: Vertical panel with checkboxes for each dataset, plus "Select All" and "Clear" buttons at the bottom.
+
+> **Visual Reference**: See the Data Package Page screenshot for the actual appearance of this component.
 
 **Features**:
 - Multi-selection with checkboxes
@@ -200,17 +211,9 @@ Located on the left side of most pages for selecting input data.
 
 Standard interface for method configuration.
 
-```
-┌─────────────────────────────────┐
-│ Method Parameters               │
-├─────────────────────────────────┤
-│ Window Size:      [11      ▼]  │
-│ Polynomial Order: [3       ▼]  │
-│ Derivative Order: [0       ▼]  │
-│                                 │
-│ [Reset] [Apply] [Add to Pipeline] │
-└─────────────────────────────────┘
-```
+**Layout**: Vertical panel with labeled parameters (Window Size, Polynomial Order, Derivative Order, etc.), each with appropriate input widgets (dropdowns, sliders, spinboxes). Action buttons (Reset, Apply, Add to Pipeline) are placed at the bottom.
+
+> **Visual Reference**: See the Preprocessing Page screenshot for the actual parameter panel appearance.
 
 **Features**:
 - Dropdown menus for discrete choices
@@ -224,20 +227,9 @@ Standard interface for method configuration.
 
 Standard layout for displaying analysis results.
 
-```
-┌─────────────────────────────────────────┐
-│ Results                    [📋 📊 💾]  │
-├─────────────────────────────────────────┤
-│                                         │
-│           [Plot or Table]               │
-│                                         │
-├─────────────────────────────────────────┤
-│ Summary Statistics:                     │
-│ • Explained Variance: 85.3%             │
-│ • Number of Components: 3               │
-│ • Processing Time: 1.2s                 │
-└─────────────────────────────────────────┘
-```
+**Layout**: Panel with "Results" header and action buttons (Copy 📋, Export Plot 📊, Save Data 💾) in the top-right. Main area shows plots or tables. Summary statistics are displayed below the main result.
+
+> **Visual Reference**: See the Analysis Page and ML Page screenshots for actual results panel appearances.
 
 **Features**:
 - **📋**: Copy results to clipboard
@@ -250,12 +242,7 @@ Standard layout for displaying analysis results.
 
 Non-intrusive notifications for user feedback.
 
-```
-┌─────────────────────────────────┐
-│ ✓ Pipeline applied successfully │
-│   Processed 150 spectra in 2.3s │
-└─────────────────────────────────┘
-```
+**Appearance**: Small popup notification in the bottom-right corner of the window, showing an icon (✓, ℹ️, ⚠️, or ✗) followed by a brief message and optional details. Auto-dismisses after 3-5 seconds.
 
 **Types**:
 - **Success** (✓ green): Operation completed
@@ -269,44 +256,21 @@ Non-intrusive notifications for user feedback.
 
 Used for assigning samples to multiple groups.
 
-```
-┌─────────────────────────────────────┐
-│ Assign Samples to Groups       [X] │
-├─────────────────────────────────────┤
-│ Available Groups:                   │
-│ ☑ Healthy Control                   │
-│ ☑ Disease Group A                   │
-│ ☐ Disease Group B                   │
-│                                     │
-│ [+ New Group] [Edit] [Delete]       │
-├─────────────────────────────────────┤
-│          [Cancel] [OK]              │
-└─────────────────────────────────────┘
-```
+**Layout**: Modal dialog with "Assign Samples to Groups" title. Checkboxes list available groups. Management buttons (+ New Group, Edit, Delete) below the list. Standard Cancel/OK buttons at the bottom.
+
+> **Visual Reference**: See the Data Package Page screenshot showing group management dialogs.
 
 #### External Evaluation Dialog
 
 For uploading test sets for model evaluation.
 
-```
-┌─────────────────────────────────────┐
-│ External Test Set Evaluation   [X] │
-├─────────────────────────────────────┤
-│ Test Data File:                     │
-│ [Browse...] test_data.csv           │
-│                                     │
-│ Labels File (optional):             │
-│ [Browse...] test_labels.csv         │
-│                                     │
-│ Model File:                         │
-│ [Browse...] trained_model.pkl       │
-├─────────────────────────────────────┤
-│          [Cancel] [Evaluate]        │
-└─────────────────────────────────────┘
-```
+**Layout**: Modal dialog with "External Test Set Evaluation" title. Three file selection rows: Test Data File (required), Labels File (optional), and Model File (required). Each row has a "Browse..." button and displays the selected filename. Cancel and Evaluate buttons at the bottom.
 
----
+> **Visual Reference**: See the Machine Learning Page screenshot showing evaluation dialogs.
 
+ ---
+
+(keyboard-shortcuts)=
 ## Keyboard Shortcuts
 
 ### Global Shortcuts
@@ -371,8 +335,9 @@ For uploading test sets for model evaluation.
 | `Ctrl + Shift + C` | Copy plot to clipboard |
 | `Ctrl + Shift + S` | Save plot as image     |
 
----
+ ---
 
+(customization)=
 ## Customization
 
 ### Theme Selection
@@ -412,14 +377,9 @@ For uploading test sets for model evaluation.
 
 Display data and results side-by-side:
 
-```
-┌──────────────────────┬──────────────────────┐
-│                      │                      │
-│   Input Data         │   Results            │
-│                      │                      │
-│                      │                      │
-└──────────────────────┴──────────────────────┘
-```
+![Split-View Mode (screenshot)](../../assets/screenshots/en/data-package-page.png)
+
+*Figure: Split-view layout (data on left, results on right)*
 
 **Enable**: `View → Layout → Split View` or `Ctrl + Shift + 2`
 
@@ -603,9 +563,9 @@ All features accessible via keyboard:
 ## See Also
 
 - [Data Import Guide](data-import.md) - Detailed data management
-- [Keyboard Shortcuts Reference](../troubleshooting.md#keyboard-shortcuts) - Complete shortcut list
-- [Settings and Preferences](../faq.md#settings) - Configuration options
-- [Accessibility Documentation](../faq.md#accessibility) - Detailed accessibility features
+- [Keyboard Shortcuts Reference](../troubleshooting.md) - Shortcut troubleshooting and tips
+- [Settings and Preferences](../faq.md) - Configuration options
+- [Accessibility Documentation](../faq.md) - Accessibility features
 
 ---
 

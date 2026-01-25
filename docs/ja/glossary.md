@@ -13,7 +13,7 @@
 - lambda（λ）: スムーズネス（10²～10⁸）
 - p: 非対称性（0.001～0.5）
 
-**関連**: [Baseline Correction](#baseline-correction), [AirPLS](#airpls)
+**関連**: Baseline Correction, AirPLS
 
 ---
 
@@ -22,7 +22,7 @@
 
 **特徴**: 自動的にベースラインを推定、パラメータ調整が簡単
 
-**関連**: [AsLS](#asls), [Baseline Correction](#baseline-correction)
+**関連**: AsLS, Baseline Correction
 
 ---
 
@@ -34,7 +34,7 @@
 
 **事後検定**: Tukey HSD、Bonferroni、Dunnett
 
-**関連**: [t-test](#t-test), [Post-hoc Test](#post-hoc-test), [Multiple Comparison Correction](#multiple-comparison-correction)
+**関連**: t-test, Post-hoc Test, Multiple Comparison Correction
 
 ---
 
@@ -43,7 +43,7 @@
 
 **用途**: 自動化、バッチ処理、カスタムワークフロー
 
-**関連**: [Python API](#python-api), [Batch Processing](#batch-processing)
+**関連**: Python API, Batch Processing
 
 ---
 
@@ -60,7 +60,7 @@
 
 **目的**: ピークの明瞭化、定量分析の精度向上
 
-**関連**: [AsLS](#asls), [AirPLS](#airpls), [Fluorescence](#fluorescence)
+**関連**: AsLS, AirPLS, Fluorescence
 
 ---
 
@@ -71,7 +71,7 @@
 
 **利点**: 効率性、一貫性、再現性
 
-**関連**: [Pipeline](#pipeline), [Automation](#automation)
+**関連**: Pipeline, Automation
 
 ---
 
@@ -84,7 +84,7 @@
 
 **解釈**: サンプルの配置と、それに寄与する変数の関係を同時に可視化
 
-**関連**: [PCA](#pca), [Score Plot](#score-plot), [Loading Plot](#loading-plot)
+**関連**: PCA, Score Plot, Loading Plot
 
 ---
 
@@ -98,7 +98,7 @@
 
 **特徴**: 保守的（偽陽性は減るが、偽陰性が増える）
 
-**関連**: [FDR](#fdr), [Multiple Comparison Correction](#multiple-comparison-correction)
+**関連**: FDR, Multiple Comparison Correction
 
 ---
 
@@ -111,7 +111,7 @@
 
 **用途**: 非常にノイズの多いデータ、従来手法で不十分な場合
 
-**関連**: [Smoothing](#smoothing), [Deep Learning](#deep-learning)
+**関連**: Smoothing, Deep Learning
 
 ---
 
@@ -125,7 +125,7 @@
 
 **用途**: データの構造発見、グループ化、外れ値検出
 
-**関連**: [K-means](#k-means), [Hierarchical Clustering](#hierarchical-clustering), [DBSCAN](#dbscan)
+**関連**: K-means, Hierarchical Clustering, DBSCAN
 
 ---
 
@@ -140,7 +140,7 @@
 - 0.5 ≤ |d| < 0.8: 大きい
 - |d| ≥ 0.8: 非常に大きい
 
-**関連**: [Effect Size](#effect-size), [t-test](#t-test), [Eta-squared](#eta-squared)
+**関連**: Effect Size, t-test, Eta-squared
 
 ---
 
@@ -155,7 +155,7 @@
 
 **派生メトリクス**: Accuracy、Precision、Recall、F1-score
 
-**関連**: [Accuracy](#accuracy), [Precision](#precision), [Recall](#recall), [F1-score](#f1-score)
+**関連**: Accuracy, Precision, Recall, F1-score
 
 ---
 
@@ -168,7 +168,7 @@
 
 **例**: 5-fold CV → 5回の評価の平均
 
-**関連**: [Train/Test Split](#traintest-split), [Overfitting](#overfitting)
+**関連**: Train/Test Split, Overfitting
 
 ---
 
@@ -186,7 +186,7 @@
 - eps: 近傍の半径
 - min_samples: コアポイントの最小サンプル数
 
-**関連**: [K-means](#k-means), [Clustering](#clustering), [Outlier Detection](#outlier-detection)
+**関連**: K-means, Clustering, Outlier Detection
 
 ---
 
@@ -200,7 +200,7 @@
 
 **活用**: 切断線の設定によりクラスター数を決定
 
-**関連**: [Hierarchical Clustering](#hierarchical-clustering)
+**関連**: Hierarchical Clustering
 
 ---
 
@@ -214,7 +214,7 @@
 - UMAP（非線形）
 - t-SNE（非線形）
 
-**関連**: [PCA](#pca), [UMAP](#umap), [t-SNE](#t-sne)
+**関連**: PCA, UMAP, t-SNE
 
 ---
 
@@ -230,7 +230,7 @@
 - Eta-squared（ANOVA用）
 - Pearson's r（相関用）
 
-**関連**: [Cohen's d](#cohens-d), [Eta-squared](#eta-squared), [Statistical Significance](#statistical-significance)
+**関連**: Cohen's d, Eta-squared, Statistical Significance
 
 ---
 
@@ -244,7 +244,7 @@
 
 **解釈**: エルボーポイント = 最適なk
 
-**関連**: [K-means](#k-means), [Silhouette Analysis](#silhouette-analysis)
+**関連**: K-means, Silhouette Analysis
 
 ---
 
@@ -255,7 +255,7 @@
 
 **用途**: 粉末試料、不均一試料、散乱の影響が大きい場合
 
-**関連**: [MSC](#msc), [SNV](#snv), [Scattering](#scattering)
+**関連**: MSC, SNV, Scattering
 
 ---
 
@@ -272,7 +272,7 @@
 
 **意味**: グループ間の差で説明される分散の割合
 
-**関連**: [ANOVA](#anova), [Effect Size](#effect-size), [Cohen's d](#cohens-d)
+**関連**: ANOVA, Effect Size, Cohen's d
 
 ---
 
@@ -287,7 +287,7 @@ F1スコア。PrecisionとRecallの調和平均。
 
 **用途**: 不均衡データでの分類性能評価
 
-**関連**: [Precision](#precision), [Recall](#recall), [Accuracy](#accuracy)
+**関連**: Precision, Recall, Accuracy
 
 ---
 
@@ -298,7 +298,7 @@ F1スコア。PrecisionとRecallの調和平均。
 
 **用途**: リアルタイム処理、大規模データ
 
-**関連**: [Baseline Correction](#baseline-correction), [AsLS](#asls)
+**関連**: Baseline Correction, AsLS
 
 ---
 
@@ -311,7 +311,7 @@ F1スコア。PrecisionとRecallの調和平均。
 
 **特徴**: Bonferroni補正より緩やか（発見力が高い）
 
-**関連**: [Bonferroni Correction](#bonferroni-correction), [Multiple Comparison Correction](#multiple-comparison-correction)
+**関連**: Bonferroni Correction, Multiple Comparison Correction
 
 ---
 
@@ -326,7 +326,7 @@ F1スコア。PrecisionとRecallの調和平均。
 
 **目的**: モデル性能の向上、物理的解釈の追加
 
-**関連**: [Feature Selection](#feature-selection), [Machine Learning](#machine-learning)
+**関連**: Feature Selection, Machine Learning
 
 ---
 
@@ -342,7 +342,7 @@ F1スコア。PrecisionとRecallの調和平均。
 
 **対応アルゴリズム**: Random Forest、XGBoost
 
-**関連**: [Feature Selection](#feature-selection), [Random Forest](#random-forest), [XGBoost](#xgboost)
+**関連**: Feature Selection, Random Forest, XGBoost
 
 ---
 
@@ -356,7 +356,7 @@ F1スコア。PrecisionとRecallの調和平均。
 
 **利点**: 過学習の防止、計算時間の短縮、解釈性の向上
 
-**関連**: [Feature Importance](#feature-importance), [RFE](#rfe)
+**関連**: Feature Importance, RFE
 
 ---
 
@@ -367,7 +367,7 @@ F1スコア。PrecisionとRecallの調和平均。
 
 **対策**: ベースライン補正、長波長励起（1064nm）、時間分解測定
 
-**関連**: [Baseline Correction](#baseline-correction), [AsLS](#asls)
+**関連**: Baseline Correction, AsLS
 
 ---
 
@@ -382,7 +382,7 @@ F1スコア。PrecisionとRecallの調和平均。
 
 **利点**: 統計的根拠のあるクラスター数の決定
 
-**関連**: [K-means](#k-means), [Elbow Method](#elbow-method), [Silhouette Analysis](#silhouette-analysis)
+**関連**: K-means, Elbow Method, Silhouette Analysis
 
 ---
 
@@ -393,7 +393,7 @@ F1スコア。PrecisionとRecallの調和平均。
 
 **用途**: ノイズ除去、ピーク形状の保持
 
-**関連**: [Smoothing](#smoothing), [Savitzky-Golay](#savitzky-golay)
+**関連**: Smoothing, Savitzky-Golay
 
 ---
 
@@ -407,7 +407,7 @@ F1スコア。PrecisionとRecallの調和平均。
 
 **欠点**: 計算コストが高い（組み合わせ数の爆発）
 
-**関連**: [Random Search](#random-search), [Hyperparameter Tuning](#hyperparameter-tuning)
+**関連**: Random Search, Hyperparameter Tuning
 
 ---
 
@@ -425,7 +425,7 @@ F1スコア。PrecisionとRecallの調和平均。
 
 **リンケージ法**: Ward、Average、Complete、Single
 
-**関連**: [Dendrogram](#dendrogram), [Clustering](#clustering)
+**関連**: Dendrogram, Clustering
 
 ---
 
@@ -437,7 +437,7 @@ F1スコア。PrecisionとRecallの調和平均。
 - Random Search
 - Bayesian Optimization
 
-**関連**: [Grid Search](#grid-search), [Random Search](#random-search)
+**関連**: Grid Search, Random Search
 
 ---
 
@@ -456,7 +456,7 @@ K平均法。最も基本的なクラスタリング手法。
 
 **制約**: 球形のクラスターを仮定
 
-**関連**: [Clustering](#clustering), [Elbow Method](#elbow-method), [Silhouette Analysis](#silhouette-analysis)
+**関連**: Clustering, Elbow Method, Silhouette Analysis
 
 ---
 
@@ -474,7 +474,7 @@ K平均法。最も基本的なクラスタリング手法。
 - 過学習: 訓練高、検証低
 - 過小適合: 両方低
 
-**関連**: [Overfitting](#overfitting), [Underfitting](#underfitting), [Validation Curve](#validation-curve)
+**関連**: Overfitting, Underfitting, Validation Curve
 
 ---
 
@@ -490,7 +490,7 @@ K平均法。最も基本的なクラスタリング手法。
 - 負の値: 負の方向に動かす
 - ゼロ: 寄与しない
 
-**関連**: [PCA](#pca), [Score Plot](#score-plot)
+**関連**: PCA, Score Plot
 
 ---
 
@@ -503,7 +503,7 @@ K平均法。最も基本的なクラスタリング手法。
 
 **主要パラメータ**: C（正則化の強さの逆数）
 
-**関連**: [Linear Regression](#linear-regression), [Machine Learning](#machine-learning)
+**関連**: Linear Regression, Machine Learning
 
 ---
 
@@ -523,7 +523,7 @@ K平均法。最も基本的なクラスタリング手法。
 - 品質管理
 - 異常検出
 
-**関連**: [Supervised Learning](#supervised-learning), [Unsupervised Learning](#unsupervised-learning)
+**関連**: Supervised Learning, Unsupervised Learning
 
 ---
 
@@ -536,7 +536,7 @@ K平均法。最も基本的なクラスタリング手法。
 
 **用途**: 機械学習の前処理、可視化
 
-**関連**: [Normalization](#normalization), [Vector Norm](#vector-norm)
+**関連**: Normalization, Vector Norm
 
 ---
 
@@ -547,7 +547,7 @@ K平均法。最も基本的なクラスタリング手法。
 
 **用途**: 粉末試料、不均一試料
 
-**関連**: [SNV](#snv), [EMSC](#emsc), [Scattering](#scattering)
+**関連**: SNV, EMSC, Scattering
 
 ---
 
@@ -560,7 +560,7 @@ K平均法。最も基本的なクラスタリング手法。
 - Bonferroni補正（保守的）
 - FDR（Benjamini-Hochberg法）
 
-**関連**: [Bonferroni Correction](#bonferroni-correction), [FDR](#fdr)
+**関連**: Bonferroni Correction, FDR
 
 ---
 
@@ -575,7 +575,7 @@ K平均法。最も基本的なクラスタリング手法。
 
 **種類**: CNN、RNN、Transformer（多層パーセプトロンMLPは将来のリリースで予定）
 
-**関連**: [Deep Learning](#deep-learning)
+**関連**: Deep Learning
 
 ---
 
@@ -590,7 +590,7 @@ K平均法。最も基本的なクラスタリング手法。
 
 **目的**: 強度のばらつきの影響を除去、スペクトル間の比較を容易に
 
-**関連**: [Vector Norm](#vector-norm), [SNV](#snv), [Min-Max Normalization](#min-max-normalization)
+**関連**: Vector Norm, SNV, Min-Max Normalization
 
 ---
 
@@ -607,7 +607,7 @@ K平均法。最も基本的なクラスタリング手法。
 
 **用途**: データクリーニング、品質管理、異常検出
 
-**関連**: [PCA](#pca), [DBSCAN](#dbscan), [Quality Control](#quality-control)
+**関連**: PCA, DBSCAN, Quality Control
 
 ---
 
@@ -625,7 +625,7 @@ K平均法。最も基本的なクラスタリング手法。
 - クロスバリデーション
 - 早期停止
 
-**関連**: [Underfitting](#underfitting), [Regularization](#regularization), [Cross-Validation](#cross-validation)
+**関連**: Underfitting, Regularization, Cross-Validation
 
 ---
 
@@ -643,7 +643,7 @@ K平均法。最も基本的なクラスタリング手法。
 
 **用途**: 可視化、ノイズ削減、特徴量削減
 
-**関連**: [Score Plot](#score-plot), [Loading Plot](#loading-plot), [Scree Plot](#scree-plot)
+**関連**: Score Plot, Loading Plot, Scree Plot
 
 ---
 
@@ -658,7 +658,7 @@ K平均法。最も基本的なクラスタリング手法。
 
 **用途**: ピーク位置の特定、ピーク数のカウント、ピークの比較
 
-**関連**: [Peak Fitting](#peak-fitting), [Peak Identification](#peak-identification)
+**関連**: Peak Fitting, Peak Identification
 
 ---
 
@@ -675,7 +675,7 @@ K平均法。最も基本的なクラスタリング手法。
 
 **用途**: 重なったピークの分離、定量分析
 
-**関連**: [Peak Detection](#peak-detection)
+**関連**: Peak Detection
 
 ---
 
@@ -691,7 +691,7 @@ K平均法。最も基本的なクラスタリング手法。
 
 **保存**: .pipeline.json形式
 
-**関連**: [Preprocessing](#preprocessing), [Workflow](#workflow)
+**関連**: Preprocessing, Workflow
 
 ---
 
@@ -703,7 +703,7 @@ K平均法。最も基本的なクラスタリング手法。
 - Bonferroni（保守的）
 - Dunnett（対照群との比較）
 
-**関連**: [ANOVA](#anova), [Multiple Comparison Correction](#multiple-comparison-correction)
+**関連**: ANOVA, Multiple Comparison Correction
 
 ---
 
@@ -716,7 +716,7 @@ K平均法。最も基本的なクラスタリング手法。
 
 **用途**: 偽陽性のコストが高い場合に重視
 
-**関連**: [Recall](#recall), [F1-score](#f1-score), [Confusion Matrix](#confusion-matrix)
+**関連**: Recall, F1-score, Confusion Matrix
 
 ---
 
@@ -731,7 +731,7 @@ K平均法。最も基本的なクラスタリング手法。
 
 **目的**: ノイズ削減、比較可能性の向上、特徴の強調
 
-**関連**: [Pipeline](#pipeline), [Baseline Correction](#baseline-correction), [Normalization](#normalization)
+**関連**: Pipeline, Baseline Correction, Normalization
 
 ---
 
@@ -749,7 +749,7 @@ K平均法。最も基本的なクラスタリング手法。
 - n_estimators: 木の数
 - max_depth: 木の深さ
 
-**関連**: [Machine Learning](#machine-learning), [Feature Importance](#feature-importance)
+**関連**: Machine Learning, Feature Importance
 
 ---
 
@@ -760,7 +760,7 @@ K平均法。最も基本的なクラスタリング手法。
 
 **パラメータ**: n_iter（試行回数）
 
-**関連**: [Grid Search](#grid-search), [Hyperparameter Tuning](#hyperparameter-tuning)
+**関連**: Grid Search, Hyperparameter Tuning
 
 ---
 
@@ -773,7 +773,7 @@ K平均法。最も基本的なクラスタリング手法。
 
 **用途**: 偽陰性のコストが高い場合に重視（例: 疾病診断）
 
-**関連**: [Precision](#precision), [F1-score](#f1-score)
+**関連**: Precision, F1-score
 
 ---
 
@@ -786,7 +786,7 @@ K平均法。最も基本的なクラスタリング手法。
 
 **パラメータ**: alpha（正則化の強さ）
 
-**関連**: [Overfitting](#overfitting), [Logistic Regression](#logistic-regression)
+**関連**: Overfitting, Logistic Regression
 
 ---
 
@@ -798,7 +798,7 @@ K平均法。最も基本的なクラスタリング手法。
 2. 最も重要度の低い特徴量を削除
 3. 指定した数まで繰り返す
 
-**関連**: [Feature Selection](#feature-selection), [Feature Importance](#feature-importance)
+**関連**: Feature Selection, Feature Importance
 
 ---
 
@@ -817,7 +817,7 @@ ROC曲線。分類器の性能を評価するグラフ。
 - AUC = 0.8-0.9: 優秀
 - AUC > 0.9: 非常に優秀
 
-**関連**: [Precision](#precision), [Recall](#recall), [AUC](#auc)
+**関連**: Precision, Recall, AUC
 
 ---
 
@@ -832,7 +832,7 @@ ROC曲線。分類器の性能を評価するグラフ。
 
 **特徴**: ピーク形状の保持が良好
 
-**関連**: [Smoothing](#smoothing), [Gaussian Smoothing](#gaussian-smoothing)
+**関連**: Smoothing, Gaussian Smoothing
 
 ---
 
@@ -843,7 +843,7 @@ ROC曲線。分類器の性能を評価するグラフ。
 
 **対策**: MSC、SNV、EMSC
 
-**関連**: [MSC](#msc), [SNV](#snv), [EMSC](#emsc)
+**関連**: MSC, SNV, EMSC
 
 ---
 
@@ -859,7 +859,7 @@ ROC曲線。分類器の性能を評価するグラフ。
 - 遠いサンプル: 異なる
 - クラスターの形成
 
-**関連**: [PCA](#pca), [Loading Plot](#loading-plot)
+**関連**: PCA, Loading Plot
 
 ---
 
@@ -872,7 +872,7 @@ ROC曲線。分類器の性能を評価するグラフ。
 
 **用途**: 適切な主成分数の決定（エルボーポイント）
 
-**関連**: [PCA](#pca), [Elbow Method](#elbow-method)
+**関連**: PCA, Elbow Method
 
 ---
 
@@ -888,7 +888,7 @@ ROC曲線。分類器の性能を評価するグラフ。
 
 **用途**: 最適なクラスター数の決定
 
-**関連**: [K-means](#k-means), [Elbow Method](#elbow-method)
+**関連**: K-means, Elbow Method
 
 ---
 
@@ -904,7 +904,7 @@ ROC曲線。分類器の性能を評価するグラフ。
 
 **注意**: 過度なスムージングはピークを消失させる
 
-**関連**: [Savitzky-Golay](#savitzky-golay), [Gaussian Smoothing](#gaussian-smoothing), [Noise](#noise)
+**関連**: Savitzky-Golay, Gaussian Smoothing, Noise
 
 ---
 
@@ -915,7 +915,7 @@ ROC曲線。分類器の性能を評価するグラフ。
 
 **用途**: 散乱補正、強度変動の除去
 
-**関連**: [Normalization](#normalization), [MSC](#msc)
+**関連**: Normalization, MSC
 
 ---
 
@@ -928,7 +928,7 @@ ROC曲線。分類器の性能を評価するグラフ。
 
 **主なアルゴリズム**: Random Forest、SVM、XGBoost、ロジスティック回帰
 
-**関連**: [Machine Learning](#machine-learning), [Unsupervised Learning](#unsupervised-learning)
+**関連**: Machine Learning, Unsupervised Learning
 
 ---
 
@@ -942,7 +942,7 @@ ROC曲線。分類器の性能を評価するグラフ。
 - kernel: 'linear', 'rbf', 'poly'
 - gamma: RBFカーネルのパラメータ
 
-**関連**: [Machine Learning](#machine-learning), [Kernel Trick](#kernel-trick)
+**関連**: Machine Learning, Kernel Trick
 
 ---
 
@@ -960,7 +960,7 @@ t分布型確率的近傍埋め込み。非線形次元削減手法。
 
 **注意**: 距離やクラスターサイズに意味がない、再現性の問題
 
-**関連**: [PCA](#pca), [UMAP](#umap), [Dimensionality Reduction](#dimensionality-reduction)
+**関連**: PCA, UMAP, Dimensionality Reduction
 
 ---
 
@@ -979,7 +979,7 @@ t検定。2つのグループ間の平均値の差を統計的に検定する手
 
 **解釈**: p < 0.05で有意差あり（有意水準5%）
 
-**関連**: [ANOVA](#anova), [Effect Size](#effect-size), [Statistical Significance](#statistical-significance)
+**関連**: ANOVA, Effect Size, Statistical Significance
 
 ---
 
@@ -995,7 +995,7 @@ t検定。2つのグループ間の平均値の差を統計的に検定する手
 
 **層化分割**: 各クラスの比率を保つ分割
 
-**関連**: [Cross-Validation](#cross-validation), [Overfitting](#overfitting)
+**関連**: Cross-Validation, Overfitting
 
 ---
 
@@ -1012,7 +1012,7 @@ t検定。2つのグループ間の平均値の差を統計的に検定する手
 
 **用途**: 複雑な非線形構造の可視化
 
-**関連**: [PCA](#pca), [t-SNE](#t-sne), [Dimensionality Reduction](#dimensionality-reduction)
+**関連**: PCA, t-SNE, Dimensionality Reduction
 
 ---
 
@@ -1029,7 +1029,7 @@ t検定。2つのグループ間の平均値の差を統計的に検定する手
 - 特徴量を増やす
 - 正則化を弱める
 
-**関連**: [Overfitting](#overfitting), [Model Complexity](#model-complexity)
+**関連**: Overfitting, Model Complexity
 
 ---
 
@@ -1041,7 +1041,7 @@ t検定。2つのグループ間の平均値の差を統計的に検定する手
 - 次元削減（PCA、UMAP）
 - 異常検出
 
-**関連**: [Supervised Learning](#supervised-learning), [Clustering](#clustering), [PCA](#pca)
+**関連**: Supervised Learning, Clustering, PCA
 
 ---
 
@@ -1057,7 +1057,7 @@ t検定。2つのグループ間の平均値の差を統計的に検定する手
 
 **用途**: 最適なパラメータ値の特定
 
-**関連**: [Learning Curve](#learning-curve), [Hyperparameter Tuning](#hyperparameter-tuning)
+**関連**: Learning Curve, Hyperparameter Tuning
 
 ---
 
@@ -1070,7 +1070,7 @@ t検定。2つのグループ間の平均値の差を統計的に検定する手
 
 **用途**: 最も一般的な正規化手法
 
-**関連**: [Normalization](#normalization), [SNV](#snv)
+**関連**: Normalization, SNV
 
 ---
 
@@ -1085,7 +1085,7 @@ t検定。2つのグループ間の平均値の差を統計的に検定する手
 
 **典型的な範囲**: 200～4000 cm⁻¹
 
-**関連**: [Raman Shift](#raman-shift), [Raman Spectroscopy](#raman-spectroscopy)
+**関連**: Raman Shift, Raman Spectroscopy
 
 ---
 
@@ -1096,7 +1096,7 @@ t検定。2つのグループ間の平均値の差を統計的に検定する手
 
 **主要パラメータ**: lambda（スムーズネス）
 
-**関連**: [Smoothing](#smoothing), [Baseline Correction](#baseline-correction)
+**関連**: Smoothing, Baseline Correction
 
 ---
 
@@ -1112,7 +1112,7 @@ t検定。2つのグループ間の平均値の差を統計的に検定する手
 6. 結果の解釈
 7. レポート生成
 
-**関連**: [Pipeline](#pipeline), [Best Practices](#best-practices)
+**関連**: Pipeline, Best Practices
 
 ---
 
@@ -1131,7 +1131,7 @@ t検定。2つのグループ間の平均値の差を統計的に検定する手
 
 **用途**: 分類、回帰、ランキング
 
-**関連**: [Random Forest](#random-forest), [Machine Learning](#machine-learning), [Gradient Boosting](#gradient-boosting)
+**関連**: Random Forest, Machine Learning, Gradient Boosting
 
 ---
 
@@ -1146,16 +1146,16 @@ Zスコア。標準偏差を単位とした偏差値。
 
 **基準**: |z| > 3で外れ値
 
-**関連**: [Outlier Detection](#outlier-detection), [Standardization](#standardization)
+**関連**: Outlier Detection, Standardization
 
 ---
 
 ## 🔗 関連ドキュメント
 
-- **[ユーザーガイド](index_ja.md)** - アプリの使い方
-- **[分析手法](../analysis-methods/index_ja.md)** - 各手法の詳細
-- **[API リファレンス](../api/index_ja.md)** - プログラミングインターフェース
-- **[FAQ](../faq_ja.md)** - よくある質問
+- **[ユーザーガイド](index.md)** - アプリの使い方
+- **[分析手法](analysis-methods/index.md)** - 各手法の詳細
+- **[API リファレンス](api/index.md)** - プログラミングインターフェース
+- **[FAQ](faq.md)** - よくある質問
 
 ---
 

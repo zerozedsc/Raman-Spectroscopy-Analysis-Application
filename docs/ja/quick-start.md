@@ -45,7 +45,7 @@ python main.py
 4. データをプレビューして**「ロード」**をクリック
 
 **期待されるCSVフォーマット**:
-```csv
+```text
 Wavenumber,Sample1,Sample2,Sample3
 400,0.12,0.15,0.11
 401,0.14,0.16,0.13
@@ -168,7 +168,7 @@ Wavenumber,Sample1,Sample2,Sample3
 
 ### ワークフロー1: 探索的分析
 
-```python
+```text
 # 目的: データ構造を理解する
 
 1. データをインポート
@@ -184,7 +184,7 @@ Wavenumber,Sample1,Sample2,Sample3
 
 ### ワークフロー2: グループ比較
 
-```python
+```text
 # 目的: グループ間の差異をテストする
 
 1. データをインポートしてグループ化
@@ -201,7 +201,7 @@ Wavenumber,Sample1,Sample2,Sample3
 
 ### ワークフロー3: 分類モデル
 
-```python
+```text
 # 目的: 予測モデルを構築する
 
 1. ラベル付きデータをロード

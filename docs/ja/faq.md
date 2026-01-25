@@ -6,17 +6,18 @@
 
 ## 📋 目次
 
-- [一般的な質問](#一般的な質問)
-- [インストールとセットアップ](#インストールとセットアップ)
-- [データのインポート](#データのインポート)
-- [前処理](#前処理)
-- [分析と結果](#分析と結果)
-- [機械学習](#機械学習)
-- [エラーとトラブルシューティング](#エラーとトラブルシューティング)
-- [高度な使用方法](#高度な使用方法)
+- {ref}`一般的な質問 <faq-general>`
+- {ref}`インストールとセットアップ <faq-install>`
+- {ref}`データのインポート <faq-import>`
+- {ref}`前処理 <faq-preprocess>`
+- {ref}`分析と結果 <faq-analysis>`
+- {ref}`機械学習 <faq-ml>`
+- {ref}`エラーとトラブルシューティング <faq-troubleshooting>`
+- {ref}`高度な使用方法 <faq-advanced>`
 
 ---
 
+(faq-general)=
 ## 一般的な質問
 
 ### Q1: このアプリケーションは何ができますか？
@@ -72,6 +73,7 @@
 
 ---
 
+(faq-install)=
 ## インストールとセットアップ
 
 ### Q6: システム要件は何ですか？
@@ -120,7 +122,7 @@ uv pip install -r requirements.txt
 python main.py
 ```
 
-詳細は[インストールガイド](installation_ja.md)をご覧ください。
+詳細は[インストールガイド](installation.md)をご覧ください。
 
 ### Q8: "ModuleNotFoundError"が表示されます
 
@@ -162,6 +164,7 @@ sudo xattr -rd com.apple.quarantine /Applications/RamanApp.app
 
 ---
 
+(faq-import)=
 ## データのインポート
 
 ### Q11: どのようなデータ形式がサポートされていますか？
@@ -173,7 +176,7 @@ sudo xattr -rd com.apple.quarantine /Applications/RamanApp.app
 - **Excel** (.xlsx, .xls) - 最初のシートを使用
 
 **期待されるフォーマット**:
-```csv
+```text
 Wavenumber,Sample1,Sample2,Sample3
 400,0.123,0.145,0.112
 401,0.134,0.156,0.123
@@ -247,6 +250,7 @@ sample_B_001.csv  → グループ B
 
 ---
 
+(faq-preprocess)=
 ## 前処理
 
 ### Q16: どの前処理手法を使用すればよいですか？
@@ -371,6 +375,7 @@ p = 0.05
 
 ---
 
+(faq-analysis)=
 ## 分析と結果
 
 ### Q21: PCAの成分数はいくつにすべきですか？
@@ -419,7 +424,7 @@ plt.ylabel('累積説明分散')
 - **汚染**: バックグラウンド信号 → 可能なら補正、または除去
 
 **ステップ3: 対処**
-```python
+```text
 # 除去する場合
 data_page → 外れ値を選択 → 削除
 
@@ -528,6 +533,7 @@ data_page → 外れ値を選択 → 新規グループ作成
 
 ---
 
+(faq-ml)=
 ## 機械学習
 
 ### Q26: どの機械学習アルゴリズムを選択すべきですか？
@@ -714,6 +720,7 @@ top_20_wavenumbers = [1450, 1485, 1590, 1620, ...]
 
 ---
 
+(faq-troubleshooting)=
 ## エラーとトラブルシューティング
 
 ### Q31: "Memory Error"が表示されます
@@ -726,7 +733,7 @@ top_20_wavenumbers = [1450, 1485, 1590, 1620, ...]
 3. アプリケーションを再起動
 
 **データサイズの削減**:
-```python
+```text
 # 方法1: スペクトル数を減らす
 全データを複数のバッチに分割
 
@@ -817,7 +824,7 @@ cat app.log
 - **ゼロ分散**: すべての値が同じ波数がある
 
 **解決策**:
-```python
+```text
 # 1. 重複を除去
 data_page → 重複を削除
 
@@ -868,6 +875,7 @@ with open('project.json', 'r') as f:
 
 ---
 
+(faq-advanced)=
 ## 高度な使用方法
 
 ### Q39: カスタム前処理手法を追加できますか？
@@ -1133,9 +1141,9 @@ docker run -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix raman-app
 
 ### 学習資料
 
-- **[クイックスタート](quick-start_ja.md)** - 5分で開始
+- **[クイックスタート](quick-start.md)** - 5分で開始
 - **[基本ワークフロー](getting-started/basic-workflow.md)** - 詳細なチュートリアル
-- **[分析手法](analysis-methods/index_ja.md)** - すべての手法の説明
+- **[分析手法](analysis-methods/index.md)** - すべての手法の説明
 
 ### コミュニティリソース
 
@@ -1147,7 +1155,7 @@ docker run -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix raman-app
 
 - **[GitHub](https://github.com/your-org/raman-app)** - ソースコード
 - **[貢献ガイド](dev-guide/contributing.md)** - 開発方法
-- **[API ドキュメント](api/index_ja.md)** - プログラマティックアクセス
+- **[API ドキュメント](api/index.md)** - プログラマティックアクセス
 
 ---
 

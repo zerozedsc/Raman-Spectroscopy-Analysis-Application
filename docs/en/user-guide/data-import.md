@@ -3,15 +3,16 @@
 Complete guide to importing, organizing, and managing spectral data in the application.
 
 ## Table of Contents
-- [Supported File Formats](#supported-file-formats)
-- [Import Workflow](#import-workflow)
-- [Data Organization](#data-organization)
-- [Group Management](#group-management)
-- [Data Validation](#data-validation)
-- [Advanced Features](#advanced-features)
+- {ref}`Supported File Formats <supported-file-formats>`
+- {ref}`Import Workflow <import-workflow>`
+- {ref}`Data Organization <data-organization>`
+- {ref}`Group Management <group-management>`
+- {ref}`Data Validation <data-validation>`
+- {ref}`Advanced Features <advanced-features>`
 
 ---
 
+(supported-file-formats)=
 ## Supported File Formats
 
 ### Primary Formats
@@ -20,7 +21,7 @@ Complete guide to importing, organizing, and managing spectral data in the appli
 **Format**: Comma-Separated Values
 
 **Structure**:
-```csv
+```text
 Wavenumber,Sample1,Sample2,Sample3
 400.0,100.5,98.3,102.1
 401.0,101.2,99.1,103.5
@@ -68,6 +69,7 @@ Wavenumber,Sample1,Sample2,Sample3
 
 ---
 
+(import-workflow)=
 ## Import Workflow
 
 ### Step 1: Navigate to Data Package Page
@@ -104,18 +106,16 @@ Wavenumber,Sample1,Sample2,Sample3
 
 Application automatically checks:
 
-```
-┌─────────────────────────────────────┐
-│ Validating Data...                 │
-├─────────────────────────────────────┤
-│ ✓ File format: CSV                  │
-│ ✓ Wavenumber column detected        │
-│ ✓ Number of spectra: 150            │
-│ ✓ Wavenumber range: 400-1800 cm⁻¹  │
-│ ✓ Data integrity: OK                │
-│ ⚠ Missing values: 3 (interpolated) │
-└─────────────────────────────────────┘
-```
+During import, you will see a validation status panel/toast listing items like:
+
+- File format (CSV/TXT)
+- Wavenumber column detected
+- Number of spectra (samples)
+- Wavenumber range (e.g., 400–1800 cm⁻¹)
+- Data integrity checks
+- Missing values handling (if enabled)
+
+> **Visual reference**: See the Data Package Page screenshot in `interface-overview.md`.
 
 **Validation Checks**:
 - File format compatibility
@@ -128,26 +128,16 @@ Application automatically checks:
 
 ### Step 4: Preview and Confirm
 
-**Preview Window**:
-```
-┌─────────────────────────────────────────────┐
-│ Import Preview                              │
-├─────────────────────────────────────────────┤
-│ File: blood_plasma_batch1.csv               │
-│ Samples: 150                                │
-│ Wavenumber Range: 400-1800 cm⁻¹            │
-│                                             │
-│ [Preview Plot - First 10 spectra]          │
-│                                             │
-├─────────────────────────────────────────────┤
-│ Import Options:                             │
-│ ☑ Auto-detect wavenumber column            │
-│ ☑ Interpolate missing values               │
-│ ☐ Apply baseline correction on import      │
-│                                             │
-│        [Cancel] [Import]                    │
-└─────────────────────────────────────────────┘
-```
+**Preview window**:
+
+The preview dialog shows:
+
+- Selected file name
+- Sample count
+- Wavenumber range
+- A preview plot (typically the first few spectra)
+- Import options (auto-detect wavenumber column, interpolate missing values, etc.)
+- **Cancel** / **Import** actions
 
 **Options**:
 - **Auto-detect wavenumber column**: Automatically identify x-axis
@@ -156,17 +146,11 @@ Application automatically checks:
 
 ### Step 5: Confirmation
 
-```
-┌─────────────────────────────────────┐
-│ ✓ Import Successful                 │
-│   150 spectra imported from         │
-│   blood_plasma_batch1.csv           │
-│   Time: 1.2s                        │
-└─────────────────────────────────────┘
-```
+After import completes, a success notification confirms the number of spectra imported and the source file.
 
 ---
 
+(data-organization)=
 ## Data Organization
 
 ### Project Structure
@@ -233,6 +217,7 @@ Each data package can have metadata:
 
 ---
 
+(group-management)=
 ## Group Management
 
 ### Creating Sample Groups
@@ -318,6 +303,7 @@ Some samples may belong to multiple groups:
 
 ---
 
+(data-validation)=
 ## Data Validation
 
 ### Automatic Checks
@@ -423,6 +409,7 @@ Application performs validation on import:
 
 ---
 
+(advanced-features)=
 ## Advanced Features
 
 ### Wavenumber Calibration
@@ -442,7 +429,7 @@ Application performs validation on import:
    - Apply non-linear calibration
 
 **Workflow**:
-```python
+```text
 # Example: Calibrate using 1001 cm⁻¹ benzene peak
 1. Click [Calibration] in Data Package page
 2. Select calibration standard spectrum
@@ -502,24 +489,13 @@ Application performs validation on import:
 - MAT (MATLAB format)
 
 **Options**:
-```
-┌─────────────────────────────────────┐
-│ Export Data                         │
-├─────────────────────────────────────┤
-│ Format: [CSV                    ▼] │
-│                                     │
-│ Include:                            │
-│ ☑ Raw spectra                       │
-│ ☑ Preprocessed spectra              │
-│ ☑ Group labels                      │
-│ ☑ Metadata                          │
-│                                     │
-│ Output:                             │
-│ [Browse...] exported_data.csv       │
-│                                     │
-│         [Cancel] [Export]           │
-└─────────────────────────────────────┘
-```
+
+The export dialog allows you to:
+
+- Choose the output format (CSV, Excel, HDF5, NPY, MAT)
+- Select what to include (raw spectra, preprocessed spectra, group labels, metadata)
+- Pick an output filename and folder
+- Confirm with **Export** or abort with **Cancel**
 
 ### Batch Import
 
@@ -535,12 +511,13 @@ Application performs validation on import:
 5. Click **Import All**
 
 **Progress**:
-```
-Importing batch...
-[████████████████████░░░░] 85% (127/150 files)
-Current: patient_127.csv
-Time remaining: ~30s
-```
+
+During batch import, the application shows a progress indicator with:
+
+- Overall percent complete
+- Processed/total file count
+- Current file name
+- Estimated time remaining
 
 ---
 

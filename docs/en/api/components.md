@@ -3,20 +3,21 @@
 Reference documentation for UI components and widgets.
 
 ## Table of Contents
-- [Component Architecture](#component-architecture)
-- [App Tabs](#app-tabs)
-- [Page Registry](#page-registry)
-- [Toast Notifications](#toast-notifications)
-- [Spectrum Viewer](#spectrum-viewer)
-- [Data Table](#data-table)
-- [Parameter Panel](#parameter-panel)
-- [Pipeline Builder](#pipeline-builder)
-- [Results Panel](#results-panel)
-- [Multi-Group Dialog](#multi-group-dialog)
-- [External Evaluation Dialog](#external-evaluation-dialog)
+- {ref}`Component Architecture <component-architecture>`
+- {ref}`App Tabs <app-tabs>`
+- {ref}`Page Registry <page-registry>`
+- {ref}`Toast Notifications <toast-notifications>`
+- {ref}`Spectrum Viewer <spectrum-viewer>`
+- {ref}`Data Table <data-table>`
+- {ref}`Parameter Panel <parameter-panel>`
+- {ref}`Pipeline Builder <pipeline-builder>`
+- {ref}`Results Panel <results-panel>`
+- {ref}`Multi-Group Dialog <multi-group-dialog>`
+- {ref}`External Evaluation Dialog <external-evaluation-dialog>`
 
 ---
 
+(component-architecture)=
 ## Component Architecture
 
 ### Component Hierarchy
@@ -40,6 +41,7 @@ MainApplication
 
 ---
 
+(app-tabs)=
 ## App Tabs
 
 ### components/app_tabs.py
@@ -152,6 +154,7 @@ tabs.page_closing.connect(lambda name: save_page_state(name))
 
 ---
 
+(page-registry)=
 ## Page Registry
 
 ### components/page_registry.py
@@ -259,6 +262,7 @@ analysis_pages = registry.get_pages_by_category('Analysis')
 
 ---
 
+(toast-notifications)=
 ## Toast Notifications
 
 ### components/toast.py
@@ -364,6 +368,7 @@ toast.show()
 
 ---
 
+(spectrum-viewer)=
 ## Spectrum Viewer
 
 ### components/widgets/matplotlib_widget.py
@@ -531,6 +536,7 @@ viewer.export_figure(
 
 ---
 
+(data-table)=
 ## Data Table
 
 ### components/widgets/views_widget.py
@@ -637,6 +643,7 @@ table.export_data('results/data.xlsx', format='excel')
 
 ---
 
+(parameter-panel)=
 ## Parameter Panel
 
 ### components/widgets/parameter_widgets.py
@@ -758,6 +765,7 @@ panel.value_changed.connect(lambda param, value:
 
 ---
 
+(pipeline-builder)=
 ## Pipeline Builder
 
 ### components/widgets/component_selector_panel.py
@@ -781,27 +789,14 @@ builder = PipelineBuilder(parent)
 
 **UI Layout**:
 
-```
-┌────────────────────────────────────┐
-│ Available Methods                   │
-│ ┌────┐ ┌────┐ ┌────┐              │
-│ │AsLS│ │SavG│ │Norm│  [+ More]    │
-│ └────┘ └────┘ └────┘              │
-├────────────────────────────────────┤
-│ Pipeline Steps                      │
-│                                     │
-│ 1. ✓ AsLS Baseline               ↕ │
-│    λ: 100000, p: 0.01          [⚙] │
-│                                     │
-│ 2. ✓ Savitzky-Golay             ↕ │
-│    window: 11, order: 3        [⚙] │
-│                                     │
-│ 3. ✓ Vector Normalization       ↕ │
-│                                [⚙] │
-│                                     │
-│ [+ Add Step]                        │
-└────────────────────────────────────┘
-```
+![Pipeline builder (screenshot)](../../assets/screenshots/en/preprocessing-page.png)
+
+*Figure: Preprocessing page showing the pipeline builder (available methods + pipeline steps)*
+
+High-level layout:
+- Available methods (by category)
+- Pipeline steps list (enable/disable, reorder, edit parameters)
+- Add step actions
 
 **Methods**:
 
@@ -910,6 +905,7 @@ builder.step_edited.connect(lambda step_id: validate_step(step_id))
 
 ---
 
+(results-panel)=
 ## Results Panel
 
 ### components/widgets/results_panel.py
@@ -1032,6 +1028,7 @@ results.export_results('results/report.pdf', format='pdf')
 
 ---
 
+(multi-group-dialog)=
 ## Multi-Group Dialog
 
 ### components/widgets/multi_group_dialog.py
@@ -1096,6 +1093,7 @@ dialog.set_available_methods([
 
 ---
 
+(external-evaluation-dialog)=
 ## External Evaluation Dialog
 
 ### components/widgets/external_evaluation_dialog.py
@@ -1266,7 +1264,7 @@ class RobustComponent(QWidget):
 - [Pages API](pages.md) - Application pages
 - [Functions API](functions.md) - Processing functions
 - [Widgets API](widgets.md) - Custom widgets
-- [User Guide: Interface](../user-guide/interface.md)
+- [User Guide: Interface](../user-guide/interface-overview.md)
 
 ---
 

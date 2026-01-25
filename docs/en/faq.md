@@ -116,7 +116,7 @@ Yes, use the batch import feature:
 2. Smoothing (Savitzky-Golay, window=11)
 3. Normalization (Vector or SNV)
 
-See [Preprocessing Guide](user-guide/preprocessing.md#recommended-pipelines) for specific use cases.
+See {ref}`Preprocessing Guide <common-pipelines>` for specific use cases.
 
 ### What is the difference between AsLS and AirPLS?
 
@@ -151,6 +151,7 @@ Yes:
 
 Check the console/log for error messages.
 
+(faq-analysis)=
 ## Analysis Questions
 
 ### PCA shows no group separation. What should I do?
@@ -188,6 +189,7 @@ When testing at many wavenumbers (~1400 points), you risk false positives. **Mul
 
 **Always use correction** when testing across full spectrum. Bonferroni is conservative, FDR (Benjamini-Hochberg) is balanced.
 
+(faq-machine-learning)=
 ## Machine Learning Questions
 
 ### What algorithm should I choose?

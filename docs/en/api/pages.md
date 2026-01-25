@@ -3,16 +3,17 @@
 Reference documentation for application page modules.
 
 ## Table of Contents
-- [Page Architecture](#page-architecture)
-- [Home Page](#home-page)
-- [Data Package Page](#data-package-page)
-- [Preprocessing Page](#preprocessing-page)
-- [Analysis Page](#analysis-page)
-- [Machine Learning Page](#machine-learning-page)
-- [Workspace Page](#workspace-page)
+- {ref}`Page Architecture <page-architecture>`
+- {ref}`Home Page <home-page>`
+- {ref}`Data Package Page <data-package-page>`
+- {ref}`Preprocessing Page <preprocessing-page>`
+- {ref}`Analysis Page <analysis-page>`
+- {ref}`Machine Learning Page <machine-learning-page>`
+- {ref}`Workspace Page <workspace-page>`
 
 ---
 
+(page-architecture)=
 ## Page Architecture
 
 All pages inherit from `BasePage` and follow a consistent structure.
@@ -76,6 +77,7 @@ class MyCustomPage(BasePage):
 
 ---
 
+(home-page)=
 ## Home Page
 
 ### pages/home_page.py
@@ -179,6 +181,7 @@ home.show_tutorial('machine_learning')
 
 ---
 
+(data-package-page)=
 ## Data Package Page
 
 ### pages/data_package_page.py
@@ -202,23 +205,14 @@ data_page = DataPackagePage()
 
 **UI Structure**:
 
-```
-┌─────────────────────────────────────┐
-│ Import Toolbar                       │
-├─────────────┬───────────────────────┤
-│ File List   │ Preview & Properties  │
-│ (Left)      │ (Right)               │
-│             │                       │
-│ ☐ Sample1   │ ┌─────────────────┐  │
-│ ☐ Sample2   │ │ Spectrum Plot   │  │
-│ ☐ Sample3   │ │                 │  │
-│ ...         │ └─────────────────┘  │
-│             │ Properties Table      │
-│             │ - Name: Sample1       │
-│             │ - Group: Control      │
-│             │ - Points: 1000        │
-└─────────────┴───────────────────────┘
-```
+![Data Package page (screenshot)](../../assets/screenshots/en/data-package-page.png)
+
+*Figure: Data Package page showing the file list (left) and preview/properties (right)*
+
+High-level layout:
+- Import toolbar
+- File list (left)
+- Preview plot + properties/metadata (right)
 
 **Key Methods**:
 
@@ -359,6 +353,7 @@ files = data_page.split_by_group()
 
 ---
 
+(preprocessing-page)=
 ## Preprocessing Page
 
 ### pages/preprocess_page.py
@@ -383,25 +378,14 @@ preprocess.load_data(data)
 
 **UI Structure**:
 
-```
-┌──────────────────────────────────────────────────┐
-│ Method Selector                                   │
-│ [ Baseline ] [Smoothing] [Normalization] [...]   │
-├─────────────────┬────────────────────────────────┤
-│ Pipeline Steps  │ Preview                        │
-│                 │                                │
-│ 1. AsLS         │ ┌──────────────────────────┐  │
-│    λ: [100000]  │ │ Before (blue)            │  │
-│    p: [0.01]    │ │ After (red)              │  │
-│                 │ │                          │  │
-│ 2. SavGol       │ └──────────────────────────┘  │
-│    window: [11] │                                │
-│    order: [3]   │ [Apply to All] [Reset]        │
-│                 │                                │
-│ [+ Add Step]    │ Parameters                     │
-│ [↑][↓][×]      │ Method: AsLS                   │
-└─────────────────┴────────────────────────────────┘
-```
+![Preprocessing page (screenshot)](../../assets/screenshots/en/preprocessing-page.png)
+
+*Figure: Preprocessing page showing the pipeline builder and preview plots*
+
+High-level layout:
+- Method selector (tabs)
+- Pipeline steps + add/reorder/remove
+- Preview plot + parameters panel
 
 **Key Methods**:
 
@@ -588,6 +572,7 @@ methods = preprocess.get_available_methods()
 
 ---
 
+(analysis-page)=
 ## Analysis Page
 
 ### pages/analysis_page.py
@@ -612,23 +597,14 @@ analysis.load_data(preprocessed_data)
 
 **UI Structure**:
 
-```
-┌──────────────────────────────────────────────────┐
-│ Analysis Type: [Exploratory ▼]                   │
-├─────────────────┬────────────────────────────────┤
-│ Method Panel    │ Results Display                │
-│                 │                                │
-│ ○ PCA           │ ┌──────────────────────────┐  │
-│ ○ UMAP          │ │                          │  │
-│ ○ t-SNE         │ │    Scores Plot           │  │
-│ ○ Hierarchical  │ │    (Interactive)         │  │
-│ ○ K-means       │ │                          │  │
-│                 │ └──────────────────────────┘  │
-│ Parameters:     │                                │
-│ n_components: 2 │ Metrics:                       │
-│ [Apply]         │ - Explained var: 85%           │
-└─────────────────┴────────────────────────────────┘
-```
+![Analysis page (screenshot)](../../assets/screenshots/en/analysis-page.png)
+
+*Figure: Analysis page showing method selection, parameters, and results/plots*
+
+High-level layout:
+- Analysis type + method selection (left)
+- Parameters + apply actions
+- Results display (plots/tables) (right)
 
 **Key Methods**:
 
@@ -791,6 +767,7 @@ analysis.export_results('pdf')
 
 ---
 
+(machine-learning-page)=
 ## Machine Learning Page
 
 ### pages/machine_learning_page.py
@@ -816,25 +793,14 @@ ml.load_data(preprocessed_data)
 
 **UI Structure**:
 
-```
-┌──────────────────────────────────────────────────┐
-│ Algorithm: [Random Forest ▼]  [Train] [Predict] │
-├─────────────────┬────────────────────────────────┤
-│ Configuration   │ Results                        │
-│                 │                                │
-│ ○ Training      │ ┌──────────────────────────┐  │
-│   - Train: 80%  │ │ Confusion Matrix         │  │
-│   - Test: 20%   │ │                          │  │
-│   - CV: 5-fold  │ └──────────────────────────┘  │
-│                 │                                │
-│ ○ Hyperparams   │ Metrics:                       │
-│   n_estimators: │ - Accuracy: 0.92               │
-│   [100]         │ - F1-score: 0.91               │
-│   max_depth:    │ - ROC-AUC: 0.95                │
-│   [None]        │                                │
-│                 │ [Export Model] [Feature Imp.]  │
-└─────────────────┴────────────────────────────────┘
-```
+![Machine Learning page (screenshot)](../../assets/screenshots/en/ml-page.png)
+
+*Figure: Machine Learning page showing configuration controls and results dashboards*
+
+High-level layout:
+- Algorithm selection + train/predict controls
+- Validation and hyperparameter settings
+- Results dashboard (metrics, plots, exports)
 
 **Key Methods**:
 
@@ -1048,6 +1014,7 @@ print(f"Accuracy: {metadata['accuracy']}")
 
 ---
 
+(workspace-page)=
 ## Workspace Page
 
 ### pages/workspace_page.py

@@ -6,18 +6,19 @@
 
 ## 📋 目次
 
-- [前処理の重要性](#前処理の重要性)
-- [前処理パイプライン](#前処理パイプライン)
-- [ベースライン補正](#ベースライン補正)
-- [スムージング](#スムージング)
-- [正規化](#正規化)
-- [微分](#微分)
-- [高度な手法](#高度な手法)
-- [パイプライン最適化](#パイプライン最適化)
-- [ケーススタディ](#ケーススタディ)
+- {ref}`前処理の重要性 <ug-preprocess-importance>`
+- {ref}`前処理パイプライン <ug-preprocess-pipeline>`
+- {ref}`ベースライン補正 <ug-preprocess-baseline>`
+- {ref}`スムージング <ug-preprocess-smoothing>`
+- {ref}`正規化 <ug-preprocess-normalization>`
+- {ref}`微分 <ug-preprocess-derivatives>`
+- {ref}`高度な手法 <ug-preprocess-advanced>`
+- {ref}`パイプライン最適化 <ug-preprocess-optimization>`
+- {ref}`ケーススタディ <ug-preprocess-case-study>`
 
 ---
 
+(ug-preprocess-importance)=
 ## 前処理の重要性
 
 ### なぜ前処理が必要か
@@ -119,6 +120,7 @@
 
 ---
 
+(ug-preprocess-pipeline)=
 ## 前処理パイプライン
 
 ### パイプラインの構築
@@ -169,6 +171,7 @@
 
 ---
 
+(ug-preprocess-baseline)=
 ## ベースライン補正
 
 ### AsLS（Asymmetric Least Squares）
@@ -338,6 +341,7 @@ lambda: 平滑化パラメータ
 
 ---
 
+(ug-preprocess-smoothing)=
 ## スムージング
 
 ### Savitzky-Golay フィルタ
@@ -509,6 +513,7 @@ window_size: 移動平均のウィンドウ
 
 ---
 
+(ug-preprocess-normalization)=
 ## 正規化
 
 ### ベクトルノルム（L2正規化）
@@ -656,6 +661,7 @@ normalized = spectrum / max(spectrum)
 
 ---
 
+(ug-preprocess-derivatives)=
 ## 微分
 
 ### 一次微分
@@ -743,6 +749,7 @@ deriv = 2
 
 ---
 
+(ug-preprocess-advanced)=
 ## 高度な手法
 
 ### EMSC（Extended Multiplicative Signal Correction）
@@ -808,6 +815,7 @@ MSCの拡張版
 
 ---
 
+(ug-preprocess-optimization)=
 ## パイプライン最適化
 
 ### 一般的なパイプライン
@@ -960,6 +968,7 @@ for lambda_val in lambdas:
 
 ---
 
+(ug-preprocess-case-study)=
 ## ケーススタディ
 
 ### ケース1: 強い蛍光バックグラウンド
@@ -1108,10 +1117,10 @@ for lambda_val in lambdas:
 
 ## 🔗 関連ドキュメント
 
-- **[データ管理](importing-data_ja.md)** - データのインポート
-- **[分析手法](../analysis-methods/index_ja.md)** - 分析方法
-- **[機械学習](machine-learning_ja.md)** - MLモデル構築
-- **[FAQ](../faq_ja.md)** - よくある質問
+- **[データ管理](importing-data.md)** - データのインポート
+- **[分析手法](../analysis-methods/index.md)** - 分析方法
+- **[機械学習](machine-learning.md)** - MLモデル構築
+- **[FAQ](../faq.md)** - よくある質問
 
 ---
 

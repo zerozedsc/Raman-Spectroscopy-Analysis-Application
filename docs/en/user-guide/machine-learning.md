@@ -3,57 +3,36 @@
 Complete guide to building, training, evaluating, and deploying machine learning models for Raman spectroscopy classification and regression.
 
 ## Table of Contents
-- [Overview](#overview)
-- [ML Workflow](#ml-workflow)
-- [Algorithm Selection](#algorithm-selection)
-- [Training and Validation](#training-and-validation)
-- [Model Evaluation](#model-evaluation)
-- [Model Interpretation](#model-interpretation)
-- [Model Export and Deployment](#model-export-and-deployment)
+- {ref}`Overview <ml-overview>`
+- {ref}`ML Workflow <ml-workflow>`
+- {ref}`Algorithm Selection <algorithm-selection>`
+- {ref}`Training and Validation <training-and-validation>`
+- {ref}`Model Evaluation <model-evaluation>`
+- {ref}`Model Interpretation <model-interpretation>`
+- {ref}`Model Export and Deployment <model-export-and-deployment>`
 
 ---
 
+(ml-overview)=
 ## Overview
 
 ### Machine Learning Page
 
 The ML page provides a complete workflow for supervised learning:
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│ Machine Learning Page                         [⏸] [⏹]        │
-├───────────────┬──────────────────────────────────────────────┤
-│               │  Algorithm Selection:                         │
-│ Training Data │  ┌─────────────────────────────────────────┐ │
-│ ☑ Dataset 1   │  │ [SVM] [RF] [XGBoost] [LR]            │ │
-│ ☑ Dataset 2   │  └─────────────────────────────────────────┘ │
-│               │                                              │
-│ Groups:       │  Validation Strategy:                        │
-│ ☑ Healthy (0) │  ● GroupKFold (Patient-level) n=5           │
-│ ☑ Disease (1) │  ○ Stratified K-Fold                        │
-│               │  ○ Leave-One-Patient-Out (LOPOCV)           │
-│ Test Set      │  ○ Hold-out Test Set (20%)                  │
-│ ☐ External    │                                              │
-│               │  Hyperparameter Optimization:                │
-│ [Select Test] │  ○ None (use defaults)                      │
-│               │  ● Grid Search                               │
-│               │  ○ Random Search                             │
-│ [Train Model] │  ○ Bayesian Optimization                    │
-│               │                                              │
-│               │  [Configure] [Train Model]                   │
-├───────────────┴──────────────────────────────────────────────┤
-│  Results Dashboard (appears after training):                 │
-│  [Summary] [ROC Curves] [Confusion Matrix] [Feature Import]  │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │ Model: Random Forest                                   │  │
-│  │ Cross-Validation Accuracy: 92.3 ± 3.1%                 │  │
-│  │ Test Set Accuracy: 91.5%                               │  │
-│  │ AUC-ROC: 0.967                                         │  │
-│  │                                                        │  │
-│  │ [View Detailed Results] [Export Model] [Save Report]   │  │
-│  └────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────┘
-```
+![Machine Learning Page Layout](../../assets/screenshots/en/ml-page.png)
+
+*Figure: Machine Learning page showing dataset selector (left), algorithm/validation configuration (center-right), and results dashboard (bottom)*
+
+> **Note**: The ML page layout includes:
+> - **Left Panel**: Training data selection and group assignment
+> - **Center-Right**: Algorithm selection, validation strategy, and hyperparameter optimization settings
+> - **Bottom**: Results dashboard with performance metrics, ROC curves, confusion matrix, and feature importance
+
+**Key Features**:
+- Configure algorithms, validation, and hyperparameters in one place
+- Review metrics and plots (AUC/accuracy, ROC curve, confusion matrix, feature importance)
+- Export and report actions: **View Detailed Results**, **Export Model**, **Save Report**
 
 ### When to Use ML
 
@@ -77,6 +56,7 @@ The ML page provides a complete workflow for supervised learning:
 
 ---
 
+(ml-workflow)=
 ## ML Workflow
 
 ### Complete Workflow
@@ -232,6 +212,7 @@ Time: Medium (2-10 minutes)
 
 ---
 
+(algorithm-selection)=
 ## Algorithm Selection
 
 ### Support Vector Machine (SVM)
@@ -397,6 +378,7 @@ penalty: Regularization type ('l1', 'l2', default: 'l2')
 
 ---
 
+(training-and-validation)=
 ## Training and Validation
 
 ### Validation Strategies
@@ -559,6 +541,7 @@ Test Accuracy: 91.3%
 
 ---
 
+(model-evaluation)=
 ## Model Evaluation
 
 ### Classification Metrics
@@ -688,6 +671,7 @@ R² < 0: Worse than mean
 
 ---
 
+(model-interpretation)=
 ## Model Interpretation
 
 ### Feature Importance
@@ -782,6 +766,7 @@ Blue dots: Healthy samples
 
 ---
 
+(model-export-and-deployment)=
 ## Model Export and Deployment
 
 ### Saving Trained Models
@@ -945,7 +930,7 @@ Model predicts all as Healthy → 90% accuracy but useless
 - [Analysis Guide](analysis.md) - Previous step: Exploratory analysis
 - [Machine Learning Methods Reference](../analysis-methods/machine-learning.md) - Detailed algorithm documentation
 - [Best Practices](best-practices.md) - ML best practices
-- [FAQ - Machine Learning](../faq.md#machine-learning) - Common questions
+- {ref}`FAQ - Machine Learning <faq-machine-learning>` - Common questions
 
 ---
 

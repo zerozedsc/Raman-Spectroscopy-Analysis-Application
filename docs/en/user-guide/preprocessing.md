@@ -3,15 +3,16 @@
 Complete guide to building and applying preprocessing pipelines for Raman spectroscopy data.
 
 ## Table of Contents
-- [Overview](#overview)
-- [Pipeline Builder Interface](#pipeline-builder-interface)
-- [Method Categories](#method-categories)
-- [Building a Pipeline](#building-a-pipeline)
-- [Common Pipelines](#common-pipelines)
-- [Troubleshooting](#troubleshooting)
+- {ref}`Overview <preprocessing-overview>`
+- {ref}`Pipeline Builder Interface <pipeline-builder-interface>`
+- {ref}`Method Categories <method-categories>`
+- {ref}`Building a Pipeline <building-a-pipeline>`
+- {ref}`Common Pipelines <common-pipelines>`
+- {ref}`Troubleshooting <preprocessing-troubleshooting>`
 
 ---
 
+(preprocessing-overview)=
 ## Overview
 
 ### Why Preprocess?
@@ -48,32 +49,20 @@ Raman spectra often contain noise and artifacts that can interfere with analysis
 
 ---
 
+(pipeline-builder-interface)=
 ## Pipeline Builder Interface
 
 ### Main Layout
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│ Preprocess Page                                              │
-├──────────────┬───────────────────────┬───────────────────────┤
-│              │                       │                       │
-│  Method      │   Parameters          │   Preview             │
-│  Selector    │                       │                       │
-│              │   Window: [11    ▼]  │   [Plot showing       │
-│  Baseline    │   Order:  [3     ▼]  │    before/after]      │
-│  Smoothing   │   Deriv:  [0     ▼]  │                       │
-│  Normalize   │                       │                       │
-│  ...         │   [Preview] [Add]     │                       │
-│              │                       │                       │
-├──────────────┴───────────────────────┴───────────────────────┤
-│  Pipeline Steps:                                             │
-│  1. [✓] AsLS Baseline (λ=1e5, p=0.01)         [👁][🗑][⬆][⬇] │
-│  2. [✓] Savitzky-Golay (window=11, order=3)  [👁][🗑][⬆][⬇] │
-│  3. [✓] Vector Normalization                  [👁][🗑][⬆][⬇] │
-│                                                               │
-│  [Clear] [Save Pipeline] [Load Pipeline] [Apply to Dataset]  │
-└──────────────────────────────────────────────────────────────┘
-```
+![Preprocessing Page Layout](../../assets/screenshots/en/preprocessing-page.png)
+
+*Figure: Preprocessing page showing method selector (left), parameter panel (center), and preview plot (right), with pipeline builder at the bottom*
+
+> **Note**: The preprocessing page is divided into three main sections:
+> - **Left**: Method selector with categories (Baseline, Smoothing, Normalization, etc.)
+> - **Center**: Parameter configuration panel for the selected method
+> - **Right**: Real-time preview showing before/after comparison
+> - **Bottom**: Pipeline steps list with controls for each step (visibility, delete, reorder)
 
 ### Components
 
@@ -110,6 +99,7 @@ Raman spectra often contain noise and artifacts that can interfere with analysis
 
 ---
 
+(method-categories)=
 ## Method Categories
 
 ### 1. Baseline Correction
@@ -354,6 +344,7 @@ snv = (spectrum - mean) / std
 
 ---
 
+(building-a-pipeline)=
 ## Building a Pipeline
 
 ### Step-by-Step Guide
@@ -469,6 +460,7 @@ Vector Normalization (L2)
 
 ---
 
+(common-pipelines)=
 ## Common Pipelines
 
 ### 1. Standard Pipeline (General Purpose)
@@ -618,6 +610,7 @@ p_values = [0.001, 0.01, 0.1]
 
 ---
 
+(preprocessing-troubleshooting)=
 ## Troubleshooting
 
 ### Problem: Peaks Disappear After Preprocessing
