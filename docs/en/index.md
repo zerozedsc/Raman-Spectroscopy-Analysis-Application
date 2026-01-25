@@ -1,8 +1,16 @@
 # Raman Spectroscopy Analysis Application Documentation
 
+```{only} html
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/blob/main/LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Read the Docs](https://readthedocs.org/projects/raman-spectroscopy-analysis/badge/?version=latest)](https://raman-spectroscopy-analysis.readthedocs.io/)
+```
+
+```{only} not html
+- License: MIT
+- Python 3.12+
+- Read the Docs: https://raman-spectroscopy-analysis.readthedocs.io/
+```
 
 Welcome to the comprehensive documentation for the **Raman Spectroscopy Analysis Application**, a state-of-the-art desktop software for real-time Raman spectral classification and disease detection.
 

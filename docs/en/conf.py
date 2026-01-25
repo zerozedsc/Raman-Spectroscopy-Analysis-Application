@@ -57,6 +57,9 @@ master_doc = 'index'
 # Language setting
 language = 'en'
 
+# PDF build (RTD uses LaTeX): use an engine that supports Unicode.
+latex_engine = 'xelatex'
+
 # -- Options for HTML output -------------------------------------------------
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
