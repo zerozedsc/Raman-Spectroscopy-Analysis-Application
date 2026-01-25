@@ -157,10 +157,7 @@ Wavenumber,Sample1,Sample2,Sample3
 
 ### チュートリアル
 
-- **[基本ワークフロー](getting-started/basic-workflow.md)** - 詳細なステップバイステップ
-- **[前処理チュートリアル](getting-started/preprocessing-tutorial.md)** - パイプラインの構築
-- **[分析チュートリアル](getting-started/analysis-tutorial.md)** - PCAとクラスタリング
-- **[MLチュートリアル](getting-started/ml-tutorial.md)** - 分類モデル
+- **[はじめに](getting-started.md)** - セットアップと最初の分析の流れ
 
 ---
 
@@ -349,9 +346,7 @@ Wavenumber,Sample1,Sample2,Sample3
 
 ### チュートリアル
 
-- **[基本ワークフロー](getting-started/basic-workflow.md)** - ステップバイステップ
-- **[前処理の例](getting-started/preprocessing-tutorial.md)** - パイプラインガイド
-- **[分析の例](getting-started/analysis-tutorial.md)** - PCA & クラスタリング
+- **[はじめに](getting-started.md)** - セットアップと最初の分析の流れ
 
 ### サンプルデータ
 
@@ -393,7 +388,7 @@ Wavenumber,Sample1,Sample2,Sample3
 
 クイックスタートを完了したら：
 
-1. **[基本ワークフロー](getting-started/basic-workflow.md)を読む** - より詳細なウォークスルー
+1. **[はじめに](getting-started.md)を読む** - セットアップと全体像
 2. **[前処理ガイド](user-guide/preprocessing.md)を探索** - すべての手法を学ぶ
 3. **自分のデータで練習** - 実際のスペクトルで試す
 4. **高度な機能を試す** - 機械学習とカスタムパイプライン

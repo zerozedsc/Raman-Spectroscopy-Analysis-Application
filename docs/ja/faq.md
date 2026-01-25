@@ -1110,7 +1110,7 @@ docker run -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix raman-app
 
 **ドキュメント**:
 1. **[ユーザーガイド](user-guide/index.md)** - 完全な機能ドキュメント
-2. **[チュートリアル](getting-started/index.md)** - ステップバイステップガイド
+2. **[はじめに](getting-started.md)** - セットアップと基本の流れ
 3. **[API リファレンス](api/index.md)** - 開発者向けドキュメント
 4. **[トラブルシューティング](troubleshooting.md)** - 問題解決ガイド
 
@@ -1142,7 +1142,7 @@ docker run -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix raman-app
 ### 学習資料
 
 - **[クイックスタート](quick-start.md)** - 5分で開始
-- **[基本ワークフロー](getting-started/basic-workflow.md)** - 詳細なチュートリアル
+- **[はじめに](getting-started.md)** - セットアップと基本の流れ
 - **[分析手法](analysis-methods/index.md)** - すべての手法の説明
 
 ### コミュニティリソース

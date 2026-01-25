@@ -23,7 +23,7 @@ build:
       - pip install uv
     post_install:
       # Install dependencies
-      - uv pip install -e ".[dev]"
+      - uv pip install -e ".[docs]"
 
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:

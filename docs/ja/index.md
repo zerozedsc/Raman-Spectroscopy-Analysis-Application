@@ -10,7 +10,7 @@
 :maxdepth: 2
 :caption: クイックスタート
 
-getting-started/index
+getting-started
 installation
 quick-start
 ```
@@ -21,13 +21,11 @@ quick-start
 
 user-guide/index
 user-guide/interface-overview
-user-guide/importing-data
+user-guide/data-import
 user-guide/preprocessing
 user-guide/analysis
 user-guide/machine-learning
 user-guide/best-practices
-user-guide/exporting-results
-user-guide/project-management
 ```
 
 ```{toctree}
@@ -39,7 +37,6 @@ analysis-methods/preprocessing
 analysis-methods/exploratory
 analysis-methods/statistical
 analysis-methods/machine-learning
-analysis-methods/comparison-tables
 ```
 
 ```{toctree}
@@ -74,26 +71,6 @@ faq
 troubleshooting
 glossary
 references
-roadmap
-```
-
-```{toctree}
-:hidden:
-
-getting-started
-installation
-quick-start
-
-analysis-methods/index
-api/index
-dev-guide/index
-
-user-guide/index
-user-guide/importing-data
-user-guide/data-import
-user-guide/preprocessing
-user-guide/analysis
-user-guide/machine-learning
 ```
 
 ## 🚀 クイックスタート
@@ -102,7 +79,7 @@ user-guide/machine-learning
 
 - **[クイックスタートガイド](quick-start.md)** - 5分でアプリケーションの使用を開始
 - **[インストール](installation.md)** - 詳細なインストール手順
-- **[はじめに](getting-started/index.md)** - 基本的なワークフローとチュートリアル
+- **[はじめに](getting-started.md)** - セットアップと最初の分析の流れ
 
 ---
 
@@ -113,12 +90,10 @@ user-guide/machine-learning
 エンドユーザー向けの完全な使用説明書
 
 - **[ユーザーガイド概要](user-guide/index.md)** - アプリケーション機能の概要
-- **[データのインポート](user-guide/importing-data.md)** - CSVファイルとスペクトルのロード
+- **[データのインポート](user-guide/data-import.md)** - CSVファイルとスペクトルのロード
 - **[前処理](user-guide/preprocessing.md)** - スペクトルの前処理と準備
 - **[分析](user-guide/analysis.md)** - 探索的分析と統計
 - **[機械学習](user-guide/machine-learning.md)** - モデルのトレーニングと評価
-- **[結果のエクスポート](user-guide/exporting-results.md)** - データと図のエクスポート
-- **[プロジェクト管理](user-guide/project-management.md)** - 作業の保存と整理
 
 ### 分析手法
 
@@ -128,7 +103,6 @@ user-guide/machine-learning
 - **[探索的分析](analysis-methods/exploratory.md)** - PCA、UMAP、t-SNE、クラスタリング
 - **[統計分析](analysis-methods/statistical.md)** - 仮説検定と相関分析
 - **[機械学習](analysis-methods/machine-learning.md)** - SVM、Random Forest、XGBoost
-- **[比較表](analysis-methods/comparison-tables.md)** - 手法選択ガイド
 
 ### API リファレンス
 
@@ -236,10 +210,7 @@ user-guide/machine-learning
 
 ### チュートリアル
 
-- **[基本ワークフロー](getting-started/basic-workflow.md)** - ステップバイステップガイド
-- **[前処理の例](getting-started/preprocessing-tutorial.md)** - 前処理パイプラインの構築
-- **[分析の例](getting-started/analysis-tutorial.md)** - PCAとクラスタリング
-- **[MLの例](getting-started/ml-tutorial.md)** - モデルのトレーニングと評価
+- **[はじめに](getting-started.md)** - セットアップと最初の分析の流れ
 
 ### ビデオガイド
 
@@ -276,7 +247,7 @@ user-guide/machine-learning
 
 - **[貢献ガイド](dev-guide/contributing.md)** - 始め方
 - **[Code of Conduct](https://github.com/your-org/raman-app/CODE_OF_CONDUCT.md)** - コミュニティガイドライン
-- **[ロードマップ](roadmap.md)** - 計画中の機能
+
 
 ---
 
@@ -302,20 +273,14 @@ docs/
 ├── index.md                    # このページ
 ├── quick-start.md             # クイックスタートガイド
 ├── installation.md            # インストール手順
-├── getting-started/           # 初心者向けチュートリアル
-│   ├── index.md
-│   ├── basic-workflow.md
-│   ├── preprocessing-tutorial.md
-│   ├── analysis-tutorial.md
-│   └── ml-tutorial.md
+├── getting-started.md         # はじめに
 ├── user-guide/                # 完全なユーザーガイド
 │   ├── index.md
-│   ├── importing-data.md
+│   ├── data-import.md
 │   ├── preprocessing.md
 │   ├── analysis.md
 │   ├── machine-learning.md
-│   ├── exporting-results.md
-│   └── project-management.md
+│   └── best-practices.md
 ├── analysis-methods/          # 手法ドキュメント
 │   ├── index.md
 │   ├── preprocessing.md
