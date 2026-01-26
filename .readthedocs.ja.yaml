@@ -1,0 +1,31 @@
+# Read the Docs configuration file (Japanese translation project)
+#
+# This project should be added as a Translation of the main project in RTD.
+# In the RTD UI for the Japanese project, set the "Build configuration file"
+# to this file: `.readthedocs.ja.yaml`.
+#
+# This builds docs/ja/** as the documentation root so URLs are:
+#   https://<project>.readthedocs.io/ja/latest/index.html
+# (no duplicated /ja/ path segment).
+#
+# See https://docs.readthedocs.com/platform/stable/config-file/v2.html
+
+version: 2
+
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.12"
+  jobs:
+    post_create_environment:
+      - pip install uv
+    post_install:
+      - uv pip install -e ".[docs]"
+
+sphinx:
+  configuration: docs/ja/conf.py
+  fail_on_warning: false
+
+formats:
+  - pdf
+  - epub

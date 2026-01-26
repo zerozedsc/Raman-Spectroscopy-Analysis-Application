@@ -241,7 +241,7 @@ If you use this software in your research, please cite:
 
 ## Support
 
-- **Documentation**: [ReadTheDocs](https://raman-spectroscopy-analysis.readthedocs.io/)
+- **Documentation**: [ReadTheDocs](https://raman-spectroscopy-analysis-application.readthedocs.io/en/latest/)
 - **Issues**: [GitHub Issues](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/discussions)
 - **Email**: Contact via [@zerozedsc](https://github.com/zerozedsc)

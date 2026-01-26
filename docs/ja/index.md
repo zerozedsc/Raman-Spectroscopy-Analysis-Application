@@ -308,7 +308,7 @@ docs/
 
 ドキュメントは以下の言語で利用可能です：
 
-- **English** - [Documentation Home](https://raman-spectroscopy-analysis.readthedocs.io/en/latest/)
+- **English** - [Documentation Home](https://raman-spectroscopy-analysis-application.readthedocs.io/en/latest/)
 - **日本語** - このページ
 
 ---

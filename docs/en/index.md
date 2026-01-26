@@ -3,13 +3,13 @@
 ```{only} html
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/blob/main/LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![Read the Docs](https://readthedocs.org/projects/raman-spectroscopy-analysis/badge/?version=latest)](https://raman-spectroscopy-analysis.readthedocs.io/)
+[![Read the Docs](https://readthedocs.org/projects/raman-spectroscopy-analysis-application/badge/?version=latest)](https://raman-spectroscopy-analysis-application.readthedocs.io/en/latest/)
 ```
 
 ```{only} not html
 - License: MIT
 - Python 3.12+
-- Read the Docs: https://raman-spectroscopy-analysis.readthedocs.io/
+- Read the Docs: https://raman-spectroscopy-analysis-application.readthedocs.io/en/latest/
 ```
 
 Welcome to the comprehensive documentation for the **Raman Spectroscopy Analysis Application**, a state-of-the-art desktop software for real-time Raman spectral classification and disease detection.
@@ -67,7 +67,7 @@ The Raman Spectroscopy Analysis Application is an **open-source**, **cross-platf
 This documentation is available in:
 
 - **English** (You are here)
-- **日本語** (Japanese) - [Switch to Japanese](https://raman-spectroscopy-analysis.readthedocs.io/ja/latest/)
+- **日本語** (Japanese) - [Switch to Japanese](https://raman-spectroscopy-analysis-application.readthedocs.io/ja/latest/)
 
 ## 📋 Table of Contents
 

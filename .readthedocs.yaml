@@ -1,11 +1,17 @@
 # Read the Docs configuration file for Sphinx documentation
 #
-# Note: Read the Docs requires one project per language for the built-in
-# "Translations" feature. This single config is intended to be used by both the
-# parent (English) project and its translation projects (e.g. Japanese).
+# IMPORTANT:
+# This repository keeps English and Japanese sources in separate trees:
+#   - docs/en/**
+#   - docs/ja/**
 #
-# The Sphinx config at docs/conf.py selects which subtree to build using
-# READTHEDOCS_LANGUAGE.
+# If you use Read the Docs' built-in "Translations" feature, RTD will already
+# prefix URLs with the language (e.g. /en/latest/ and /ja/latest/). Therefore
+# each RTD project should build a language tree as its *documentation root*
+# (so URLs are /en/latest/index.html, not /en/latest/en/index.html).
+#
+# This file is the ENGLISH project's config.
+# The JAPANESE translation project should use `.readthedocs.ja.yaml`.
 #
 # See https://docs.readthedocs.com/platform/stable/config-file/v2.html
 
@@ -27,7 +33,7 @@ build:
 
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:
-  configuration: docs/conf.py
+  configuration: docs/en/conf.py
   fail_on_warning: false
 
 # Optionally build your docs in additional formats such as PDF and ePub
