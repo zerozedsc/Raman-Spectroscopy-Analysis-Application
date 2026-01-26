@@ -198,21 +198,21 @@ Congratulations! You've completed your first analysis. Now explore:
 ### Learn More About Methods
 
 - [Preprocessing Methods](analysis-methods/preprocessing.md) - Complete preprocessing reference
-- [PCA Guide](analysis-methods/exploratory.md#pca) - Deep dive into PCA theory and interpretation
+- {ref}`PCA Guide <pca>` - Deep dive into PCA theory and interpretation
 - [Statistical Tests](analysis-methods/statistical.md) - All available statistical methods
 - [Machine Learning](analysis-methods/machine-learning.md) - Complete ML pipeline guide
 
 ### Advanced Workflows
 
-- [Multi-Group Comparison](user-guide/analysis.md#multi-group-comparison) - Compare >2 groups
-- [Custom Pipelines](user-guide/preprocessing.md#custom-pipelines) - Build complex preprocessing workflows
-- [Batch Processing](user-guide/preprocessing.md#batch-processing) - Process multiple datasets
-- [Hyperparameter Optimization](user-guide/machine-learning.md#hyperparameter-tuning) - Optimize ML models
+- [Multi-Group Comparison](user-guide/analysis.md) - Compare >2 groups
+- [Custom Pipelines](user-guide/preprocessing.md) - Build complex preprocessing workflows
+- [Batch Processing](user-guide/preprocessing.md) - Process multiple datasets
+- [Hyperparameter Optimization](user-guide/machine-learning.md) - Optimize ML models
 
 ### Best Practices
 
-- [Data Quality Control](user-guide/best-practices.md#quality-control) - Ensure clean data
-- [Avoiding Data Leakage](user-guide/best-practices.md#data-leakage) - Proper train/test splitting
+- [Data Quality](user-guide/best-practices.md#data-quality) - Ensure clean data
+- {ref}`Avoiding Data Leakage <data-leakage>` - Proper train/test splitting
 - [Publication-Ready Figures](user-guide/best-practices.md#figures) - Export high-quality plots
 - [Reproducible Workflows](user-guide/best-practices.md#reproducibility) - Document your analysis
 

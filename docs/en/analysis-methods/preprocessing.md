@@ -1051,6 +1051,8 @@ calibrated_wn = apply_calibration(
 | **Peak resolution**      | 2nd Derivative        | SavGol deriv=2     |
 | **Create features**      | Peak Ratios           | Custom ranges      |
 
+(recommended-pipelines)=
+
 ### Common Pipelines
 
 **Standard Pipeline**:
@@ -1083,7 +1085,10 @@ calibrated_wn = apply_calibration(
 4. Area Normalization
 ```
 
+
 ---
+
+(validation)=
 
 ## Parameter Constraints
 
@@ -1092,7 +1097,7 @@ calibrated_wn = apply_calibration(
 All methods include automatic parameter validation:
 
 **Type Checking**:
-```python
+```text
 # Integer parameters converted if needed
 window_length = "11" → 11 (converted)
 polyorder = 3.0 → 3 (converted)
@@ -1103,7 +1108,7 @@ p = 0.01 (valid)
 ```
 
 **Range Validation**:
-```python
+```text
 # Values clamped to valid ranges
 lambda = 1e10 → 1e9 (max allowed)
 window_length = 3 → 5 (min allowed)
@@ -1208,7 +1213,7 @@ See [References](../references.md) for complete citations.
 
 - [Preprocessing User Guide](../user-guide/preprocessing.md) - Step-by-step tutorials
 - [Best Practices](../user-guide/best-practices.md) - Preprocessing strategies
-- [FAQ - Preprocessing](../faq.md#preprocessing) - Common questions
+- [FAQ - Preprocessing](../faq.md#preprocessing-questions) - Common questions
 - [Glossary](../glossary.md) - Term definitions
 
 ---

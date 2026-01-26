@@ -59,7 +59,7 @@ data = load_spectra_from_csv('data/samples.csv')
 **Returns**: dict - Spectral data dictionary
 
 **CSV Format**:
-```csv
+```text
 Wavenumber,Sample1,Sample2,Sample3
 400.0,0.12,0.15,0.11
 401.0,0.13,0.16,0.12
@@ -2004,7 +2004,7 @@ def cached_preprocessing(spectrum_tuple, pipeline_hash):
 - [Pages API](pages.md) - Application pages
 - [Components API](components.md) - UI components
 - [Analysis Methods](../analysis-methods/index.md) - Detailed method documentation
-- [Best Practices](../best-practices.md) - Guidelines and recommendations
+- [Best Practices](../user-guide/best-practices.md) - Guidelines and recommendations
 
 ---
 

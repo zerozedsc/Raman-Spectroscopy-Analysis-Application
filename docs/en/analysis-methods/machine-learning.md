@@ -494,6 +494,17 @@ plt.tight_layout()
 plt.show()
 ```
 
+(shap-values)=
+#### SHAP Values
+
+**Purpose**: Explain model predictions via Shapley-value-based feature attribution.
+
+**When to use**:
+- ✓ Per-sample explanations (which wavenumbers drive a prediction)
+- ✓ Global importance aggregated from local attributions
+
+**Note**: This typically uses the external `shap` library.
+
 ### Out-of-Bag (OOB) Score
 
 ```python
@@ -1464,6 +1475,7 @@ scores = cross_val_score(
 print(f"Stratified CV Accuracy: {scores.mean():.3f} ± {scores.std():.3f}")
 ```
 
+(groupkfold)=
 #### Group K-Fold (Patient-Level)
 
 **Critical for Raman data**: Prevent data leakage from same patient

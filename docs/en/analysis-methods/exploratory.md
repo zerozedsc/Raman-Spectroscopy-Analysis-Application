@@ -13,6 +13,8 @@ Comprehensive reference for dimensionality reduction and clustering methods.
 
 ---
 
+(pca)=
+
 ## Principal Component Analysis (PCA)
 
 **Purpose**: Linear dimensionality reduction preserving maximum variance
@@ -273,12 +275,38 @@ Jolliffe & Cadima (2016). "Principal component analysis: a review and recent dev
 
 ---
 
+(mcr-als)=
+## MCR-ALS
+
+**Purpose**: Spectral unmixing / component extraction from mixtures.
+
+MCR-ALS (Multivariate Curve Resolution – Alternating Least Squares) aims to decompose a data matrix $X$ into
+concentrations $C$ and component spectra $S$:
+
+$$
+X \approx C S^T
+$$
+
+**When to use**:
+- ✓ Each measured spectrum is a mixture of a small number of underlying “pure” components
+- ✓ You want interpretable component spectra and relative contributions
+
+**Typical constraints**:
+- Non-negativity on $C$ and/or $S$
+- Normalization or closure constraints (depending on experiment)
+
+**Practical notes**:
+- Sensitive to initialization; try multiple starts.
+- Preprocessing (baseline correction, normalization) usually improves results.
+
+---
+
 ## UMAP (Uniform Manifold Approximation and Projection)
 
 **Purpose**: Non-linear dimensionality reduction preserving local and global structure
 
-### Theory
 
+### Theory
 UMAP constructs high-dimensional graph, then optimizes low-dimensional representation:
 
 1. **Build k-nearest neighbor graph** in high-dimensional space
@@ -760,6 +788,7 @@ inertia = kmeans_result['inertia']  # WCSS
 
 ### Choosing Number of Clusters (K)
 
+(elbow-method)=
 #### Method 1: Elbow Method
 
 ```python

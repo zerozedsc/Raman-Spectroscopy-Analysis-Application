@@ -136,6 +136,13 @@ myst_enable_extensions = [
 # Render fenced mermaid blocks (```mermaid) as directives when sphinxcontrib-mermaid is installed.
 myst_fence_as_directive = {"mermaid"}
 
+# Generate HTML anchors for Markdown headings so in-page links like
+#   [Section](#some-heading)
+# work reliably across the docs.
+#
+# This also avoids many MyST "local id not found" warnings.
+myst_heading_anchors = 3
+
 # -- Localization ------------------------------------------------------------
 # Translation builds and locale directory configuration are handled by
 # docs/conf.py (selected via READTHEDOCS_LANGUAGE).

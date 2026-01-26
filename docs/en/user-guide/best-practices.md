@@ -148,7 +148,7 @@ project_name/
 ```
 
 **Metadata Management**:
-```csv
+```text
 sample_id,patient_id,group,batch,acquisition_date,laser_power,integration_time,notes
 S001,P001,healthy,batch01,2026-01-15,50,10,good_quality
 S002,P001,healthy,batch01,2026-01-15,50,10,technical_replicate
@@ -725,6 +725,8 @@ Best performance in bold.
    - Any restrictions
 ```
 
+(reporting-results)=
+
 ### Results Section
 
 **Good Practice**:
@@ -837,6 +839,8 @@ cohort (n=43) confirmed model generalization with 91.2% accuracy."
 ---
 
 ## Common Pitfalls to Avoid
+
+(data-leakage)=
 
 ### ❌ Data Leakage
 ```

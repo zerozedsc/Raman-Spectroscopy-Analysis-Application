@@ -89,23 +89,23 @@ Each method is documented with:
 ### By Research Question
 
 **"Are my groups different?"**
-- Start with: [PCA](exploratory.md#pca) (visual)
-- Confirm with: [Statistical Tests](statistical.md#pairwise-tests) (quantitative)
+- Start with: [PCA](exploratory.md#principal-component-analysis-pca) (visual)
+- Confirm with: [Statistical Tests](statistical.md#pairwise-statistical-tests) (quantitative)
 
 **"What are the key differentiating features?"**
-- Use: [Band Ratio Analysis](statistical.md#band-ratio)
-- Or: [SHAP Values](machine-learning.md#shap-values) from ML models
+- Use: [Band Ratio Analysis](statistical.md#band-ratio-analysis)
+- Or: {ref}`SHAP Values <shap-values>` from ML models
 
 **"Can I predict group membership?"**
 - Use: [Machine Learning](machine-learning.md) (classification)
-- Validate with: [GroupKFold](machine-learning.md#groupkfold)
+- Validate with: {ref}`GroupKFold <groupkfold>`
 
 **"What are the pure components in my mixture?"**
-- Use: [MCR-ALS](exploratory.md#mcr-als) (spectral unmixing)
+- Use: {ref}`MCR-ALS <mcr-als>` (spectral unmixing)
 
 **"How many clusters exist in my data?"**
 - Use: [Hierarchical Clustering](exploratory.md#hierarchical-clustering) (dendrogram)
-- Or: [Elbow Method](exploratory.md#elbow-method) with K-means
+- Or: {ref}`Elbow Method <elbow-method>` with K-means
 
 ### By Data Characteristics
 
@@ -195,7 +195,7 @@ graph TD
 4. NO derivative (preserves peak positions)
 ```
 
-See [Preprocessing: Recommended Pipelines](preprocessing.md#recommended-pipelines) for detailed guidance.
+See {ref}`Preprocessing: Recommended Pipelines <recommended-pipelines>` for detailed guidance.
 
 ## Validation Best Practices
 
@@ -204,24 +204,24 @@ See [Preprocessing: Recommended Pipelines](preprocessing.md#recommended-pipeline
 1. **Never use test data for preprocessing**
    - Fit preprocessing on training data only
    - Transform test data using training parameters
-   - See: [Avoiding Data Leakage](../user-guide/best-practices.md#data-leakage)
+   - See: {ref}`Avoiding Data Leakage <data-leakage>`
 
 2. **Use patient-level splitting**
    - If multiple spectra per patient, keep patient's spectra together
    - Use GroupKFold with patient IDs
-   - See: [GroupKFold Guide](machine-learning.md#groupkfold)
+   - See: {ref}`GroupKFold Guide <groupkfold>`
 
 3. **Report all metrics**
    - Accuracy, Precision, Recall, F1, ROC-AUC
    - Confusion matrix
    - Confidence intervals or standard deviations
-   - See: [Reporting Results](../user-guide/best-practices.md#reporting-results)
+   - See: {ref}`Reporting Results <reporting-results>`
 
 4. **Validate preprocessing choices**
    - Test multiple preprocessing pipelines
    - Use cross-validation to select pipeline
    - Document final choices
-   - See: [Preprocessing Validation](preprocessing.md#validation)
+   - See: {ref}`Preprocessing Validation <validation>`
 
 ## Parameter Selection Guides
 
@@ -304,13 +304,13 @@ Complete bibliography with DOIs is provided in [References](../references.md).
 
 Want to add a new method or improve existing documentation?
 
-1. Follow the [Documentation Template](../development/documentation-template.md)
+1. Follow the [Contributing Guide](../dev-guide/contributing.md)
 2. Include all required sections (Purpose, Theory, Parameters, etc.)
 3. Provide at least one working example
 4. Cite primary literature
 5. Submit via pull request
 
-See [Contributing Guide](../development/contributing.md) for details.
+See [Contributing Guide](../dev-guide/contributing.md) for details.
 
 ## Support
 

@@ -33,7 +33,7 @@ Best for users who want to:
 **Time**: ~10 minutes  
 **Difficulty**: Intermediate (requires familiarity with Python)
 
-See [Installation Guide](installation.md#from-source) for detailed steps.
+See {ref}`Installation Guide <from-source>` for detailed steps.
 
 ### 2. Portable Executable (Windows Only)
 
@@ -46,7 +46,7 @@ Best for users who want to:
 **Time**: ~2 minutes  
 **Difficulty**: Easy
 
-See [Installation Guide](installation.md#portable-executable) for detailed steps.
+See {ref}`Installation Guide <portable-executable>` for detailed steps.
 
 ### 3. Installer (Windows Only)
 
@@ -59,7 +59,7 @@ Best for users who want to:
 **Time**: ~5 minutes  
 **Difficulty**: Easy
 
-See [Installation Guide](installation.md#installer) for detailed steps.
+See {ref}`Installation Guide <installer>` for detailed steps.
 
 ## Quick Start Tutorial
 

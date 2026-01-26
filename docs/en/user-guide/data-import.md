@@ -273,7 +273,7 @@ For Regression:
 
 Create a CSV file with sample-to-group mapping:
 
-```csv
+```text
 sample_name,group_label
 healthy_001,Healthy Control
 healthy_002,Healthy Control
@@ -630,8 +630,8 @@ Bad:  Group1, Group2, G3
 
 - [Interface Overview](interface-overview.md) - Navigate the Data Package page
 - [Preprocessing Guide](preprocessing.md) - Next step after import
-- [FAQ - Data Import](../faq.md#data-import) - Common questions
-- [Troubleshooting](../troubleshooting.md#data-import) - Detailed error solutions
+- [FAQ - Data Import](../faq.md#data-questions) - Common questions
+- [Troubleshooting](../troubleshooting.md#data-import-issues) - Detailed error solutions
 
 ---
 

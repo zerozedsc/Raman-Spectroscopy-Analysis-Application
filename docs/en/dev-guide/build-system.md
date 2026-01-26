@@ -229,7 +229,7 @@ uv pip install -r requirements.txt
 ```
 
 **requirements.txt**:
-```txt
+```text
 # Core scientific computing
 numpy>=1.24.0
 scipy>=1.11.0
@@ -273,7 +273,7 @@ uv pip install torch>=2.0.0 torchvision>=0.15.0
 #### Development Dependencies
 
 **requirements-dev.txt**:
-```txt
+```text
 # Testing
 pytest>=7.4.0
 pytest-qt>=4.2.0

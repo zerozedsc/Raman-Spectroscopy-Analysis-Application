@@ -189,7 +189,7 @@ This is the first alpha release of the Raman Spectroscopy Analysis Application, 
 **New Features to Note**:
 1. **GroupKFold is now default** for ML validation - ensures patient-level splitting
 2. **SHAP values** now available for all tree-based models
-3. **New preprocessing methods** - Review [Preprocessing Guide](docs/user-guide/preprocessing.md)
+3. **New preprocessing methods** - Review [Preprocessing Guide](user-guide/preprocessing.md)
 
 **Recommended Actions**:
 1. Update preprocessing pipelines to use new methods
@@ -221,7 +221,8 @@ This is the first alpha release of the Raman Spectroscopy Analysis Application, 
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the
+[LICENSE](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/blob/main/LICENSE) file for details.
 
 ## Citation
 

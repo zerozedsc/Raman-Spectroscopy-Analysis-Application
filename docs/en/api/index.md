@@ -349,7 +349,7 @@ Future CLI for:
 
 ## Contributing
 
-See [Contributing Guide](../development/contributing.md) for:
+See [Contributing Guide](../dev-guide/contributing.md) for:
 - Code contribution guidelines
 - Pull request process
 - Testing requirements

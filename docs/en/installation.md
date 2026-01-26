@@ -39,6 +39,8 @@ sudo dnf install python3-devel python3-pip gcc gcc-c++
 
 ## Installation Methods
 
+(from-source)=
+
 ### Method 1: From Source
 
 Recommended for **developers** and **advanced users** who want the latest features and ability to customize.
@@ -121,6 +123,8 @@ pip install -r requirements.txt  # Without UV
 
 ---
 
+(portable-executable)=
+
 ### Method 2: Portable Executable (Windows Only)
 
 Best for **end users** who want to run the application without installing Python.
@@ -161,6 +165,8 @@ Best for **end users** who want to run the application without installing Python
 - ❌ **Slower startup** - First launch takes longer than source installation
 
 ---
+
+(installer)=
 
 ### Method 3: Installer (Windows Only)
 
@@ -386,4 +392,4 @@ python build_scripts/build_portable.py
 python build_scripts/build_installer.py
 ```
 
-See [Build System Documentation](development/build-system.md) for details.
+See [Build System Documentation](dev-guide/build-system.md) for details.

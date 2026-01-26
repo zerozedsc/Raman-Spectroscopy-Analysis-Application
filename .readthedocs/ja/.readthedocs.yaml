@@ -1,12 +1,13 @@
 # Read the Docs configuration file (Japanese translation project)
 #
-# This project should be added as a Translation of the main project in RTD.
-# In the RTD UI for the Japanese project, set the "Build configuration file"
-# to this file: `.readthedocs.ja.yaml`.
-#
-# This builds docs/ja/** as the documentation root so URLs are:
-#   https://<project>.readthedocs.io/ja/latest/index.html
+# RTD translations already prefix URLs with the language (/en/latest/, /ja/latest/).
+# This config therefore builds docs/ja/** as the documentation ROOT so pages are:
+#   /ja/latest/index.html
 # (no duplicated /ja/ path segment).
+#
+# In the Read the Docs project settings for the Japanese project, set
+# "Build configuration file" to:
+#   .readthedocs/ja/.readthedocs.yaml
 #
 # See https://docs.readthedocs.com/platform/stable/config-file/v2.html
 
