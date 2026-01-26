@@ -12,12 +12,11 @@ Learn about the application's user interface, including:
 - Main window layout and navigation
 - Tab system (Home, Data, Preprocessing, Analysis, ML)
 - Common UI elements and controls
-- Keyboard shortcuts and tips
 
 ### 2. [Data Import and Management](data-import.md)
 
 Master data organization and import:
-- Supported file formats (CSV, TXT, MAT, SPC, WDF)
+- Supported file formats (CSV, TXT, ASC/ASCII, PKL)
 - Data structure requirements
 - Creating and managing datasets
 - Grouping spectra for analysis

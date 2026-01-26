@@ -916,7 +916,7 @@ class DataPackagePage(QWidget):
                 self,
                 LOCALIZE("DATA_PACKAGE_PAGE.browse_files_dialog_title"),
                 "",
-                "Data Files (*.txt *.csv *.dat);;All Files (*.*)",
+                "Data Files (*.csv *.txt *.asc *.ascii *.pkl);;All Files (*.*)",
             )
             if paths:
                 # For multiple files, use the first one or parent directory

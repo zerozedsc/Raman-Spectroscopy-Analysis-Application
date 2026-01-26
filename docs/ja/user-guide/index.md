@@ -124,10 +124,9 @@
 ### 5. エクスポートと共有
 
 **結果のエクスポート**（準備中）
-- Excelへのエクスポート
-- 図の保存（PNG, PDF, SVG）
-- レポート生成
-- バッチエクスポート
+- データのエクスポート（CSV / XLSX / JSON / TXT / PKL）
+- 図の保存（PNG / SVG）
+- レポート用フォルダ出力（例: report.txt, metadata.json）
 
 **データ共有**（準備中）
 - プロジェクトのエクスポート
@@ -673,29 +672,8 @@ flowchart TD
 
 ### プログラマティックアクセス
 
-**目的**: Pythonスクリプトによる自動化
-
-**基本例**:
-```python
-from raman_app import RamanAnalyzer
-
-# アナライザーを初期化
-analyzer = RamanAnalyzer()
-
-# データをロード
-analyzer.load_data("spectra.csv")
-
-# 前処理パイプライン
-analyzer.add_preprocessing("AsLS", lambda=100000)
-analyzer.add_preprocessing("Vector Norm")
-analyzer.apply_preprocessing()
-
-# PCAを実行
-results = analyzer.run_pca(n_components=2)
-
-# 結果をエクスポート
-analyzer.export_results("output.xlsx")
-```
+現時点では、安定したPython API / CLIは提供していません。
+自動化が必要な場合は、GUI上の「フォルダ読み込み」や各タブのエクスポート機能をご利用ください（将来的に拡充予定）。
 
 ---
 
@@ -727,34 +705,25 @@ Wavenumber,Sample1,Sample2,Sample3
 ...
 ```
 
-**Excelフォーマット**:
-- .xlsx または .xls
-- 最初のシートを使用
-- CSV と同じ構造
+**ASC/ASCIIフォーマット**:
+- `.asc` / `.ascii`
+- 一般的なテキスト形式（スペース/タブ区切り）
+
+**PKLフォーマット**:
+- `.pkl`
+- アプリ内のデータを再利用するための保存形式（Python pickle）
 
 ### 出力形式
 
-**Excel (.xlsx)**:
-- 複数のシート
-- 生データと処理済みデータ
-- 分析結果
-- メタデータ
+**データ**:
+- CSV / XLSX / JSON / TXT / PKL
 
-**CSV (.csv)**:
-- 単一のデータテーブル
-- 分析結果
-- 互換性が高い
+**画像（プロット）**:
+- PNG / SVG
 
-**画像 (PNG, PDF, SVG)**:
-- 高解像度の図
-- 出版品質
-- ベクトルまたはラスター
-
-**レポート (PDF)**:
-- 完全な分析レポート
-- 図と表
-- 統計結果
-- メタデータ
+**レポート**:
+- PDF出力は現時点では未対応です
+- レポート用フォルダ（テキスト+メタデータ+画像など）として出力される場合があります
 
 ---
 
@@ -770,15 +739,13 @@ Wavenumber,Sample1,Sample2,Sample3
 
 ### コミュニティサポート
 
-- **[GitHub Discussions](https://github.com/your-org/raman-app/discussions)** - 質問と議論
-- **[GitHub Issues](https://github.com/your-org/raman-app/issues)** - バグ報告と機能リクエスト
-- **Email**: support@example.com
+- GitHub Discussions / Issues（プロジェクトリポジトリ）
 
 ### フィードバック
 
 アプリケーションの改善にご協力ください：
 
-- **機能リクエスト**: [GitHub Issues](https://github.com/your-org/raman-app/issues)で提案
+- **機能リクエスト**: [GitHub Issues](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/issues)で提案
 - **バグ報告**: 詳細な情報を含めて報告
 - **ドキュメント改善**: プルリクエストを歓迎
 
@@ -795,4 +762,4 @@ Wavenumber,Sample1,Sample2,Sample3
 
 ---
 
-**最終更新**: 2026年1月24日 | **バージョン**: 1.0.0
+**最終更新**: 2026年1月24日

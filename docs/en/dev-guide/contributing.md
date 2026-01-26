@@ -2,18 +2,21 @@
 
 Guidelines for contributing to the Raman Spectroscopy Analysis Application.
 
-## Table of Contents
-- [Getting Started](#getting-started)
-- [Development Workflow](#development-workflow)
-- [Code Standards](#code-standards)
-- [Adding Features](#adding-features)
-- [Testing Requirements](#testing-requirements)
-- [Documentation Standards](#documentation-standards)
-- [Pull Request Process](#pull-request-process)
-- [Code Review Guidelines](#code-review-guidelines)
-- [Release Process](#release-process)
+## Minimal contribution workflow (current)
+ 1. Fork the repository.
+ 2. Create a branch for your change.
+ 3. Install from source (editable install): `pip install -e .`
+ 4. Run the smoke tests: `python smoke_tests.py`
+ 5. Open a pull request with a clear description and screenshots/logs if applicable.
 
 ---
+
+<!--
+The content below is temporarily hidden from the rendered documentation because it contains
+placeholders and workflows that do not match the current repository state.
+-->
+
+<!--
 
 ## Getting Started
 
@@ -1479,10 +1482,9 @@ git push upstream main develop --tags
 
 ### Resources
 
-- **Documentation**: https://raman-app.readthedocs.io
-- **Issues**: https://github.com/org/raman-app/issues
-- **Discussions**: https://github.com/org/raman-app/discussions
-- **Email**: dev@example.com
+- **Documentation**: https://raman-spectroscopy-analysis-application.readthedocs.io/en/latest/
+- **Issues**: https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/issues
+- **Discussions**: https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/discussions
 
 ### Asking Questions
 
@@ -1534,4 +1536,6 @@ Any other relevant information.
 
 ---
 
-**Last Updated**: 2026-01-24
+**Last Updated**: 2026-01-26
+
+-->

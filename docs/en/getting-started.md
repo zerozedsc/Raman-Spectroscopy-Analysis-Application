@@ -88,7 +88,7 @@ Launch from Start Menu or desktop shortcut
 
 1. Navigate to the **Data Package** tab
 2. Click **Import Data**
-3. Select your Raman spectroscopy data files (CSV, TXT, or MAT format)
+3. Select your Raman spectroscopy data files (CSV, TXT, ASC/ASCII, or PKL format)
 4. Review the imported spectra in the preview panel
 
 ### Step 4: Preprocess Your Data

@@ -338,7 +338,7 @@
 | ICA          | Independent Component Analysis                     |
 | KNN          | K-Nearest Neighbors                                |
 | LOPOCV       | Leave-One-Patient-Out Cross-Validation             |
-| MAT          | MATLAB File Format                                 |
+| MAT          | MATLAB File Format (not currently supported)       |
 | MCR          | Multivariate Curve Resolution                      |
 | MGUS         | Monoclonal Gammopathy of Undetermined Significance |
 | ML           | Machine Learning                                   |

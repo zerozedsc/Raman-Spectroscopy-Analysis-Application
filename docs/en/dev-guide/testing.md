@@ -1,20 +1,18 @@
 # Testing Guide
 
-Comprehensive guide to testing the Raman Spectroscopy Analysis Application.
+This page is being revised.
 
-## Table of Contents
-- [Testing Strategy](#testing-strategy)
-- [Test Structure](#test-structure)
-- [Unit Testing](#unit-testing)
-- [Integration Testing](#integration-testing)
-- [UI Testing](#ui-testing)
-- [Test Fixtures](#test-fixtures)
-- [Code Coverage](#code-coverage)
-- [Continuous Testing](#continuous-testing)
-- [Best Practices](#best-practices)
-- [Troubleshooting](#troubleshooting)
+## Smoke tests (current)
+ The file `smoke_tests.py` is designed to be fast and minimal. It checks that key plotting / widget update paths are importable and non-crashing.
 
 ---
+
+<!--
+The content below is temporarily hidden from the rendered documentation because it contains
+placeholders and a test-suite structure that does not match the current repository state.
+-->
+
+<!--
 
 ## Testing Strategy
 
@@ -1398,4 +1396,6 @@ source = ["."]
 
 ---
 
-**Last Updated**: 2026-01-24
+**Last Updated**: 2026-01-26
+
+-->

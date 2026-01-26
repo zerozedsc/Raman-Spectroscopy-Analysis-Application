@@ -129,7 +129,7 @@ references
 
 ### データ処理
 
-- **複数形式対応**: CSV、TXT、Excel
+- **複数形式対応**: CSV、TXT、ASC/ASCII、PKL
 - **バッチ処理**: 複数のスペクトルを同時に処理
 - **グループ管理**: サンプルの整理と比較
 
@@ -159,7 +159,7 @@ references
 - **スペクトルプロット**: 個別、平均、比較
 - **分析結果**: スコアプロット、デンドログラム、ヒートマップ
 - **評価指標**: 混同行列、ROC曲線、学習曲線
-- **エクスポート**: PNG、PDF、SVG、Excel
+- **エクスポート**: 図（PNG、SVG）、データ（CSV、XLSX、JSON、TXT、PKL）
 
 ---
 
@@ -222,7 +222,7 @@ references
 ### サンプルデータ
 
 - **組み込みサンプル**: 練習用のデモデータセット
-- **ダウンロード**: [サンプルスペクトル](https://example.com/samples)
+- **ダウンロード**: （準備中）
 - **フォーマット**: CSV、適切なラベル付き
 
 ---
@@ -237,32 +237,30 @@ references
 
 ### コミュニティ
 
-- **GitHub Issues**: [バグ報告と機能リクエスト](https://github.com/your-org/raman-app/issues)
-- **Discussions**: [質問とディスカッション](https://github.com/your-org/raman-app/discussions)
-- **Email**: support@example.com
+- **GitHub Issues**: [バグ報告と機能リクエスト](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/issues)
+- **Discussions**: [質問とディスカッション](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/discussions)
 
 ### 貢献
 
 プロジェクトへの貢献を歓迎します！
 
 - **[貢献ガイド](dev-guide/contributing.md)** - 始め方
-- **[Code of Conduct](https://github.com/your-org/raman-app/CODE_OF_CONDUCT.md)** - コミュニティガイドライン
+- **Code of Conduct** - （準備中）
 
 
 ---
 
 ## 📝 ライセンス
 
-このプロジェクトはMITライセンスの下でライセンスされています。詳細は[LICENSE](https://github.com/your-org/raman-app/blob/main/LICENSE)をご覧ください。
+このプロジェクトはMITライセンスの下でライセンスされています。詳細はリポジトリ内の `LICENSE` をご覧ください。
 
 ---
 
 ## 🔗 関連リンク
 
-- **[GitHubリポジトリ](https://github.com/your-org/raman-app)**
-- **[リリースノート](https://github.com/your-org/raman-app/releases)**
-- **[変更履歴](https://github.com/your-org/raman-app/blob/main/CHANGELOG.md)**
-- **[ウェブサイト](https://raman-app.example.com)**
+- **[GitHubリポジトリ](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application)**
+- **[リリースノート](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/releases)**
+- **[変更履歴](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/blob/main/CHANGELOG.md)**
 
 ---
 

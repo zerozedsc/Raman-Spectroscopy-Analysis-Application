@@ -172,48 +172,28 @@ Best for **end users** who want to run the application without installing Python
 
 Best for **permanent installations** with Start Menu integration and file associations.
 
+> **Coming soon**: The Windows installer workflow is still being finalized. For now, please use the
+> {ref}`Portable Executable <portable-executable>` option or run from source.
+
 #### Step 1: Download
 
-1. Go to [Releases](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/releases)
-2. Download the latest installer: `RamanApp_installer_vX.X.X.exe`
-3. File size: ~375 MB
+1. (Not available yet)
 
 #### Step 2: Run Installer
 
-1. Double-click the installer executable
-2. Windows SmartScreen may appear:
-   - Click "More info"
-   - Click "Run anyway"
-3. Follow the installation wizard:
-   - **License Agreement**: Review and accept MIT License
-   - **Installation Location**: Default is `C:\Program Files\RamanApp`
-   - **Start Menu Folder**: Choose folder name (default: "Raman Spectroscopy Analysis")
-   - **Desktop Shortcut**: Optionally create desktop shortcut
+This section will be updated once the installer release is published.
 
 #### Step 3: Launch
 
-- From **Start Menu**: Search "Raman" or navigate to your chosen folder
-- From **Desktop**: Double-click shortcut (if created)
+(Not available yet)
 
 #### Features
 
-- ✅ **Professional installation** - Standard Windows installation experience
-- ✅ **Start Menu integration** - Easy access from Windows menu
-- ✅ **Desktop shortcut** - Optional quick access
-- ✅ **File associations** - `.rproj` files open with application
-- ✅ **Uninstaller** - Clean removal via Windows Settings
+(Coming soon)
 
 #### Uninstallation
 
-**Via Windows Settings:**
-1. Open **Settings** → **Apps** → **Installed Apps**
-2. Search for "Raman Spectroscopy Analysis"
-3. Click **⋮** → **Uninstall**
-
-**Via Control Panel:**
-1. Open **Control Panel** → **Programs** → **Uninstall a program**
-2. Select "Raman Spectroscopy Analysis"
-3. Click **Uninstall**
+(Coming soon)
 
 ---
 

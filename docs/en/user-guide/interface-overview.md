@@ -6,7 +6,6 @@ Complete guide to the Raman Spectroscopy Analysis Application user interface.
 - {ref}`Main Window Layout <main-window-layout>`
 - {ref}`Navigation System <navigation-system>`
 - {ref}`Common UI Elements <common-ui-elements>`
-- {ref}`Keyboard Shortcuts <keyboard-shortcuts>`
 - {ref}`Customization <customization>`
 
 ---
@@ -22,7 +21,7 @@ The application uses a modern tabbed interface with consistent organization acro
 
 *Figure: Main application window showing title bar, menu bar, tab navigation, and status bar*
 
-> **Note**: Screenshot shows the default light theme. The actual screenshot will be captured and placed in `docs/assets/screenshots/en/data-package-page.png`.
+
 
 ### Key Components
 
@@ -77,7 +76,7 @@ The application uses **page-based architecture** where each major function has i
 
 *Figure: Home page showing recent projects, quick actions, and system status*
 
-> **Note**: Screenshot will show the dashboard with recent projects list, quick start tutorials, and system overview.
+
 
 - Recent projects list
 - Quick start tutorials
@@ -97,7 +96,7 @@ The application uses **page-based architecture** where each major function has i
 
 *Figure: Data Package page with file browser, dataset list, and preview panel*
 
-> **Note**: Screenshot will show the file browser panel, data validation interface, and group assignment tools.
+
 
 - File browser for CSV/TXT import
 - Data validation and preview
@@ -117,7 +116,7 @@ The application uses **page-based architecture** where each major function has i
 
 *Figure: Preprocessing page showing method selector, parameter panel, pipeline builder, and preview plot*
 
-> **Note**: Screenshot will show the 40+ preprocessing methods selector, parameter configuration panel, and real-time preview.
+
 
 - Method selector panel (40+ methods)
 - Parameter configuration
@@ -138,7 +137,7 @@ The application uses **page-based architecture** where each major function has i
 
 *Figure: Analysis page with method categories, dataset selector, and interactive plot viewer*
 
-> **Note**: Screenshot will show the exploratory/statistical/visualization tabs, dataset selection panel, and results display.
+
 
 - Method category tabs (Exploratory, Statistical, Visualization)
 - Interactive plot viewers
@@ -158,7 +157,7 @@ The application uses **page-based architecture** where each major function has i
 
 *Figure: Machine Learning page showing algorithm selector, hyperparameter tuning panel, and evaluation dashboard*
 
-> **Note**: Screenshot will show the ML algorithm selection, cross-validation setup, and model performance metrics.
+
 
 - Algorithm selection panel
 - Hyperparameter tuning
@@ -233,8 +232,8 @@ Standard layout for displaying analysis results.
 
 **Features**:
 - **📋**: Copy results to clipboard
-- **📊**: Export plot as image (PNG, SVG, PDF)
-- **💾**: Save data to file (CSV, Excel)
+- **📊**: Export plot as image (PNG, SVG)
+- **💾**: Save data table (CSV, XLSX, JSON, TXT, PKL)
 - Summary statistics below main result
 - Zoom, pan, and interact with plots
 
@@ -267,73 +266,6 @@ For uploading test sets for model evaluation.
 **Layout**: Modal dialog with "External Test Set Evaluation" title. Three file selection rows: Test Data File (required), Labels File (optional), and Model File (required). Each row has a "Browse..." button and displays the selected filename. Cancel and Evaluate buttons at the bottom.
 
 > **Visual Reference**: See the Machine Learning Page screenshot showing evaluation dialogs.
-
- ---
-
-(keyboard-shortcuts)=
-## Keyboard Shortcuts
-
-### Global Shortcuts
-
-| Shortcut           | Action             |
-| ------------------ | ------------------ |
-| `Ctrl + N`         | New project        |
-| `Ctrl + O`         | Open project       |
-| `Ctrl + S`         | Save project       |
-| `Ctrl + Shift + S` | Save as            |
-| `Ctrl + W`         | Close project      |
-| `Ctrl + Q`         | Quit application   |
-| `Ctrl + Z`         | Undo               |
-| `Ctrl + Y`         | Redo               |
-| `Ctrl + C`         | Copy               |
-| `Ctrl + V`         | Paste              |
-| `F1`               | Open documentation |
-| `F11`              | Toggle fullscreen  |
-| `Ctrl + ,`         | Open settings      |
-
-### Page Navigation
-
-| Shortcut             | Action                  |
-| -------------------- | ----------------------- |
-| `Ctrl + 1`           | Go to Home page         |
-| `Ctrl + 2`           | Go to Data Package page |
-| `Ctrl + 3`           | Go to Preprocess page   |
-| `Ctrl + 4`           | Go to Analysis page     |
-| `Ctrl + 5`           | Go to ML page           |
-| `Ctrl + 6`           | Go to Workspace page    |
-| `Ctrl + Tab`         | Next tab                |
-| `Ctrl + Shift + Tab` | Previous tab            |
-
-### Preprocess Page
-
-| Shortcut           | Action                 |
-| ------------------ | ---------------------- |
-| `Ctrl + A`         | Add preprocessing step |
-| `Ctrl + D`         | Delete selected step   |
-| `Ctrl + P`         | Preview effect         |
-| `Ctrl + Enter`     | Apply pipeline         |
-| `Ctrl + L`         | Load pipeline          |
-| `Ctrl + Shift + L` | Save pipeline          |
-
-### Analysis & ML Pages
-
-| Shortcut   | Action                      |
-| ---------- | --------------------------- |
-| `Ctrl + R` | Run analysis/training       |
-| `Ctrl + E` | Export results              |
-| `Ctrl + .` | Stop current operation      |
-| `F5`       | Refresh view                |
-| `Space`    | Play/Pause (for animations) |
-
-### Plot Interactions
-
-| Shortcut           | Action                 |
-| ------------------ | ---------------------- |
-| `Ctrl + Scroll`    | Zoom in/out            |
-| `Left Drag`        | Pan plot               |
-| `Right Click`      | Context menu           |
-| `Ctrl + Shift + C` | Copy plot to clipboard |
-| `Ctrl + Shift + S` | Save plot as image     |
 
  ---
 
@@ -563,7 +495,6 @@ All features accessible via keyboard:
 ## See Also
 
 - [Data Import Guide](data-import.md) - Detailed data management
-- [Keyboard Shortcuts Reference](../troubleshooting.md) - Shortcut troubleshooting and tips
 - [Settings and Preferences](../faq.md) - Configuration options
 - [Accessibility Documentation](../faq.md) - Accessibility features
 

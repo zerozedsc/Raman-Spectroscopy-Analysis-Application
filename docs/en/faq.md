@@ -55,14 +55,18 @@ Yes, the portable executable runs completely offline once downloaded. For source
 ### What file formats are supported?
 
 **Fully supported:**
-- CSV (comma-separated values)
-- TXT (tab or space-separated)
-- MAT (MATLAB format)
+- CSV (`.csv`)
+- TXT (`.txt`)
+- ASCII (`.asc`, `.ascii`)
+- Pickle (`.pkl`) (Python/pandas)
 
-**Planned support:**
+**Folder import:**
+- A folder containing multiple single-spectrum `.txt` files
+- A folder containing multiple single-spectrum `.asc`/`.ascii` files
+
+**Planned support (not implemented yet):**
 - SPC (Galactic)
 - WDF (Renishaw WiRE)
-- Custom binary formats
 
 ### What data structure is required?
 

@@ -52,7 +52,6 @@ graph LR
 > - **Right/Bottom**: Results panel with interactive plots and summary statistics
 
 **Key Features**:
-- **Pause [⏸]**: Pause long-running operations
 - **Stop [⏹]**: Cancel current analysis
 - **Grouped Mode**: Analyze by sample groups
 - **Multiple Tabs**: Results organized by analysis type
@@ -616,30 +615,26 @@ Significant peak @ 1655 cm⁻¹ (Amide I)
 **Plots**:
 - **PNG**: Raster image (300 DPI for publication)
 - **SVG**: Vector graphics (editable in Illustrator, Inkscape)
-- **PDF**: Publication-ready
 
-**Data**:
-- **CSV**: Results tables (p-values, effect sizes, coordinates)
-- **Excel**: Multiple sheets (one per result type)
-- **JSON**: Structured data for reanalysis
+**Data tables** (depends on the selected analysis output):
+- **CSV**
+- **XLSX** (Excel)
+- **JSON**
+- **TXT** (tab-delimited)
+- **PKL** (pickle)
 
-**Reports**:
-- **HTML**: Interactive report with embedded plots
-- **PDF**: Static report with all figures and tables
-- **LaTeX**: For academic manuscripts
+**Saved result folders**:
+- "Export report" currently creates a folder containing:
+   - `plot.png` (if available)
+   - `data.csv` (if available)
+   - `report.txt`
 
 ### Creating Reports
 
 **Steps**:
 1. Complete all analyses
-2. Click **[Generate Report]**
-3. Select sections to include:
-   - ☑ Methods description
-   - ☑ Results figures
-   - ☑ Statistical tables
-   - ☑ Interpretation notes
-4. Choose format (HTML, PDF, LaTeX)
-5. Click **[Export Report]**
+2. Click the export/report action in the results panel
+3. Choose an output folder
 
 **Report Structure**:
 ```
@@ -670,7 +665,7 @@ Significant peak @ 1655 cm⁻¹ (Amide I)
 
 **Requirements**:
 - **Resolution**: 300+ DPI
-- **Format**: TIFF, PDF, or EPS
+- **Format**: PNG (raster) or SVG (vector)
 - **Fonts**: Embed or convert to paths
 - **Size**: Match journal requirements
 - **Color**: Check color-blind friendly palettes
@@ -679,7 +674,7 @@ Significant peak @ 1655 cm⁻¹ (Amide I)
 ```
 Figure → Export Settings
 - DPI: 300
-- Format: PDF
+- Format: PNG
 - Font Size: 12pt
 - Line Width: 2pt
 - Color Palette: Colorblind-safe

@@ -25,12 +25,13 @@
 **A:** ラマン分光データの包括的な分析が可能です：
 
 - **データ管理**: CSV/Excel形式のスペクトルのインポート、グループ管理、プロジェクト保存
+- **データ管理**: CSV/TXT/ASC/ASCII/PKL 形式のスペクトルのインポート、グループ管理
 - **前処理**: 40以上の手法（ベースライン補正、スムージング、正規化、微分など）
 - **探索的分析**: PCA、UMAP、t-SNE、クラスタリング
 - **統計分析**: t検定、ANOVA、相関分析、効果量計算
 - **機械学習**: SVM、Random Forest、XGBoost、ロジスティック回帰
 - **可視化**: 高品質なプロット、図のエクスポート
-- **結果のエクスポート**: Excel、CSV、PDF、画像形式
+- **結果のエクスポート**: データ（CSV / XLSX / JSON / TXT / PKL）、図（PNG / SVG）
 
 ### Q2: 無料で使用できますか？
 
@@ -84,7 +85,7 @@
 - OS: Windows 10、macOS 11、Ubuntu 20.04以上
 - RAM: 4 GB
 - ディスク: 500 MB空き容量
-- Python: 3.10以上（ソースから実行する場合）
+- Python: 3.12（3.12.x）（ソースから実行する場合）
 
 **推奨要件**:
 - RAM: 8 GB以上
@@ -105,20 +106,17 @@
 
 **方法2: Pythonパッケージ**
 ```bash
-# UVを使用（推奨）
-uv venv
-uv pip install raman-app
-
-# pipを使用
-pip install raman-app
+# （注）PyPI での配布は前提にしていません。
+# このリポジトリから実行する場合は、方法3（ソースから）を利用してください。
 ```
 
 **方法3: ソースから**
 ```bash
-git clone https://github.com/your-org/raman-app.git
-cd raman-app
-uv venv
-uv pip install -r requirements.txt
+git clone https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application.git
+cd Raman-Spectroscopy-Analysis-Application
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -e .
 python main.py
 ```
 
@@ -134,7 +132,7 @@ source venv/bin/activate  # macOS/Linux
 venv\Scripts\activate     # Windows
 
 # 依存関係をインストール
-uv pip install -r requirements.txt
+pip install -e .
 
 # または特定のパッケージ
 uv pip install numpy scipy scikit-learn PyQt6 matplotlib pandas
@@ -173,7 +171,8 @@ sudo xattr -rd com.apple.quarantine /Applications/RamanApp.app
 
 - **CSV** (.csv) - 推奨、最も互換性が高い
 - **テキスト** (.txt) - タブまたはスペース区切り
-- **Excel** (.xlsx, .xls) - 最初のシートを使用
+- **ASCII** (.asc, .ascii) - テキスト形式（波数・強度の2列）
+- **PKL** (.pkl) - Python/pandas のデータ
 
 **期待されるフォーマット**:
 ```text
@@ -497,39 +496,13 @@ data_page → 外れ値を選択 → 新規グループ作成
 
 ### Q25: 結果をエクスポートする方法は？
 
-**A:** 複数のフォーマットで可能です：
+**A:** 現時点のエクスポートは、主に以下の形式に対応しています。
 
-**Excelエクスポート**（推奨）:
-```
-結果パネル → エクスポート → Excel選択 → 
-ファイル名を指定 → 保存
-```
-含まれるもの:
-- 前処理済みデータ
-- 分析結果（スコア、ローディング）
-- 統計（p値、効果量）
-- メタデータ
+- **データ**: CSV / XLSX / JSON / TXT / PKL
+- **図（プロット）**: PNG / SVG
 
-**図のエクスポート**:
-```
-図を右クリック → 画像として保存 → 
-フォーマット選択（PNG/PDF/SVG）
-```
-- **PNG**: プレゼンテーション用（300-600 DPI推奨）
-- **PDF**: 印刷用、拡大縮小可能
-- **SVG**: ベクトル形式、編集可能
-
-**CSVエクスポート**:
-```
-データテーブル → エクスポート → CSV
-```
-他のソフトウェアとの互換性が高い
-
-**レポート生成**:
-```
-ファイル → レポート生成 → PDF
-```
-完全な分析レポート（図、表、統計を含む）
+※ PDF 形式のレポート生成は現時点では未対応です。
+必要な場合は、エクスポートされたデータ/画像を外部ツールでまとめてください。
 
 ---
 
@@ -930,179 +903,39 @@ MethodRegistry.register(
 
 ### Q40: Pythonスクリプトからアプリの機能を使用できますか？
 
-**A:** はい、プログラマティックAPIがあります：
-
-```python
-from raman_app import RamanAnalyzer
-
-# アナライザーを初期化
-analyzer = RamanAnalyzer()
-
-# データをロード
-analyzer.load_data("spectra.csv")
-
-# 前処理パイプライン
-analyzer.add_preprocessing("AsLS", lambda_=100000, p=0.01)
-analyzer.add_preprocessing("Savitzky-Golay", window=11, polyorder=3)
-analyzer.add_preprocessing("Vector Norm")
-analyzer.apply_preprocessing()
-
-# PCA分析
-results = analyzer.run_pca(n_components=2)
-print(f"Explained variance: {results['explained_variance']}")
-
-# 機械学習
-model = analyzer.train_model(
-    algorithm="Random Forest",
-    test_size=0.3,
-    cv_folds=5
-)
-print(f"Accuracy: {model['accuracy']:.3f}")
-
-# 結果をエクスポート
-analyzer.export_results("output.xlsx")
-```
+**A:** 現時点では、公式にサポートされたPython API / CLIは提供していません。
+自動化が必要な場合は、GUI上のフォルダ読み込みやエクスポート機能をご利用ください。
 
 ### Q41: バッチ処理を自動化できますか？
 
-**A:** はい、可能です：
+**A:** 現時点では、コマンドラインによるバッチ実行は未対応です。
 
-**方法1: コマンドラインインターフェース**
-```bash
-# 単一ファイルを処理
-raman-app process --input data.csv --pipeline standard.json --output results/
+代替として、GUIで以下を組み合わせて運用できます：
 
-# 複数ファイルをバッチ処理
-raman-app batch --input-dir raw_data/ --pipeline pipeline.json --output-dir processed/
-
-# 設定ファイルを使用
-raman-app batch --config batch_config.yaml
-```
-
-**方法2: Pythonスクリプト**
-```python
-import glob
-from raman_app import RamanAnalyzer
-
-# すべてのCSVファイルを取得
-files = glob.glob("data/*.csv")
-
-# 各ファイルを処理
-for file in files:
-    analyzer = RamanAnalyzer()
-    analyzer.load_data(file)
-    analyzer.apply_pipeline_from_file("pipeline.json")
-    
-    # 分析
-    results = analyzer.run_pca(n_components=2)
-    
-    # 結果を保存
-    output_name = file.replace(".csv", "_results.xlsx")
-    analyzer.export_results(output_name)
-    
-    print(f"Processed: {file}")
-```
-
-**方法3: タスクスケジューラ**
-```bash
-# cron (Linux/macOS)
-# 毎日午前2時に実行
-0 2 * * * /path/to/raman-app batch --config /path/to/config.yaml
-
-# Windows タスクスケジューラ
-# GUIまたはschtasksコマンドを使用
-```
+- データパッケージの**フォルダ読み込み**（複数ファイルをまとめて取り込み）
+- 必要な結果の**エクスポート**（CSV / XLSX / JSON / TXT / PKL、図: PNG / SVG）
 
 ### Q42: 他のソフトウェアとデータを交換できますか？
 
-**A:** はい、標準フォーマットをサポートしています：
+**A:** はい、一般的な形式でのやり取りを想定しています。
 
-**インポート元**:
-- **Excel**: 一般的なスプレッドシート
-- **CSV**: ほぼすべてのソフトウェア
-- **TXT**: テキストエディタ、MATLAB、Origin
-- **SPE/SPC**: 一部の分光計（変換が必要な場合あり）
+**インポート（現時点で対応）**:
+- CSV / TXT / ASC / ASCII / PKL
 
-**エクスポート先**:
-- **Excel**: さらなる分析、レポート作成
-- **CSV**: R、Python、MATLAB、Origin
-- **JSON**: プログラマティックアクセス
-- **HDF5**: 大規模データ、Python/MATLAB
-- **画像**: PNG、PDF、SVG（図のエクスポート）
+**エクスポート（現時点で対応）**:
+- データ: CSV / XLSX / JSON / TXT / PKL
+- 図（プロット）: PNG / SVG
 
-**専用フォーマット**:
-```python
-# MATLABにエクスポート
-analyzer.export_matlab("data.mat")
-
-# Rにエクスポート
-analyzer.export_csv("data.csv", r_compatible=True)
-
-# Origin用
-analyzer.export_csv("data.csv", origin_format=True)
-```
+※ MAT/HDF5/SPC などの専用形式は現時点では未対応です。
 
 ### Q43: リアルタイムデータ取得はサポートされていますか？
 
-**A:** 現在のバージョン（1.0.0）では限定的です：
-
-**現在の機能**:
-- ファイル監視モード（新しいファイルを自動検出）
-- 定期的な自動インポート
-- ホットリロード
-
-**将来のバージョン（v1.1予定）**:
-- Andor CCDカメラのネイティブサポート
-- リアルタイムスペクトル表示
-- オンライン分析
-- ストリーミングデータ処理
-
-**現在の回避策**:
-```python
-# ファイル監視スクリプト
-import time
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
-
-class SpectrumHandler(FileSystemEventHandler):
-    def on_created(self, event):
-        if event.src_path.endswith('.csv'):
-            # 新しいファイルを処理
-            analyzer.load_data(event.src_path)
-            analyzer.apply_pipeline()
-            analyzer.run_analysis()
-
-# 監視を開始
-observer = Observer()
-observer.schedule(SpectrumHandler(), path='./data', recursive=False)
-observer.start()
-```
+**A:** 現時点では、主にファイル読み込みベースのワークフローです。
+装置からのリアルタイム取得（例: SDK連携）は準備中のため、GUI上の機能としては未対応の場合があります。
 
 ### Q44: クラウドでアプリケーションを実行できますか？
 
-**A:** はい、いくつかのオプションがあります：
-
-**方法1: Docker**
-```bash
-# Dockerイメージをビルド
-docker build -t raman-app .
-
-# コンテナを実行
-docker run -p 8000:8000 raman-app
-
-# X11転送（Linux）
-docker run -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix raman-app
-```
-
-**方法2: クラウドVM**
-- AWS EC2、Google Compute Engine、Azure VM
-- X11/VNC経由でGUIにアクセス
-- Jupyter Notebookインターフェース（開発中）
-
-**方法3: Webインターフェース**（v1.2で計画中）
-- ブラウザベースのUI
-- クラウドストレージ統合
-- 共同作業機能
+**A:** 本アプリはデスクトップGUIアプリケーションとして提供されており、クラウド実行（Docker/サーバーモードなど）は現時点では未対応です。
 
 ### Q45: ヘルプやサポートを受けるには？
 
@@ -1115,9 +948,8 @@ docker run -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix raman-app
 4. **[トラブルシューティング](troubleshooting.md)** - 問題解決ガイド
 
 **コミュニティ**:
-- **GitHub Discussions**: [質問と議論](https://github.com/your-org/raman-app/discussions)
-- **GitHub Issues**: [バグ報告と機能リクエスト](https://github.com/your-org/raman-app/issues)
-- **Email**: support@example.com
+- **GitHub Discussions**: [質問と議論](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/discussions)
+- **GitHub Issues**: [バグ報告と機能リクエスト](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/issues)
 
 **質問するときのヒント**:
 ```
@@ -1147,13 +979,11 @@ docker run -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix raman-app
 
 ### コミュニティリソース
 
-- **[サンプルデータ](https://example.com/samples)** - 練習用データセット
-- **[ビデオチュートリアル](https://example.com/videos)** - 視覚的ガイド
-- **[ブログ](https://blog.example.com)** - ヒントとトリック
+- （準備中）
 
 ### 開発者リソース
 
-- **[GitHub](https://github.com/your-org/raman-app)** - ソースコード
+- **[GitHub](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application)** - ソースコード
 - **[貢献ガイド](dev-guide/contributing.md)** - 開発方法
 - **[API ドキュメント](api/index.md)** - プログラマティックアクセス
 
@@ -1161,8 +991,8 @@ docker run -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix raman-app
 
 **さらに質問がありますか？**
 
-このFAQで質問への回答が見つからない場合は、[GitHub Discussions](https://github.com/your-org/raman-app/discussions)で質問を投稿するか、support@example.comにメールをお送りください。
+このFAQで質問への回答が見つからない場合は、[GitHub Discussions](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/discussions)で質問を投稿してください。
 
 ---
 
-**最終更新**: 2026年1月24日 | **バージョン**: 1.0.0
+**最終更新**: 2026年1月24日

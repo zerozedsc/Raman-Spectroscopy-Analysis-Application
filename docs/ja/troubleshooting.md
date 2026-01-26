@@ -83,19 +83,8 @@ python -m venv venv
 source venv/bin/activate  # macOS/Linux
 venv\Scripts\activate     # Windows
 
-# インストール
-pip install raman-app
-```
-
-**オプション2: ユーザーモードでインストール**
-```bash
-pip install --user raman-app
-```
-
-**オプション3: sudoを使用（推奨しない）**
-```bash
-# Linux/macOS のみ
-sudo pip install raman-app
+# インストール（リポジトリ内で実行）
+pip install -e .
 ```
 
 ### 問題3: UVのインストールが失敗する
@@ -136,7 +125,7 @@ echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> ~/.bashrc
 
 **症状**:
 ```
-ERROR: Cannot install raman-app because these package versions have conflicting dependencies
+ERROR: Could not install the project because these package versions have conflicting dependencies
 ```
 
 **解決策**:
@@ -154,11 +143,11 @@ pip install numpy scipy pandas
 pip install PyQt6 matplotlib
 pip install scikit-learn
 
-# 4. アプリケーションをインストール
-pip install raman-app
+# 4. アプリケーションをインストール（リポジトリから）
+pip install -e .
 
-# または requirements.txt から
-pip install -r requirements.txt
+# または（編集可能インストールが不要なら）
+pip install .
 ```
 
 **特定のバージョンを指定**:
@@ -1138,10 +1127,10 @@ Excel → CSV に変更
 「圧縮を無効化」にチェック
 ```
 
-**方法4: HDF5を使用（大規模データ）**
+**方法4: 形式を見直す（大規模データ）**
 ```
-エクスポート → HDF5 → 
-（Python/MATLABでの再読み込みに最適）
+大規模データの場合は、まず CSV ではなく PKL（pickle）などの形式を検討してください。
+※ HDF5 形式のエクスポートは現時点では未対応です。
 ```
 
 ---
@@ -1339,7 +1328,7 @@ DPI: 300（印刷用）または 600（高品質）
 
 **方法2: ベクトル形式を使用**
 ```
-フォーマット: PNG → PDF または SVG
+フォーマット: PNG → SVG
 （拡大縮小しても品質維持）
 ```
 
@@ -1421,7 +1410,7 @@ sudo xattr -rd com.apple.quarantine /Applications/RamanApp.app
 softwareupdate --install-rosetta
 
 # またはネイティブARMバージョンを使用
-pip install raman-app  # 自動的にARM版をインストール
+（注）pip での配布は現時点では未対応です。
 ```
 
 ### Linux固有
@@ -1525,9 +1514,8 @@ GitHub Issueを作成する際に含めるべき情報:
 
 ### サポートを受ける
 
-- **GitHub Issues**: https://github.com/your-org/raman-app/issues
-- **GitHub Discussions**: https://github.com/your-org/raman-app/discussions
-- **Email**: support@example.com
+- **GitHub Issues**: https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/issues
+- **GitHub Discussions**: https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/discussions
 
 ---
 
@@ -1540,4 +1528,4 @@ GitHub Issueを作成する際に含めるべき情報:
 
 ---
 
-**最終更新**: 2026年1月24日 | **バージョン**: 1.0.0
+**最終更新**: 2026年1月24日

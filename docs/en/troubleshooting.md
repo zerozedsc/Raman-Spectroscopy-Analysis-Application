@@ -237,7 +237,7 @@ python main.py
 **Error:** "Unable to read file" or "Unsupported file format"
 
 **Diagnosis:**
-- Check file extension (.csv, .txt, .mat)
+- Check file extension (.csv, .txt, .asc, .ascii, .pkl)
 - Open file in text editor to inspect structure
 
 **Solutions:**
@@ -247,10 +247,13 @@ python main.py
    - Remove non-numeric data (text annotations, units)
    - Verify first row/column structure
 
-2. **For MATLAB .mat files:**
-   - Check MATLAB version compatibility (v7.3 or older)
-   - Verify variable names are standard
-   - Re-save in older format if needed
+2. **For ASC/ASCII files:**
+   - Ensure the file contains two numeric columns: wavenumber and intensity
+   - Ensure a consistent delimiter (space, tab, or comma)
+
+3. **For PKL files:**
+   - Ensure the file was created by pandas (`DataFrame.to_pickle`)
+   - Ensure it contains a DataFrame with wavenumbers as the index
 
 **Working CSV example:**
 ```

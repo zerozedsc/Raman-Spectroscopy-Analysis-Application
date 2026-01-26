@@ -1,18 +1,18 @@
 # Build System
 
-Guide to building, packaging, and deploying the Raman Spectroscopy Analysis Application.
+This page is being revised.
 
-## Table of Contents
-- [Development Environment](#development-environment)
-- [Dependency Management](#dependency-management)
-- [Building the Application](#building-the-application)
-- [Platform-Specific Builds](#platform-specific-builds)
-- [Creating Installers](#creating-installers)
-- [CI/CD Pipeline](#cicd-pipeline)
-- [Documentation Building](#documentation-building)
-- [Troubleshooting](#troubleshooting)
+## Recommended approach
+ Use the scripts in `build_scripts/` as the canonical entrypoints for building portable executables and installers.
 
 ---
+
+<!--
+The content below is temporarily hidden from the rendered documentation because it contains
+placeholders and build steps that do not match the current repository state.
+-->
+
+<!--
 
 ## Development Environment
 
@@ -893,7 +893,7 @@ Download from: https://nsis.sourceforge.io/Download
 !define APP_NAME "Raman App"
 !define APP_VERSION "1.0.0"
 !define APP_PUBLISHER "Your Organization"
-!define APP_URL "https://example.com"
+!define APP_URL "https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application"
 !define APP_EXE "RamanApp.exe"
 
 ; Include Modern UI
@@ -1419,4 +1419,6 @@ sudo apt-get install libxcb-xinerama0 libxcb-icccm4 libxcb-image0
 
 ---
 
-**Last Updated**: 2026-01-24
+**Last Updated**: 2026-01-26
+
+-->

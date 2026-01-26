@@ -5,7 +5,7 @@ This quick start guide will help you perform your first complete analysis in **1
 ## Prerequisites
 
 - Application installed (see [Installation Guide](installation.md))
-- Sample Raman spectroscopy data (CSV, TXT, or MAT format)
+- Sample Raman spectroscopy data (CSV, TXT, ASC/ASCII, or PKL format)
 - Basic understanding of Raman spectroscopy
 
 ## Tutorial: Analyzing Blood Plasma Samples
@@ -41,7 +41,8 @@ This tutorial demonstrates a complete workflow for comparing healthy vs disease 
    - Select your data files:
      - **CSV**: Each column is a spectrum, rows are wavenumbers
      - **TXT**: Tab or space-separated values
-     - **MAT**: MATLAB format with spectrum arrays
+       - **ASC/ASCII**: Text files with wavenumber + intensity columns
+       - **PKL**: Pickled pandas DataFrame
    - Click **Open**
 
 3. **Create groups**

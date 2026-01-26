@@ -55,8 +55,8 @@ Testing strategy, frameworks, and best practices.
 
 ### Prerequisites
 
-- Python 3.10 or higher
-- UV package manager
+- Python 3.12 (see `pyproject.toml`)
+- (Optional) UV package manager (used by `dev_runner.py`)
 - Git
 - (Optional) PyQt6 development tools
 
@@ -64,11 +64,11 @@ Testing strategy, frameworks, and best practices.
 
 ```bash
 # Clone repository
-git clone https://github.com/your-org/raman-app.git
-cd raman-app
+git clone https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application.git
+cd Raman-Spectroscopy-Analysis-Application
 
-# Create virtual environment with UV
-uv venv
+# Create virtual environment
+python -m venv .venv
 
 # Activate virtual environment
 # Windows:
@@ -77,29 +77,23 @@ uv venv
 source .venv/bin/activate
 
 # Install dependencies
-uv pip install -r requirements.txt
+pip install -e .
 
-# Install development dependencies
-uv pip install -r requirements-dev.txt
-
-# Install pre-commit hooks
-pre-commit install
+# Install development dependencies (optional)
+pip install -e .[dev]
 ```
 
 ### Running the Application
 
 ```bash
-# Development mode (with hot reload)
+# Development mode (auto-restart on .py changes)
 python dev_runner.py
 
 # Standard mode
 python main.py
 
-# Run tests
-pytest
-
-# Run with coverage
-pytest --cov=. --cov-report=html
+# Smoke tests (lightweight)
+python smoke_tests.py
 ```
 
 ---
@@ -329,9 +323,8 @@ class SpectrumProcessor(QWidget):
 ## 🤝 Getting Help
 
 - **Documentation**: Browse this guide and API reference
-- **Issues**: Check [GitHub Issues](https://github.com/your-org/raman-app/issues)
-- **Discussions**: Join [GitHub Discussions](https://github.com/your-org/raman-app/discussions)
-- **Email**: Contact maintainers at dev@example.com
+- **Issues**: https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/issues
+- **Discussions**: https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/discussions
 
 ---
 

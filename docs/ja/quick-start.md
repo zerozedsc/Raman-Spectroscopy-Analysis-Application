@@ -18,17 +18,9 @@
 
 ### ステップ1: アプリケーションを起動（30秒）
 
-**実行可能ファイル**:
-```bash
-# Windows
-RamanApp.exe をダブルクリック
+**実行可能ファイル（Windows）**:
 
-# macOS
-RamanApp.app をダブルクリック
-
-# Linux
-./RamanApp
-```
+- `RamanApp.exe` をダブルクリック
 
 **Pythonから**:
 ```bash
@@ -88,7 +80,7 @@ Wavenumber,Sample1,Sample2,Sample3
 ### ステップ5: 結果をエクスポート（30秒）
 
 1. **「結果をエクスポート」**ボタンをクリック
-2. フォーマットを選択（Excel、CSV、またはPDF）
+2. フォーマットを選択（CSV、Excel（.xlsx）、JSON、TXT、PKL）
 3. 場所を選択して**「保存」**をクリック
 
 ✅ **完了**: 最初の分析が完了しました！🎉
@@ -118,7 +110,7 @@ Wavenumber,Sample1,Sample2,Sample3
        ▼
 ┌─────────────┐
 │ 結果        │
-│ エクスポート │ → Excel/PDF/画像
+│ エクスポート │ → CSV/Excel/画像
 └─────────────┘
 ```
 
@@ -356,8 +348,7 @@ Wavenumber,Sample1,Sample2,Sample3
 ```
 
 **ダウンロード**:
-- [サンプルスペクトル](https://example.com/samples)
-- [チュートリアルデータセット](https://example.com/tutorials)
+- （準備中）
 
 ---
 
@@ -371,9 +362,8 @@ Wavenumber,Sample1,Sample2,Sample3
 - [FAQ](faq.md)を検索
 
 **コミュニティ**:
-- [GitHub Discussions](https://github.com/your-org/raman-app/discussions)に質問を投稿
-- [GitHub Issues](https://github.com/your-org/raman-app/issues)でバグを報告
-- Email: support@example.com
+- [GitHub Discussions](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/discussions)に質問を投稿
+- [GitHub Issues](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/issues)でバグを報告
 
 **ヒント**: 
 質問する際は以下を含めてください：
@@ -432,8 +422,9 @@ Wavenumber,Sample1,Sample2,Sample3
 
 これでアプリケーションの使用準備が整いました。データの分析を楽しんでください！
 
-質問がある場合は、[ドキュメント](index.md)を参照するか、[サポートに連絡](mailto:support@example.com)してください。
+質問がある場合は、[ドキュメント](index.md)を参照するか、GitHub Discussions をご利用ください：
+https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/discussions
 
 ---
 
-**最終更新**: 2026年1月24日 | **バージョン**: 1.0.0
+**最終更新**: 2026年1月24日

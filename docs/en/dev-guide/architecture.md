@@ -1,19 +1,22 @@
 # Architecture
 
-Comprehensive overview of the application architecture, design patterns, and system organization.
+This page is being revised.
 
-## Table of Contents
-- [System Overview](#system-overview)
-- [Architectural Layers](#architectural-layers)
-- [Design Patterns](#design-patterns)
-- [Module Organization](#module-organization)
-- [Data Flow](#data-flow)
-- [State Management](#state-management)
-- [Plugin Architecture](#plugin-architecture)
-- [Extension Points](#extension-points)
-- [Performance Considerations](#performance-considerations)
+## What to read first
+ - Dev guide entry: [Developer Guide](index.md)
+ - Code entrypoint: `main.py`
 
 ---
+
+<!--
+The content below is temporarily hidden from the rendered documentation because it contains
+placeholders and design claims that do not match the current repository state.
+
+We keep it in the repo for historical reference while the page is rewritten based on the
+actual codebase.
+-->
+
+<!--
 
 ## System Overview
 
@@ -1098,4 +1101,6 @@ def important_operation():
 
 ---
 
-**Last Updated**: 2026-01-24
+**Last Updated**: 2026-01-26
+
+-->

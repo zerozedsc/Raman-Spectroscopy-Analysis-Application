@@ -59,13 +59,22 @@ Wavenumber,Sample1,Sample2,Sample3
 - Optional header row
 - Consistent delimiter throughout file
 
-### Future Support (Planned)
+#### ASC/ASCII Files
+
+**Format**: Text format containing two columns: wavenumber and intensity
+
+**Supported extensions**: `.asc`, `.ascii`
+
+#### PKL Files
+
+**Format**: Pickled pandas DataFrame
+
+**Supported extension**: `.pkl`
+
+### Future Import Support (Planned)
 
 - **SPC**: Galactic SPC binary format
 - **WDF**: Renishaw WiRE format
-- **Excel**: XLSX spreadsheets
-- **HDF5**: Hierarchical Data Format
-- **JSON**: JavaScript Object Notation
 
 ---
 
@@ -85,7 +94,7 @@ Wavenumber,Sample1,Sample2,Sample3
 1. Click **[Import Data]** button
 2. File dialog opens
 3. Navigate to your data directory
-4. Select one or multiple CSV/TXT files
+4. Select one or multiple files (CSV/TXT/ASC/PKL)
 5. Click **[Open]**
 
 **Method B: Drag and Drop**
@@ -108,7 +117,7 @@ Application automatically checks:
 
 During import, you will see a validation status panel/toast listing items like:
 
-- File format (CSV/TXT)
+- File format (CSV/TXT/ASC/PKL)
 - Wavenumber column detected
 - Number of spectra (samples)
 - Wavenumber range (e.g., 400–1800 cm⁻¹)
@@ -401,11 +410,7 @@ Application performs validation on import:
 3. Navigate: Next/Previous pages
 4. Actions: Accept, Reject, Flag
 
-**Keyboard Shortcuts**:
-- `Space`: Accept spectrum
-- `Delete`: Reject spectrum
-- `F`: Flag for later review
-- `Arrow Keys`: Navigate grid
+Use the on-screen controls for review actions.
 
 ---
 
@@ -481,21 +486,16 @@ Application performs validation on import:
 
 **Export for external use**:
 
-**Formats**:
-- CSV (preserves structure)
-- Excel (multiple sheets)
-- HDF5 (large datasets)
-- NPY (NumPy arrays)
-- MAT (MATLAB format)
+In the current application:
+
+- The **Data Package** page can export **metadata as JSON**.
+- The **Analysis** page can export:
+   - Plots: **PNG**, **SVG**
+   - Data tables: **CSV**, **XLSX**, **JSON**, **TXT**, **PKL**
 
 **Options**:
 
-The export dialog allows you to:
-
-- Choose the output format (CSV, Excel, HDF5, NPY, MAT)
-- Select what to include (raw spectra, preprocessed spectra, group labels, metadata)
-- Pick an output filename and folder
-- Confirm with **Export** or abort with **Cancel**
+Available export options depend on the selected analysis method and output type.
 
 ### Batch Import
 

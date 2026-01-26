@@ -75,25 +75,40 @@ def _cli_builder() -> str | None:
     return None
 
 
-def _detect_docs_prefix() -> str:
-    """Detect whether the Sphinx source dir is repo root or the docs/ directory.
+def _detect_sphinx_srcdir() -> Path:
+    """Best-effort detection of Sphinx's *source directory*.
 
-    Read the Docs may invoke Sphinx with the source dir set to either:
-    - repo root (so docs live under "docs/...")
-    - docs/     (so language roots live under "en/..." and "ja/...")
+    Sphinx is typically invoked as:
 
-    We infer this from the current working directory at config import time.
+        sphinx-build [options] <sourcedir> <outputdir>
+
+    Read the Docs and local invocations may also call `python -m sphinx`.
+
+    We intentionally detect based on the sourcedir argument rather than
+    `os.getcwd()`, because some Sphinx frontends may change the working
+    directory during startup.
     """
 
-    cwd = Path(os.getcwd())
+    if len(sys.argv) >= 3:
+        candidate = Path(sys.argv[-2])
+        if not candidate.is_absolute():
+            candidate = Path(os.getcwd()) / candidate
+        return candidate.resolve()
 
-    # If we're *inside* the docs directory, language roots should be direct
-    # children (en/, ja/).
-    if (cwd / "en").is_dir() and (cwd / "conf.py").is_file():
+    return Path(os.getcwd()).resolve()
+
+
+def _detect_docs_prefix(srcdir: Path) -> str:
+    """Detect whether docs live under <srcdir>/docs/ or directly under <srcdir>.
+
+    - If <srcdir>/en exists, language roots are direct children → "".
+    - If <srcdir>/docs/en exists, language roots are under docs/ → "docs/".
+    """
+
+    if (srcdir / "en").is_dir() and (srcdir / "conf.py").is_file():
         return ""
 
-    # If we're at repo root, docs should live under docs/.
-    if (cwd / "docs" / "en").is_dir() and (cwd / "docs" / "conf.py").is_file():
+    if (srcdir / "docs" / "en").is_dir() and (srcdir / "docs" / "conf.py").is_file():
         return "docs/"
 
     # Fallback to the common layout in this repo.
@@ -110,7 +125,8 @@ if _env_lang:
 # Documentation sources can be under either:
 # - <srcdir>/docs/<lang>/...  (srcdir is repo root)
 # - <srcdir>/<lang>/...       (srcdir is docs/)
-_docs_prefix = _detect_docs_prefix()
+_sphinx_srcdir = _detect_sphinx_srcdir()
+_docs_prefix = _detect_docs_prefix(_sphinx_srcdir)
 
 language = _normalize_docs_language(
     _cli_language_override()
@@ -193,9 +209,13 @@ if language == "ja":
     html_search_language = "ja"
 
 # Ensure templates are available (relative to the config dir).
-templates_path = list(globals().get("templates_path") or [])
-if "_templates" not in templates_path:
-    templates_path.append("_templates")
+# This config file lives at docs/conf.py, so template/static paths should be
+# relative to the docs/ directory (the configuration directory), not the
+# language subfolders.
+templates_path = ["_templates"]
+
+# Shared static assets live in docs/_static.
+html_static_path = ["_static"]
 
 # Provide a root output index.html (RTD requirement). This produces
 # "$OUTDIR/index.html" even though the documentation root is
