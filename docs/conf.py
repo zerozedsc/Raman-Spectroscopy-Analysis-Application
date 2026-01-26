@@ -75,6 +75,31 @@ def _cli_builder() -> str | None:
     return None
 
 
+def _detect_docs_prefix() -> str:
+    """Detect whether the Sphinx source dir is repo root or the docs/ directory.
+
+    Read the Docs may invoke Sphinx with the source dir set to either:
+    - repo root (so docs live under "docs/...")
+    - docs/     (so language roots live under "en/..." and "ja/...")
+
+    We infer this from the current working directory at config import time.
+    """
+
+    cwd = Path(os.getcwd())
+
+    # If we're *inside* the docs directory, language roots should be direct
+    # children (en/, ja/).
+    if (cwd / "en").is_dir() and (cwd / "conf.py").is_file():
+        return ""
+
+    # If we're at repo root, docs should live under docs/.
+    if (cwd / "docs" / "en").is_dir() and (cwd / "docs" / "conf.py").is_file():
+        return "docs/"
+
+    # Fallback to the common layout in this repo.
+    return "docs/"
+
+
 # If the environment explicitly selects a language (RTD translation projects,
 # or local builds via DOCS_LANGUAGE), set it here so it's available during
 # document parsing (e.g., for `ifconfig`).
@@ -82,10 +107,10 @@ _env_lang = os.environ.get("READTHEDOCS_LANGUAGE") or os.environ.get("DOCS_LANGU
 if _env_lang:
     language = _normalize_docs_language(_env_lang)
 
-# This project intentionally targets the Read the Docs build model where
-# Sphinx is invoked with source dir at the repository root (".") and config at
-# docs/conf.py. In that mode, documentation sources live under docs/**.
-_docs_prefix = "docs/"
+# Documentation sources can be under either:
+# - <srcdir>/docs/<lang>/...  (srcdir is repo root)
+# - <srcdir>/<lang>/...       (srcdir is docs/)
+_docs_prefix = _detect_docs_prefix()
 
 language = _normalize_docs_language(
     _cli_language_override()
@@ -116,14 +141,30 @@ if _builder and _builder != "html":
 
 root_doc = master_doc = f"{_docs_prefix}{language}/index"
 
-# When building from the repo root, avoid pulling unrelated Markdown files
-# (README.md, CHANGELOG.md, etc.).
+# Avoid pulling unrelated Markdown files (README.md, CHANGELOG.md, etc.).
+# When srcdir is repo root, restrict to docs/**. When srcdir is docs/, include
+# everything under docs/ (i.e. "**").
 if _docs_prefix:
-    include_patterns = ["docs/**"]
+    include_patterns = [f"{_docs_prefix}**"]
+else:
+    include_patterns = ["**"]
 
 # Exclude legacy/duplicate top-level docs and the *other* language tree.
 exclude_patterns = list(globals().get("exclude_patterns") or [])
 exclude_patterns += [
+    # Defensive excludes (in case the builder source dir changes or include_patterns
+    # becomes broad). These folders should never be treated as documentation
+    # sources.
+    ".venv",
+    ".venv/**",
+    ".rtd-venv",
+    ".rtd-venv/**",
+    ".AGI-BANKS",
+    ".AGI-BANKS/**",
+    ".docs",
+    ".docs/**",
+    "node_modules",
+    "node_modules/**",
     f"{_docs_prefix}_build",
     f"{_docs_prefix}_build/**",
     "Thumbs.db",

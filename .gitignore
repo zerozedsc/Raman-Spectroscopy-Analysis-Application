@@ -221,3 +221,4 @@ test.py
 .rtd-venv/
 docs_backup/
 docs_new/
+_rtd_build/
