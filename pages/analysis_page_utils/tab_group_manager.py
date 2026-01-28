@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QDialog, QMessageBox, QTabBar
+from PySide6.QtWidgets import QDialog, QMessageBox, QTabBar, QToolButton
 from PySide6.QtWidgets import (
 	QCheckBox,
 	QHBoxLayout,
@@ -80,6 +80,12 @@ class TabGroupManager(QWidget):
 		self.groups_tabs = QTabWidget()
 		self.groups_tabs.setTabsClosable(True)
 		self.groups_tabs.setMovable(False)
+		# Built-in scroll buttons only scroll the tab bar; user requested explicit
+		# left/right navigation (same behavior as result-side arrows).
+		try:
+			self.groups_tabs.setUsesScrollButtons(False)
+		except Exception:
+			pass
 		self.groups_tabs.setMinimumHeight(240)
 		self.groups_tabs.setStyleSheet(
 			"""
@@ -87,12 +93,67 @@ class TabGroupManager(QWidget):
 			QTabBar::tab { background: #f8f9fa; border: 1px solid #dee2e6; padding: 6px 12px; margin-right: 2px; border-top-left-radius: 4px; border-top-right-radius: 4px; color: #495057; }
 			QTabBar::tab:selected { background: #ffffff; border-bottom-color: #ffffff; font-weight: 600; color: #0078d4; }
 			QTabBar::close-button { subcontrol-position: right; }
+
+			/* Corner navigation arrows (only shown when tabs exceed threshold) */
+			QToolButton#groupTabScrollLeft,
+			QToolButton#groupTabScrollRight {
+				background-color: #f8f9fa;
+				border: 1px solid #dee2e6;
+				border-radius: 8px;
+				margin: 6px;
+				padding: 2px 6px;
+				min-width: 26px;
+				min-height: 26px;
+				color: #2c3e50;
+				font-weight: 700;
+			}
+			QToolButton#groupTabScrollLeft:hover,
+			QToolButton#groupTabScrollRight:hover {
+				background-color: #e3f2fd;
+				border-color: #0078d4;
+			}
+			QToolButton#groupTabScrollLeft:disabled,
+			QToolButton#groupTabScrollRight:disabled {
+				color: #adb5bd;
+				background-color: #f8f9fa;
+				border-color: #e9ecef;
+			}
 			"""
 		)
 		self.groups_tabs.tabCloseRequested.connect(self._on_tab_close_requested)
+
+		# Tab navigation arrows (shown only when many group tabs exist)
+		self._tab_nav_left = QToolButton(self.groups_tabs)
+		self._tab_nav_left.setObjectName("groupTabScrollLeft")
+		self._tab_nav_left.setText("◀")
+		self._tab_nav_left.setCursor(Qt.PointingHandCursor)
+
+		self._tab_nav_right = QToolButton(self.groups_tabs)
+		self._tab_nav_right.setObjectName("groupTabScrollRight")
+		self._tab_nav_right.setText("▶")
+		self._tab_nav_right.setCursor(Qt.PointingHandCursor)
+
+		self.groups_tabs.setCornerWidget(self._tab_nav_left, Qt.TopLeftCorner)
+		self.groups_tabs.setCornerWidget(self._tab_nav_right, Qt.TopRightCorner)
+
+		def _move(delta: int) -> None:
+			try:
+				cur = int(self.groups_tabs.currentIndex())
+				cnt = int(self.groups_tabs.count())
+				nxt = max(0, min(cnt - 1, cur + int(delta)))
+				self.groups_tabs.setCurrentIndex(nxt)
+			except Exception:
+				pass
+			finally:
+				self._update_tab_nav_controls()
+
+		self._tab_nav_left.clicked.connect(lambda: _move(-1))
+		self._tab_nav_right.clicked.connect(lambda: _move(+1))
+		self.groups_tabs.currentChanged.connect(lambda _i: self._update_tab_nav_controls())
 		root.addWidget(self.groups_tabs, 1)
 
 		self._ensure_unassigned_tab()
+		self._update_tab_nav_controls()
 
 		actions = QHBoxLayout()
 		actions.setContentsMargins(0, 0, 0, 0)
@@ -182,6 +243,34 @@ class TabGroupManager(QWidget):
 			bar = self.groups_tabs.tabBar()
 			bar.setTabButton(idx, QTabBar.RightSide, None)
 			bar.setTabButton(idx, QTabBar.LeftSide, None)
+		except Exception:
+			pass
+		self._update_tab_nav_controls()
+
+	def _update_tab_nav_controls(self) -> None:
+		"""Show/hide + enable/disable tab nav arrows.
+
+		User request: when groups are many (e.g. > 5), add arrows to navigate tabs.
+		"""
+		try:
+			cnt = int(self.groups_tabs.count())
+			cur = int(self.groups_tabs.currentIndex())
+		except Exception:
+			return
+
+		# Threshold: show arrows only when tabs are likely to overflow.
+		show = cnt > 5
+		try:
+			self._tab_nav_left.setVisible(show)
+			self._tab_nav_right.setVisible(show)
+		except Exception:
+			pass
+		if not show:
+			return
+
+		try:
+			self._tab_nav_left.setEnabled(cur > 0)
+			self._tab_nav_right.setEnabled(0 <= cur < cnt - 1)
 		except Exception:
 			pass
 
@@ -282,6 +371,7 @@ class TabGroupManager(QWidget):
 		)
 		idx = self.groups_tabs.addTab(page, tab_title)
 		self.groups_tabs.setCurrentIndex(idx)
+		self._update_tab_nav_controls()
 
 		ui = _GroupTab(
 			group_id=group_id,
@@ -327,6 +417,7 @@ class TabGroupManager(QWidget):
 			self._tabs.pop(index - 1)
 		except Exception:
 			pass
+		self._update_tab_nav_controls()
 		self._emit_groups_changed()
 
 	def _open_group_creation_dialog(self):

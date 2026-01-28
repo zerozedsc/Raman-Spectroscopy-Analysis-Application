@@ -3351,6 +3351,47 @@ class PreprocessPage(QWidget):
             # Create comprehensive metadata including preprocessing history
             selected_items = self.dataset_list.selectedItems()
 
+            def _sanitize_dataset_list_item_text(text: str) -> str:
+                return str(text or "").replace("🔬 ", "").replace("📊 ", "")
+
+            # ✅ Phase 4: inherit/copy raw dataset metadata into the new preprocessed dataset.
+            # Strategy:
+            # - If multiple source datasets are selected, keep:
+            #   1) the intersection of identical metadata keys/values across sources (inherited_common)
+            #   2) a per-source mapping for traceability (source_dataset_metadata)
+            inherited_common: dict = {}
+            source_dataset_metadata: dict = {}
+            try:
+                import copy
+
+                # In separate processing mode, each output dataset must inherit only from its own raw dataset.
+                if hasattr(self, "current_separate_task") and self.current_separate_task:
+                    source_names = [str(self.current_separate_task.get("dataset_name") or "")]
+                else:
+                    source_names = [
+                        _sanitize_dataset_list_item_text(item.text()) for item in selected_items
+                    ]
+                source_names = [s for s in source_names if s]
+
+                for i, src_name in enumerate(source_names):
+                    try:
+                        meta = PROJECT_MANAGER.get_dataframe_metadata(src_name)
+                        meta = meta if isinstance(meta, dict) else {}
+                    except Exception:
+                        meta = {}
+
+                    source_dataset_metadata[str(src_name)] = meta
+                    if i == 0:
+                        inherited_common = copy.deepcopy(meta)
+                    else:
+                        # Keep only keys that match across all sources (simple intersection).
+                        for k in list(inherited_common.keys()):
+                            if meta.get(k) != inherited_common.get(k):
+                                inherited_common.pop(k, None)
+            except Exception:
+                inherited_common = {}
+                source_dataset_metadata = {}
+
             # For separate processing, use pipeline from current task
             # For combined/single mode, use self.pipeline_steps
             if hasattr(self, "current_separate_task") and self.current_separate_task:
@@ -3379,7 +3420,9 @@ class PreprocessPage(QWidget):
                 )
 
             metadata = {
-                "source_datasets": [item.text() for item in selected_items],
+                **(inherited_common if isinstance(inherited_common, dict) else {}),
+                "source_datasets": source_names,
+                "source_dataset_metadata": source_dataset_metadata,
                 "preprocessing_pipeline": pipeline_data,  # Save the complete pipeline
                 "pipeline_summary": {
                     "total_steps": total_steps,

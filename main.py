@@ -6,6 +6,8 @@ Dramatically improves startup time for packaged executable
 import sys
 import os
 import argparse
+import time
+import tempfile
 
 # Early imports - only absolute essentials
 from PySide6.QtWidgets import QApplication
@@ -185,6 +187,65 @@ class MainWindow:
 
 def main():
     """Main application entry point with optimized loading."""
+
+    # ------------------------------------------------------------------
+    # Self-test: restart cycle for frozen/portable builds (opt-in)
+    #
+    # This is used by build_scripts/test_build_executable.py to verify that
+    # a restart (like language-change auto-restart) can successfully launch
+    # a second instance under PyInstaller onefile.
+    #
+    # Usage:
+    #   set RAMAN_APP_SELF_TEST_RESTART=1
+    #   (the app will restart once and both instances will exit)
+    # ------------------------------------------------------------------
+    if os.environ.get("RAMAN_APP_SELF_TEST_RESTART") == "1":
+        marker_path = os.environ.get("RAMAN_APP_SELF_TEST_RESTART_MARKER")
+
+        # Child instance: confirm we got this far, then exit.
+        if os.environ.get("RAMAN_APP_SELF_TEST_RESTARTED") == "1":
+            if marker_path:
+                try:
+                    os.makedirs(os.path.dirname(marker_path), exist_ok=True)
+                    with open(marker_path, "w", encoding="utf-8") as f:
+                        f.write("{\"ok\": true}\n")
+                except Exception:
+                    # Marker is best-effort; never crash the child instance.
+                    pass
+            return 0
+
+        # Parent instance: trigger restart and wait briefly for marker.
+        if not marker_path:
+            marker_path = os.path.join(
+                tempfile.gettempdir(),
+                f"raman_app_restart_selftest_{os.getpid()}_{int(time.time())}.json",
+            )
+
+        try:
+            if os.path.exists(marker_path):
+                os.remove(marker_path)
+        except Exception:
+            pass
+
+        os.environ["RAMAN_APP_SELF_TEST_RESTARTED"] = "1"
+        os.environ["RAMAN_APP_SELF_TEST_RESTART_MARKER"] = marker_path
+
+        try:
+            from utils import restart_application
+
+            restart_application(reason="self-test")
+        except Exception:
+            # If restart fails for any reason, signal failure.
+            return 2
+
+        deadline = time.time() + 20.0
+        while time.time() < deadline:
+            if marker_path and os.path.exists(marker_path):
+                return 0
+            time.sleep(0.1)
+
+        # Marker not created => child likely failed to start.
+        return 2
     
     # Parse command-line arguments FIRST (before any other imports)
     args = parse_arguments()

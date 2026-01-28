@@ -1766,7 +1766,19 @@ class AnalysisPage(QWidget):
         self.export_manager.export_data_csv(self.current_result.data_table, filename)
     
     def _export_data_multi_format(self):
-        """Export current data table in multiple formats (CSV, Excel, JSON, etc.)."""
+        """Export current results using the unified bundle export UI.
+
+        Note:
+            Historically this method offered a format dropdown (CSV/Excel/JSON/etc).
+            Users requested Analysis export UX match the ML bundle export dialog.
+        """
+        try:
+            self._export_analysis_bundle()
+            return
+        except Exception:
+            # Fall back to the legacy exporter below if something goes wrong.
+            pass
+
         if not self.current_result or self.current_result.data_table is None:
             create_logs(
                 "_export_data_multi_format",

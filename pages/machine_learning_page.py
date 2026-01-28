@@ -168,6 +168,56 @@ class _DestinationDialog(QDialog):
 
 		# File name
 		self.name_edit = QLineEdit(self._filename)
+		form.addRow(QLabel(LOCALIZE("ML_PAGE.dialog_filename")), self.name_edit)
+
+		# Optional checkbox
+		self.save_params_cb = None
+		if show_save_params:
+			self.save_params_cb = QCheckBox(LOCALIZE("ML_PAGE.dialog_save_params"))
+			self.save_params_cb.setChecked(bool(default_save_params))
+			root.addWidget(self.save_params_cb)
+
+		# Buttons
+		btn_row = QHBoxLayout()
+		btn_row.addStretch(1)
+		try:
+			cancel_text = LOCALIZE(cancel_text_key)
+		except Exception:
+			cancel_text = "Cancel"
+		cancel_btn = QPushButton(cancel_text)
+		cancel_btn.setCursor(Qt.PointingHandCursor)
+		cancel_btn.setStyleSheet(get_base_style("secondary_button"))
+		cancel_btn.clicked.connect(self.reject)
+		try:
+			ok_text = LOCALIZE(ok_text_key)
+		except Exception:
+			ok_text = "OK"
+		ok_btn = QPushButton(ok_text)
+		ok_btn.setCursor(Qt.PointingHandCursor)
+		ok_btn.setStyleSheet(get_base_style("primary_button"))
+		ok_btn.clicked.connect(self.accept)
+		btn_row.addWidget(cancel_btn)
+		btn_row.addWidget(ok_btn)
+		root.addLayout(btn_row)
+
+	def _browse_dir(self):
+		picked = QFileDialog.getExistingDirectory(
+			self, LOCALIZE("ML_PAGE.dialog_destination"), self._dir
+		)
+		if picked:
+			self._dir = str(picked)
+			self.dir_edit.setText(self._dir)
+
+	def selected_dir(self) -> str:
+		return str(self.dir_edit.text() or self._dir or os.getcwd())
+
+	def filename(self) -> str:
+		return str(self.name_edit.text() or "").strip()
+
+	def save_params(self) -> bool:
+		if self.save_params_cb is None:
+			return False
+		return bool(self.save_params_cb.isChecked())
 
 
 @dataclass(frozen=True)
@@ -300,54 +350,6 @@ class _SHAPOptionsDialog(QDialog):
 	@property
 	def options(self) -> _SHAPOptions:
 		return self._opts
-		form.addRow(QLabel(LOCALIZE("ML_PAGE.dialog_filename")), self.name_edit)
-
-		# Optional checkbox
-		self.save_params_cb = None
-		if show_save_params:
-			self.save_params_cb = QCheckBox(LOCALIZE("ML_PAGE.dialog_save_params"))
-			self.save_params_cb.setChecked(bool(default_save_params))
-			root.addWidget(self.save_params_cb)
-
-		# Buttons
-		btn_row = QHBoxLayout()
-		btn_row.addStretch(1)
-		try:
-			cancel_text = LOCALIZE(cancel_text_key)
-		except Exception:
-			cancel_text = "Cancel"
-		cancel_btn = QPushButton(cancel_text)
-		cancel_btn.setCursor(Qt.PointingHandCursor)
-		cancel_btn.setStyleSheet(get_base_style("secondary_button"))
-		cancel_btn.clicked.connect(self.reject)
-		try:
-			ok_text = LOCALIZE(ok_text_key)
-		except Exception:
-			ok_text = "OK"
-		ok_btn = QPushButton(ok_text)
-		ok_btn.setCursor(Qt.PointingHandCursor)
-		ok_btn.setStyleSheet(get_base_style("primary_button"))
-		ok_btn.clicked.connect(self.accept)
-		btn_row.addWidget(cancel_btn)
-		btn_row.addWidget(ok_btn)
-		root.addLayout(btn_row)
-
-	def _browse_dir(self):
-		picked = QFileDialog.getExistingDirectory(self, LOCALIZE("ML_PAGE.dialog_destination"), self._dir)
-		if picked:
-			self._dir = str(picked)
-			self.dir_edit.setText(self._dir)
-
-	def selected_dir(self) -> str:
-		return str(self.dir_edit.text() or self._dir or os.getcwd())
-
-	def filename(self) -> str:
-		return str(self.name_edit.text() or "").strip()
-
-	def save_params(self) -> bool:
-		if self.save_params_cb is None:
-			return False
-		return bool(self.save_params_cb.isChecked())
 
 
 @dataclass
@@ -2371,6 +2373,7 @@ class MachineLearningPage(QWidget):
 		out_dir = dlg.selected_dir()
 		filename = dlg.filename()
 		if not filename:
+			QMessageBox.warning(self, LOCALIZE("COMMON.warning"), LOCALIZE("ML_PAGE.dialog_filename"))
 			return
 		if not filename.lower().endswith(".pkl"):
 			filename = f"{filename}.pkl"
@@ -2386,8 +2389,31 @@ class MachineLearningPage(QWidget):
 			"train_context": dict(self._last_train_context or {}),
 			"trained_at": datetime.datetime.now().isoformat(),
 		}
-		joblib.dump(payload, path)
-		self._append_log(f"[DEBUG] Saved model to {path}")
+		try:
+			joblib.dump(payload, path)
+			self._append_log(f"[DEBUG] Saved model to {path}")
+			QMessageBox.information(
+				self,
+				LOCALIZE("COMMON.info"),
+				LOCALIZE("ML_PAGE.save_success").format(path=path)
+				if "{path}" in str(LOCALIZE("ML_PAGE.save_success"))
+				else f"Saved model to:\n{path}",
+			)
+		except Exception as e:
+			create_logs(
+				"MachineLearningPage",
+				"save_model_failed",
+				f"Save model failed: {e}",
+				status="error",
+			)
+			QMessageBox.critical(
+				self,
+				LOCALIZE("COMMON.error"),
+				LOCALIZE("ML_PAGE.save_failed").format(error=str(e))
+				if "{error}" in str(LOCALIZE("ML_PAGE.save_failed"))
+				else f"Failed to save model:\n{e}",
+			)
+			return
 
 		if save_params_json:
 			try:
@@ -2405,6 +2431,15 @@ class MachineLearningPage(QWidget):
 				self._append_log(f"[DEBUG] Saved params to {params_path}")
 			except Exception as e:
 				self._append_log(f"[DEBUG] Params JSON save failed: {e}")
+				# Non-fatal: model was saved, only JSON sidecar failed.
+				try:
+					QMessageBox.warning(
+						self,
+						LOCALIZE("COMMON.warning"),
+						f"Model saved, but params JSON failed:\n{e}",
+					)
+				except Exception:
+					pass
 
 	def _export_classification_report(self):
 		# Prefer stored report rows, but fall back to reading the table.
@@ -2558,6 +2593,15 @@ class MachineLearningPage(QWidget):
 			self._last_train_context = {}
 		self._append_log(f"[DEBUG] Loaded model from {path}")
 		self._refresh_eval_label_choices()
+		# Ensure actions are usable after loading.
+		try:
+			self._set_controls_enabled(True)
+		except Exception:
+			pass
+		try:
+			QMessageBox.information(self, LOCALIZE("COMMON.info"), f"Loaded model from:\n{path}")
+		except Exception:
+			pass
 
 	def _refresh_eval_label_choices(self):
 		# Populate from current groups + trained model labels

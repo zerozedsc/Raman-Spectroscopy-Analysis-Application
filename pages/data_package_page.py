@@ -872,11 +872,11 @@ class DataPackagePage(QWidget):
         if not dataset_name:
             return
         df = RAMAN_DATA.get(dataset_name)
-        metadata = (
-            PROJECT_MANAGER.current_project_data.get("dataPackages", {})
-            .get(dataset_name, {})
-            .get("metadata", {})
-        )
+        try:
+            metadata = PROJECT_MANAGER.get_dataframe_metadata(dataset_name)
+            metadata = metadata if isinstance(metadata, dict) else {}
+        except Exception:
+            metadata = {}
         # Update preview title with selected dataset name
         self._update_preview_title(dataset_name)
         self.update_preview_display(df, metadata, is_preview=False)

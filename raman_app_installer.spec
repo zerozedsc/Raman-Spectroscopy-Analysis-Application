@@ -5,6 +5,7 @@ Created: 2026-01-07 19:43:34
 """
 
 from PyInstaller.utils.hooks import collect_submodules, collect_data_files, collect_dynamic_libs
+import importlib.util
 import os
 import sys
 
@@ -83,7 +84,7 @@ hiddenimports = [
     "ramanspy",
     "ramanspy.preprocessing",
     "ramanspy.preprocessing.normalise",
-    "ramanspy.preprocessing.noise",
+    # ramanspy.preprocessing.noise is optional and may not exist in some ramanspy versions
     "ramanspy.preprocessing.baseline",
     "pybaselines",
     "sklearn",
@@ -103,6 +104,10 @@ hiddenimports = [
     "pydantic",
     "splash_screen"
 ]
+
+_maybe_noise = "ramanspy.preprocessing.noise"
+if importlib.util.find_spec(_maybe_noise) is not None:
+    hiddenimports.append(_maybe_noise)
 
 # Collect submodules only if necessary (heavy operation)
 try:

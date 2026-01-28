@@ -212,6 +212,7 @@ class TestSuite:
         self._test_required_assets()
         self._test_binaries()
         self._test_executable_launch()
+        self._test_restart_cycle()
         self._test_performance()
 
         self.end_time = datetime.now()
@@ -472,8 +473,59 @@ class TestSuite:
         self.results.append(test)
         print(test.to_string(self.verbose))
 
+    def _test_restart_cycle(self):
+        """Test 6: Verify restart cycle (onefile/portable builds).
+
+        This uses an opt-in environment variable that makes the app restart once
+        and exit, allowing us to validate PyInstaller onefile restart behavior
+        without needing GUI interaction.
+        """
+
+        test = TestResult("Restart Cycle (Self-test)")
+        start = time.time()
+
+        try:
+            env = os.environ.copy()
+            env["RAMAN_APP_SELF_TEST_RESTART"] = "1"
+
+            # Ensure the test runs in a clean-ish environment, similar to a user launch.
+            env.pop("PYTHONPATH", None)
+
+            result = subprocess.run(
+                [str(self.exe_path)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                env=env,
+                cwd=str(self.exe_dir),
+            )
+
+            if result.returncode == 0:
+                test.status = "PASS"
+                test.message = "Restart self-test completed successfully"
+            else:
+                test.status = "FAIL"
+                test.message = f"Restart self-test failed (return code {result.returncode})"
+                test.details["stdout"] = (result.stdout or "").strip()[:500] or "(empty)"
+                test.details["stderr"] = (result.stderr or "").strip()[:500] or "(empty)"
+
+        except subprocess.TimeoutExpired:
+            test.status = "FAIL"
+            test.message = "Restart self-test timed out"
+        except FileNotFoundError:
+            test.status = "FAIL"
+            test.message = f"Executable not found: {self.exe_path}"
+        except Exception as e:
+            test.status = "WARN"
+            test.message = f"Restart self-test inconclusive: {str(e)[:100]}"
+            test.details["exception"] = type(e).__name__
+
+        test.duration = time.time() - start
+        self.results.append(test)
+        print(test.to_string(self.verbose))
+
     def _test_performance(self):
-        """Test 6: Basic performance check"""
+        """Test 7: Basic performance check"""
         test = TestResult("Performance Baseline")
         start = time.time()
 

@@ -189,6 +189,7 @@ try {
     $env:RAMAN_CONSOLE = if ($Console) { '1' } else { '0' }
     
     $BuildArgs = @(
+        '--noconfirm',
         '--distpath', 'dist_installer',
         '--workpath', 'build_installer'
     )
@@ -203,7 +204,7 @@ try {
     $BuildArgs += 'raman_app_installer.spec'
 
     Write-Status "Building executable for installer..." 'Info'
-    Write-Status "Command: $PythonDisplay -m PyInstaller $($BuildArgs -join ' ') raman_app_installer.spec" 'Info'
+    Write-Status "Command: $PythonDisplay -m PyInstaller $($BuildArgs -join ' ')" 'Info'
     
     $StartTime = Get-Date
     & $PythonCmd -m PyInstaller @BuildArgs
@@ -221,19 +222,34 @@ try {
     Write-Section "Build Output Verification"
     
     $StagingDir = "dist_installer\raman_app_installer_staging"
+
+    # The spec/staging build may name the exe after the dist name (e.g., raman_app_installer_staging.exe)
+    # rather than raman_app.exe. Prefer raman_app.exe if present, otherwise fall back to the produced exe.
     $ExePath = Join-Path $StagingDir "raman_app.exe"
-    
-    if (Test-Path $ExePath) {
-        Write-Status "Executable created successfully" 'Success'
-        
-        $ExeSize = (Get-Item $ExePath).Length / 1MB
+    if (-not (Test-Path -LiteralPath $ExePath)) {
+        $FallbackExePath = Join-Path $StagingDir "raman_app_installer_staging.exe"
+        if (Test-Path -LiteralPath $FallbackExePath) {
+            $ExePath = $FallbackExePath
+        }
+        else {
+            $AnyExe = Get-ChildItem -LiteralPath $StagingDir -Filter "*.exe" -File -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($AnyExe) {
+                $ExePath = $AnyExe.FullName
+            }
+        }
+    }
+
+    if (Test-Path -LiteralPath $ExePath) {
+        Write-Status "Executable created successfully: $ExePath" 'Success'
+
+        $ExeSize = (Get-Item -LiteralPath $ExePath).Length / 1MB
         Write-Status "Executable size: $([Math]::Round($ExeSize, 2)) MB" 'Info'
-        
-        $DirSize = (Get-ChildItem -Path $StagingDir -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+
+        $DirSize = (Get-ChildItem -LiteralPath $StagingDir -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
         Write-Status "Total staging size: $([Math]::Round($DirSize, 2)) MB" 'Info'
     }
     else {
-        Write-Status "ERROR: Executable not created!" 'Error'
+        Write-Status "ERROR: Executable not found in staging directory: $StagingDir" 'Error'
         exit 1
     }
     
@@ -309,7 +325,7 @@ try {
     
     Write-Host ""
     Write-Host "Portable Build (Recommended for Testing):" -ForegroundColor $Colors.Info
-    Write-Host "  1. Run: .\build_portable.ps1 -Mode onefile" -ForegroundColor $Colors.Info
+    Write-Host "  1. Run: .\build_scripts\build_portable.ps1 -Mode onefile" -ForegroundColor $Colors.Info
     Write-Host "  2. Test: .\dist\raman_app.exe" -ForegroundColor $Colors.Info
     Write-Host ""
     
@@ -320,7 +336,7 @@ try {
     Write-Host ""
     
     Write-Host "Testing:" -ForegroundColor $Colors.Info
-    Write-Host "  $PythonDisplay build_scripts\test_build_executable.py --exe dist_installer\raman_app_installer_staging\raman_app.exe" -ForegroundColor $Colors.Info
+    Write-Host "  $PythonDisplay build_scripts\test_build_executable.py --exe $ExePath" -ForegroundColor $Colors.Info
     Write-Host ""
     
     Write-Status "Installer staging build complete!" 'Success'

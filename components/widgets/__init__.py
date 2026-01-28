@@ -37,6 +37,8 @@ from .export_dialogs import (
     get_export_options,
     ExportBundleOptions,
     get_export_bundle_options,
+    ExportAnalysisBundleOptions,
+    get_export_analysis_bundle_options,
     ExportShapBundleOptions,
     get_export_shap_bundle_options,
 )
@@ -64,6 +66,8 @@ __all__ = [
     "get_export_options",
     "ExportBundleOptions",
     "get_export_bundle_options",
+    "ExportAnalysisBundleOptions",
+    "get_export_analysis_bundle_options",
     "ExportShapBundleOptions",
     "get_export_shap_bundle_options",
     "load_icon",

@@ -2360,20 +2360,47 @@ class MethodView(QWidget):
             parent = self.parent()
             while parent is not None:
                 if hasattr(parent, "_export_analysis_bundle"):
-                    parent._export_analysis_bundle()
-                    return
+                    try:
+                        parent._export_analysis_bundle()
+                        return
+                    except Exception as e:
+                        # Don't mask the real error (this helps diagnose export failures).
+                        try:
+                            create_logs(
+                                "MethodView",
+                                "export_bundle_failed",
+                                f"Export bundle failed: {e}",
+                                status="error",
+                            )
+                        except Exception:
+                            pass
+                        QMessageBox.warning(
+                            self,
+                            self.localize("ANALYSIS_PAGE.export_error_title"),
+                            self.localize("ANALYSIS_PAGE.export_error").format(error=str(e)),
+                        )
+                        return
                 parent = parent.parent()
-        except Exception:
-            parent = None
+        except Exception as e:
+            # Parent traversal shouldn't fail, but if it does, surface the error.
+            try:
+                create_logs(
+                    "MethodView",
+                    "export_bundle_parent_walk_failed",
+                    f"Export handler lookup failed: {e}",
+                    status="error",
+                )
+            except Exception:
+                pass
 
         # Fallback to legacy data export if available
         try:
             self._handle_export_csv()
-        except Exception:
+        except Exception as e:
             QMessageBox.warning(
                 self,
                 self.localize("ANALYSIS_PAGE.export_error_title"),
-                self.localize("ANALYSIS_PAGE.export_error").format("Export handler not found"),
+                self.localize("ANALYSIS_PAGE.export_error").format(error=str(e) or "Export handler not found"),
             )
 
     def _handle_export_csv(self):
@@ -2386,6 +2413,10 @@ class MethodView(QWidget):
         try:
             parent = self.parent()
             while parent is not None:
+                # Prefer the unified bundle export (ML-like dialog) if available.
+                if hasattr(parent, "_export_analysis_bundle"):
+                    parent._export_analysis_bundle()
+                    return
                 # Prefer the multi-format export (it provides user feedback dialogs)
                 if hasattr(parent, "_export_data_multi_format"):
                     parent._export_data_multi_format()
@@ -2394,14 +2425,22 @@ class MethodView(QWidget):
                     parent._export_csv()
                     return
                 parent = parent.parent()
-        except Exception:
-            parent = None
+        except Exception as e:
+            try:
+                create_logs(
+                    "MethodView",
+                    "export_csv_parent_walk_failed",
+                    f"Export handler lookup failed (CSV fallback): {e}",
+                    status="error",
+                )
+            except Exception:
+                pass
 
         # Fallback: if we couldn't find AnalysisPage, show a warning (avoid silent no-op)
         QMessageBox.warning(
             self,
             self.localize("ANALYSIS_PAGE.export_error_title"),
-            self.localize("ANALYSIS_PAGE.export_error").format("Export handler not found"),
+            self.localize("ANALYSIS_PAGE.export_error").format(error="Export handler not found"),
         )
 
     def _handle_export_plot_menu(self) -> None:
@@ -2447,7 +2486,7 @@ class MethodView(QWidget):
             QMessageBox.warning(
                 self,
                 self.localize("ANALYSIS_PAGE.export_error_title"),
-                self.localize("ANALYSIS_PAGE.export_error").format("Export manager not found"),
+                self.localize("ANALYSIS_PAGE.export_error").format(error="Export manager not found"),
             )
             return
 
@@ -2509,7 +2548,7 @@ class MethodView(QWidget):
             QMessageBox.warning(
                 self,
                 self.localize("ANALYSIS_PAGE.export_error_title"),
-                self.localize("ANALYSIS_PAGE.export_error").format(str(e)),
+                self.localize("ANALYSIS_PAGE.export_error").format(error=str(e)),
             )
 
 

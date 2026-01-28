@@ -289,6 +289,7 @@ class HomePage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("homePage")
+        self._recent_project_open_in_progress = False
         self._setup_ui()
         self.populate_recent_projects()
 
@@ -455,13 +456,12 @@ class HomePage(QWidget):
         )
         self.recent_projects_list.setSpacing(8)
         try:
-            # Single click = highlight/feedback; double click = open.
-            self.recent_projects_list.itemClicked.connect(self._handle_recent_item_clicked)
+            # Single click = select + open (users expect one click to open).
+            self.recent_projects_list.itemClicked.connect(self._handle_recent_item_activated)
         except Exception:
             pass
-        self.recent_projects_list.itemDoubleClicked.connect(
-            self.handle_recent_item_opened
-        )
+
+        # Keep double-click as a no-op to avoid double open (Qt fires clicked + doubleClicked).
 
         layout.addWidget(header_container)
         layout.addWidget(self.recent_projects_list, 1)
@@ -478,6 +478,34 @@ class HomePage(QWidget):
                     w.set_selected(it is item)
         except Exception:
             pass
+
+    def _handle_recent_item_activated(self, item: QListWidgetItem) -> None:
+        """Single-click open with immediate visual feedback."""
+
+        # Always show selection/flash even if open fails.
+        try:
+            self._handle_recent_item_clicked(item)
+        except Exception:
+            pass
+
+        # Prevent accidental double-trigger while loading.
+        if self._recent_project_open_in_progress:
+            return
+        self._recent_project_open_in_progress = True
+
+        def _do_open() -> None:
+            try:
+                self.handle_recent_item_opened(item)
+            finally:
+                # Best-effort: re-enable clicks after the signal is emitted.
+                # (WorkspacePage shows its own loading overlay during load_project.)
+                self._recent_project_open_in_progress = False
+
+        # Let Qt paint the selection feedback before loading begins.
+        try:
+            QTimer.singleShot(0, _do_open)
+        except Exception:
+            _do_open()
 
         try:
             w = self.recent_projects_list.itemWidget(item)

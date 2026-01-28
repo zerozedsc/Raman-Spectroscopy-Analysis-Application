@@ -76,6 +76,23 @@ try {
     if ($LASTEXITCODE -eq 0) {
         Write-Status "PyInstaller: $PyInstallerVersion" 'Success'
     }
+    else {
+        Write-Status "PyInstaller not found for $PythonDisplay. Installing/Upgrading..." 'Warning'
+        & $PythonCmd -m pip install --upgrade pyinstaller pyinstaller-hooks-contrib
+        if ($LASTEXITCODE -ne 0) {
+            Write-Status "ERROR: Failed to install PyInstaller into the selected Python environment" 'Error'
+            exit 1
+        }
+
+        $PyInstallerVersion = & $PythonCmd -m PyInstaller --version 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Status "PyInstaller: $PyInstallerVersion" 'Success'
+        }
+        else {
+            Write-Status "ERROR: PyInstaller still not available after install" 'Error'
+            exit 1
+        }
+    }
 
     # Check XGBoost (required for packaging if you want the XGBoost ML method available)
     Write-Status "Checking XGBoost installation..." 'Info'
@@ -91,14 +108,6 @@ try {
             exit 1
         }
         Write-Status "xgboost installed successfully" 'Success'
-    }
-    else {
-        Write-Status "PyInstaller not found for $PythonDisplay. Installing/Upgrading..." 'Warning'
-        & $PythonCmd -m pip install --upgrade pyinstaller pyinstaller-hooks-contrib
-        if ($LASTEXITCODE -ne 0) {
-            Write-Status "ERROR: Failed to install PyInstaller into the selected Python environment" 'Error'
-            exit 1
-        }
     }
     
     # Check spec file
@@ -213,6 +222,7 @@ try {
     $SpecFile = 'raman_app.spec'
     
     $BuildArgs = @(
+        '--noconfirm',
         '--distpath', $OutputDir,
         '--workpath', 'build'
     )
@@ -336,14 +346,14 @@ try {
     Write-Host ""
     Write-Host "2. Run test suite:" -ForegroundColor $Colors.Info
     if ($Mode -eq 'onefile') {
-        Write-Host "   $PythonDisplay build_scripts\test_build_executable.py --exe dist\raman_app.exe" -ForegroundColor $Colors.Info
+        Write-Host "   $PythonDisplay build_scripts\test_build_executable.py --exe $OutputDir\raman_app.exe" -ForegroundColor $Colors.Info
     }
     else {
-        Write-Host "   $PythonDisplay build_scripts\test_build_executable.py --exe dist\raman_app\raman_app.exe" -ForegroundColor $Colors.Info
+        Write-Host "   $PythonDisplay build_scripts\test_build_executable.py --exe $OutputDir\raman_app\raman_app.exe" -ForegroundColor $Colors.Info
     }
     Write-Host ""
     Write-Host "3. For installer build:" -ForegroundColor $Colors.Info
-    Write-Host "   .\build_installer.ps1" -ForegroundColor $Colors.Info
+    Write-Host "   .\build_scripts\build_installer.ps1" -ForegroundColor $Colors.Info
     Write-Host ""
     
     Write-Status "Portable build complete!" 'Success'

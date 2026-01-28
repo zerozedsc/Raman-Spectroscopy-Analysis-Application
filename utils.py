@@ -3,6 +3,7 @@ import json
 import ast
 import datetime
 import weakref
+import tempfile
 from typing import List, Dict, Any, Callable, Optional
 import pandas as pd
 import argparse
@@ -112,6 +113,158 @@ class ProjectManager:
         data_dir = os.path.join(project_root_dir, "data")
         os.makedirs(data_dir, exist_ok=True)
         return data_dir
+
+    # --- Dataset metadata sidecar handling ---
+    def _metadata_sidecar_candidates(self, pickle_path: str) -> List[str]:
+        """Return candidate metadata sidecar paths for a dataset pickle.
+
+        Preferred naming (requested): <dataset>_metadata.json alongside the dataset file.
+        A secondary legacy-friendly fallback is also supported.
+        """
+
+        base_dir = os.path.dirname(pickle_path)
+        base_name = os.path.splitext(os.path.basename(pickle_path))[0]
+        return [
+            os.path.join(base_dir, f"{base_name}_metadata.json"),
+            os.path.join(base_dir, f"{base_name}.metadata.json"),
+        ]
+
+    def _read_json_dict(self, path: str) -> Dict[str, Any]:
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+    def _write_json_dict_atomic(self, path: str, data: Dict[str, Any]) -> bool:
+        """Atomically write a JSON dict (best-effort).
+
+        Ensures readers never see a partially-written file.
+        """
+
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", delete=False, dir=os.path.dirname(path), suffix=".tmp"
+            ) as tmp:
+                json.dump(data if isinstance(data, dict) else {}, tmp, indent=4, ensure_ascii=False)
+                tmp.flush()
+                tmp_path = tmp.name
+            os.replace(tmp_path, path)
+            return True
+        except Exception as e:
+            create_logs(
+                "ProjectManager",
+                "projects",
+                f"Failed to write metadata sidecar {path}: {e}",
+                status="warning",
+            )
+            try:
+                if "tmp_path" in locals() and os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+            except Exception:
+                pass
+            return False
+
+    def _metadata_path_from_package_info(self, pickle_path: str, package_info: Dict[str, Any]) -> str | None:
+        """Resolve the metadata sidecar path from project entry, falling back to candidates."""
+
+        # Prefer explicitly stored metadataFile (relative filename), if present.
+        mf = package_info.get("metadataFile")
+        if isinstance(mf, str) and mf.strip():
+            candidate = os.path.join(os.path.dirname(pickle_path), mf)
+            return candidate
+
+        # Otherwise, use the first existing candidate, else the preferred candidate.
+        cands = self._metadata_sidecar_candidates(pickle_path)
+        for c in cands:
+            if os.path.exists(c):
+                return c
+        return cands[0] if cands else None
+
+    def _migrate_dataset_metadata_to_sidecar(self, dataset_name: str, package_info: Dict[str, Any]) -> bool:
+        """Migrate legacy inline metadata (project JSON) into a sidecar JSON file.
+
+        Returns True if project data was modified (needs save).
+        """
+
+        changed = False
+        pickle_path = package_info.get("path")
+        if not isinstance(pickle_path, str) or not pickle_path:
+            return False
+
+        # If metadataFile isn't set but a sidecar exists, bind to it.
+        if not package_info.get("metadataFile"):
+            for c in self._metadata_sidecar_candidates(pickle_path):
+                if os.path.exists(c):
+                    package_info["metadataFile"] = os.path.basename(c)
+                    changed = True
+                    break
+
+        legacy_meta = package_info.get("metadata")
+        legacy_meta = legacy_meta if isinstance(legacy_meta, dict) else {}
+
+        # If we already have a sidecar, leave it as source of truth. Optionally merge legacy into it.
+        meta_path = self._metadata_path_from_package_info(pickle_path, package_info)
+        if not meta_path:
+            return changed
+
+        # If sidecar exists, prefer it. If legacy has extra keys and sidecar is empty, write it.
+        if os.path.exists(meta_path):
+            sidecar_meta = self._read_json_dict(meta_path)
+            if (not sidecar_meta) and legacy_meta:
+                if self._write_json_dict_atomic(meta_path, legacy_meta):
+                    create_logs(
+                        "ProjectManager",
+                        "projects",
+                        f"Migrated legacy inline metadata into existing sidecar for '{dataset_name}': {meta_path}",
+                        status="info",
+                    )
+            # Clear inline metadata to avoid duplication.
+            if package_info.get("metadata") not in (None, {}):
+                package_info["metadata"] = {}
+                changed = True
+            return changed
+
+        # Sidecar doesn't exist yet; if legacy metadata exists, create it now.
+        if legacy_meta:
+            if self._write_json_dict_atomic(meta_path, legacy_meta):
+                package_info["metadataFile"] = os.path.basename(meta_path)
+                package_info["metadata"] = {}
+                changed = True
+                create_logs(
+                    "ProjectManager",
+                    "projects",
+                    f"Created metadata sidecar for '{dataset_name}': {meta_path}",
+                    status="info",
+                )
+        else:
+            # Ensure inline metadata is normalized.
+            if package_info.get("metadata") is None:
+                package_info["metadata"] = {}
+                changed = True
+
+        return changed
+
+    def _ensure_all_metadata_sidecars(self) -> bool:
+        """Ensure all datasets have sidecar metadata written when available.
+
+        Returns True if project entries were modified.
+        """
+
+        changed = False
+        data_packages = self.current_project_data.get("dataPackages")
+        if not isinstance(data_packages, dict):
+            return False
+        for name, pkg in data_packages.items():
+            if isinstance(pkg, dict):
+                try:
+                    if self._migrate_dataset_metadata_to_sidecar(str(name), pkg):
+                        changed = True
+                except Exception:
+                    continue
+        return changed
     
     def _resolve_data_path(self, old_path: str, project_dir: str, project_name: str, dataset_name: str) -> str | None:
         """
@@ -247,9 +400,16 @@ class ProjectManager:
         if "dataPackages" not in self.current_project_data:
             self.current_project_data["dataPackages"] = {}
 
+        # Write dataset metadata to sidecar file alongside the dataset.
+        cands = self._metadata_sidecar_candidates(pickle_path)
+        meta_path = cands[0] if cands else None
+        if meta_path:
+            self._write_json_dict_atomic(meta_path, metadata if isinstance(metadata, dict) else {})
+
         self.current_project_data["dataPackages"][dataset_name] = {
             "path": pickle_path,
-            "metadata": metadata,
+            "metadataFile": os.path.basename(meta_path) if meta_path else "",
+            "metadata": {},  # legacy field kept for backward compatibility; no longer used
             "addedDate": datetime.datetime.now().isoformat(),
         }
 
@@ -292,6 +452,20 @@ class ProjectManager:
                     )
                     # Don't stop, still try to save the project file
 
+            # Remove metadata sidecar files (best-effort).
+            try:
+                if isinstance(pickle_path, str) and pickle_path:
+                    for p in self._metadata_sidecar_candidates(pickle_path):
+                        if os.path.exists(p):
+                            os.remove(p)
+                    mf = package_info.get("metadataFile")
+                    if isinstance(mf, str) and mf.strip():
+                        p = os.path.join(os.path.dirname(pickle_path), mf)
+                        if os.path.exists(p):
+                            os.remove(p)
+            except Exception:
+                pass
+
         # Also remove from the in-memory store
         RAMAN_DATA.pop(dataset_name, None)
 
@@ -333,6 +507,7 @@ class ProjectManager:
             project_name = self.current_project_data.get("projectName", "").replace(" ", "_").lower()
             
             paths_fixed = False
+            metadata_migrated = False
             for name, package_info in data_packages.items():
                 pickle_path = package_info.get("path")
                 if not pickle_path:
@@ -350,6 +525,13 @@ class ProjectManager:
                             f"Failed to load data package '{name}' from {pickle_path}: {e}",
                             status="warning",
                         )
+
+                    # Migrate legacy inline metadata to sidecar (best-effort).
+                    try:
+                        if isinstance(package_info, dict) and self._migrate_dataset_metadata_to_sidecar(name, package_info):
+                            metadata_migrated = True
+                    except Exception:
+                        pass
                 else:
                     # Path is invalid, try to fix it
                     fixed_path = self._resolve_data_path(pickle_path, project_dir, project_name, name)
@@ -377,6 +559,13 @@ class ProjectManager:
                                 f"Failed to load data package '{name}' from fixed path {fixed_path}: {e}",
                                 status="warning",
                             )
+
+                        # Migrate legacy inline metadata to sidecar (best-effort).
+                        try:
+                            if isinstance(package_info, dict) and self._migrate_dataset_metadata_to_sidecar(name, package_info):
+                                metadata_migrated = True
+                        except Exception:
+                            pass
                     else:
                         create_logs(
                             "ProjectManager",
@@ -385,13 +574,13 @@ class ProjectManager:
                             status="warning",
                         )
             
-            # Save project if any paths were fixed
-            if paths_fixed:
+            # Save project if any paths were fixed or metadata was migrated.
+            if paths_fixed or metadata_migrated:
                 self.save_current_project()
                 create_logs(
                     "ProjectManager",
                     "projects",
-                    "Project paths were automatically fixed and saved",
+                    "Project paths/metadata were automatically updated and saved",
                     status="info",
                 )
 
@@ -455,6 +644,19 @@ class ProjectManager:
             return
 
         try:
+            # Best-effort: ensure metadata sidecars are written before we persist.
+            try:
+                changed = self._ensure_all_metadata_sidecars()
+                if changed:
+                    create_logs(
+                        "ProjectManager",
+                        "projects",
+                        "Ensured dataset metadata sidecars are up to date",
+                        status="info",
+                    )
+            except Exception:
+                pass
+
             # Create a copy to avoid saving the file path into the JSON itself
             data_to_save = self.current_project_data.copy()
             data_to_save.pop("projectFilePath", None)
@@ -474,8 +676,25 @@ class ProjectManager:
             return None
 
         package_info = self.current_project_data["dataPackages"].get(dataset_name)
-        if package_info:
-            return package_info.get("metadata", {})
+        if isinstance(package_info, dict):
+            pickle_path = package_info.get("path")
+            if isinstance(pickle_path, str) and pickle_path:
+                meta_path = self._metadata_path_from_package_info(pickle_path, package_info)
+                if meta_path and os.path.exists(meta_path):
+                    return self._read_json_dict(meta_path)
+
+                # Legacy fallback: if inline metadata exists, return it and create sidecar lazily.
+                legacy = package_info.get("metadata")
+                legacy = legacy if isinstance(legacy, dict) else {}
+                if legacy and meta_path:
+                    try:
+                        if self._write_json_dict_atomic(meta_path, legacy):
+                            package_info["metadataFile"] = os.path.basename(meta_path)
+                            package_info["metadata"] = {}
+                            self.save_current_project()
+                    except Exception:
+                        pass
+                return legacy
         return None
 
     def update_dataframe_metadata(
@@ -486,9 +705,23 @@ class ProjectManager:
             return False
 
         if dataset_name in self.current_project_data["dataPackages"]:
-            self.current_project_data["dataPackages"][dataset_name][
-                "metadata"
-            ] = metadata
+            pkg = self.current_project_data["dataPackages"][dataset_name]
+            if not isinstance(pkg, dict):
+                return False
+
+            pickle_path = pkg.get("path")
+            if not isinstance(pickle_path, str) or not pickle_path:
+                return False
+
+            meta_path = self._metadata_path_from_package_info(pickle_path, pkg)
+            if not meta_path:
+                return False
+
+            if not self._write_json_dict_atomic(meta_path, metadata if isinstance(metadata, dict) else {}):
+                return False
+
+            pkg["metadataFile"] = os.path.basename(meta_path)
+            pkg["metadata"] = {}  # legacy field
             self.save_current_project()
             return True
         return False
@@ -500,7 +733,11 @@ class ProjectManager:
 
         metadata_dict = {}
         for name, package_info in self.current_project_data["dataPackages"].items():
-            metadata_dict[name] = package_info.get("metadata", {})
+            try:
+                meta = self.get_dataframe_metadata(name)
+                metadata_dict[name] = meta if isinstance(meta, dict) else {}
+            except Exception:
+                metadata_dict[name] = {}
         return metadata_dict
 
     def get_analysis_groups(self) -> Dict[str, List[str]]:
@@ -830,6 +1067,7 @@ def restart_application(*, reason: str | None = None) -> bool:
         import os
 
         is_frozen = bool(getattr(sys, "frozen", False))
+
         if is_frozen:
             cmd = [sys.executable] + sys.argv[1:]
         else:
@@ -843,7 +1081,28 @@ def restart_application(*, reason: str | None = None) -> bool:
             status="info",
         )
 
-        subprocess.Popen(cmd, cwd=os.getcwd(), env=os.environ.copy())
+        # For PyInstaller onefile builds, restarting too quickly from an extracted
+        # _MEI... directory can cause flaky imports (notably numpy). Make the new
+        # process start from the executable's directory and reset the PyInstaller
+        # environment so it extracts cleanly.
+        env = os.environ.copy()
+        if is_frozen:
+            env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+            for k in list(env.keys()):
+                if k == "_MEIPASS2" or k.startswith("_PYI_"):
+                    env.pop(k, None)
+            safe_cwd = os.path.dirname(sys.executable)
+        else:
+            safe_cwd = os.getcwd()
+
+        creationflags = 0
+        try:
+            if os.name == "nt":
+                creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
+        except Exception:
+            creationflags = 0
+
+        subprocess.Popen(cmd, cwd=safe_cwd, env=env, creationflags=creationflags)
 
         app = QApplication.instance()
         if app is not None:

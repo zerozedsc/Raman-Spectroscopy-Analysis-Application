@@ -93,7 +93,7 @@ class ExportManager(QObject):
             )
             return True
         except Exception as e:
-            self._show_error(self.localize("ANALYSIS_PAGE.export_error").format(str(e)))
+            self._show_error(self.localize("ANALYSIS_PAGE.export_error").format(error=str(e)))
             return False
 
     def export_plot_svg(
@@ -154,7 +154,7 @@ class ExportManager(QObject):
             )
             return True
         except Exception as e:
-            self._show_error(self.localize("ANALYSIS_PAGE.export_error").format(str(e)))
+            self._show_error(self.localize("ANALYSIS_PAGE.export_error").format(error=str(e)))
             return False
 
     def export_data_csv(
@@ -223,7 +223,7 @@ class ExportManager(QObject):
             )
             return True
         except Exception as e:
-            self._show_error(self.localize("ANALYSIS_PAGE.export_error").format(str(e)))
+            self._show_error(self.localize("ANALYSIS_PAGE.export_error").format(error=str(e)))
             return False
     
     def export_data_multi_format(self, data_table, default_filename: str = "analysis_data") -> bool:
@@ -317,7 +317,7 @@ class ExportManager(QObject):
             )
             return True
         except Exception as e:
-            self._show_error(self.localize("ANALYSIS_PAGE.export_error").format(str(e)))
+            self._show_error(self.localize("ANALYSIS_PAGE.export_error").format(error=str(e)))
             return False
 
     def get_default_export_dir(self) -> str:
@@ -428,7 +428,7 @@ class ExportManager(QObject):
             return True
 
         except Exception as e:
-            self._show_error(self.localize("ANALYSIS_PAGE.export_error").format(str(e)))
+            self._show_error(self.localize("ANALYSIS_PAGE.export_error").format(error=str(e)))
             return False
 
     def save_to_project(
@@ -524,7 +524,8 @@ class ExportManager(QObject):
             )
             if project_path_str:
                 project_path = Path(project_path_str)
-                export_folder = project_path / "exports"
+                # Keep consistent with ML page bundle export UX.
+                export_folder = project_path / "reports"
                 export_folder.mkdir(exist_ok=True)
                 return str(export_folder / filename)
 
