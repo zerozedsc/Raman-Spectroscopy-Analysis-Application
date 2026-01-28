@@ -1036,7 +1036,8 @@ def _v1_create_results_panel(localize_func: Callable) -> QWidget:
 
     # Export CSV button (hidden until results available)
     # Note: Plot export (PNG/SVG) available via matplotlib toolbar right-click
-    export_data_btn = QPushButton(localize_func("ANALYSIS_PAGE.export_csv"))
+    # Phase 3: user requested the button label be "Export" (not "Export CSV")
+    export_data_btn = QPushButton(localize_func("ANALYSIS_PAGE.export"))
     export_data_btn.setObjectName("exportButton")
     export_data_btn.setMinimumHeight(32)
     export_data_btn.setVisible(False)
@@ -2347,10 +2348,33 @@ class MethodView(QWidget):
         # Instantiate the class
         self.results_panel = ResultsPanel(self.localize)
 
-        # If you need to connect the export button signal to a handler in MethodView
-        self.results_panel.export_btn.clicked.connect(self._handle_export_csv)
+        # Single unified export button (ML-like tickbox dialog)
+        self.results_panel.export_btn.clicked.connect(self._handle_export_bundle)
 
         return self.results_panel
+
+    def _handle_export_bundle(self) -> None:
+        """Unified export: one dialog, multiple selectable artifacts."""
+        # Delegate to AnalysisPage if possible (it owns ExportManager + current_result)
+        try:
+            parent = self.parent()
+            while parent is not None:
+                if hasattr(parent, "_export_analysis_bundle"):
+                    parent._export_analysis_bundle()
+                    return
+                parent = parent.parent()
+        except Exception:
+            parent = None
+
+        # Fallback to legacy data export if available
+        try:
+            self._handle_export_csv()
+        except Exception:
+            QMessageBox.warning(
+                self,
+                self.localize("ANALYSIS_PAGE.export_error_title"),
+                self.localize("ANALYSIS_PAGE.export_error").format("Export handler not found"),
+            )
 
     def _handle_export_csv(self):
         """Export the current analysis result table.
@@ -2380,6 +2404,114 @@ class MethodView(QWidget):
             self.localize("ANALYSIS_PAGE.export_error").format("Export handler not found"),
         )
 
+    def _handle_export_plot_menu(self) -> None:
+        """Show a small menu to export the currently selected plot tab as PNG/SVG."""
+        try:
+            from PySide6.QtWidgets import QMenu
+
+            btn = getattr(self.results_panel, "export_plot_btn", None)
+            if btn is None:
+                return
+
+            menu = QMenu(btn)
+            act_png = menu.addAction("Export as PNG")
+            act_svg = menu.addAction("Export as SVG")
+
+            chosen = menu.exec(btn.mapToGlobal(btn.rect().bottomLeft()))
+            if chosen == act_png:
+                self._handle_export_plot(fmt="png")
+            elif chosen == act_svg:
+                self._handle_export_plot(fmt="svg")
+        except Exception:
+            # Non-fatal: if menu fails, do nothing.
+            pass
+
+    def _handle_export_plot(self, *, fmt: str) -> None:
+        """Export the currently visible plot figure via AnalysisPage's ExportManager."""
+
+        fmt = str(fmt or "").lower().strip()
+        if fmt not in {"png", "svg"}:
+            fmt = "png"
+
+        # 1) Find AnalysisPage (source of truth for ExportManager)
+        parent = None
+        try:
+            parent = self.parent()
+            while parent is not None and not hasattr(parent, "export_manager"):
+                parent = parent.parent()
+        except Exception:
+            parent = None
+
+        export_manager = getattr(parent, "export_manager", None) if parent is not None else None
+        if export_manager is None:
+            QMessageBox.warning(
+                self,
+                self.localize("ANALYSIS_PAGE.export_error_title"),
+                self.localize("ANALYSIS_PAGE.export_error").format("Export manager not found"),
+            )
+            return
+
+        # 2) Locate an exportable figure from the current results tab
+        fig = None
+        try:
+            tabw = getattr(self.results_panel, "tab_widget", None)
+            cur = tabw.currentWidget() if tabw is not None else None
+            if cur is None:
+                fig = None
+            else:
+                # Direct MatplotlibWidget
+                if hasattr(cur, "figure"):
+                    fig = getattr(cur, "figure", None)
+
+                # ComponentSelectorPlotPanel exposes .plot (MatplotlibWidget)
+                if fig is None and hasattr(cur, "plot") and hasattr(cur.plot, "figure"):
+                    fig = getattr(cur.plot, "figure", None)
+
+                # Nested MatplotlibWidget within a container
+                if fig is None:
+                    try:
+                        from components.widgets.matplotlib_widget import MatplotlibWidget
+
+                        mw = cur.findChild(MatplotlibWidget)
+                        if mw is not None and hasattr(mw, "figure"):
+                            fig = mw.figure
+                    except Exception:
+                        fig = None
+        except Exception:
+            fig = None
+
+        if fig is None:
+            QMessageBox.warning(
+                self,
+                self.localize("ANALYSIS_PAGE.export_error_title"),
+                self.localize("ANALYSIS_PAGE.no_plot_to_export"),
+            )
+            return
+
+        # 3) Build a friendly default filename
+        try:
+            method_name = str(getattr(self, "method_info", {}).get("name") or getattr(self, "method_key", "analysis"))
+        except Exception:
+            method_name = "analysis"
+        try:
+            tab_title = str(self.results_panel.tab_widget.tabText(self.results_panel.tab_widget.currentIndex()) or "plot")
+        except Exception:
+            tab_title = "plot"
+        safe_base = f"{method_name}_{tab_title}".replace("/", "_").replace("\\", "_").replace(":", "_")
+
+        # 4) Delegate to ExportManager (shared export dialog UX)
+        try:
+            if fmt == "png":
+                export_manager.export_plot_png(fig, f"{safe_base}.png")
+            else:
+                export_manager.export_plot_svg(fig, f"{safe_base}.svg")
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                self.localize("ANALYSIS_PAGE.export_error_title"),
+                self.localize("ANALYSIS_PAGE.export_error").format(str(e)),
+            )
+
 
 def populate_results_tabs(
     results_panel: QWidget,
@@ -2407,7 +2539,7 @@ def populate_results_tabs(
     while tab_widget.count() > 0:
         tab_widget.removeTab(0)
 
-    # Show CSV export button (plot export via matplotlib toolbar)
+    # Show unified export button
     results_panel.export_data_btn.setVisible(True)
     
     # ✅ Phase 3.5: Methods that don't need spectrum preview (user requested)
@@ -3354,7 +3486,6 @@ def populate_results_tabs(
                             fontweight="bold",
                         )
                         ax.grid(True, alpha=0.3)
-                        ax.invert_xaxis()
                         ax.axhline(y=0, color='k', linestyle='--', linewidth=0.5, alpha=0.5)
                         
                         # Determine if this subplot is in the PHYSICAL bottom row
@@ -3935,7 +4066,6 @@ def populate_results_tabs(
                                     fontweight="bold",
                                 )
                                 ax.grid(True, alpha=0.3)
-                                ax.invert_xaxis()
                                 ax.axhline(y=0, color="k", linestyle="--", linewidth=0.6, alpha=0.45)
                                 row_idx = subplot_idx // n_cols
                                 if row_idx == n_rows - 1:
@@ -4139,7 +4269,6 @@ def populate_results_tabs(
                                     fontweight="bold",
                                 )
                                 ax.grid(True, alpha=0.3)
-                                ax.invert_xaxis()
                                 ax.axhline(y=0, color="k", linestyle="--", linewidth=0.6, alpha=0.45)
                                 row_idx = subplot_idx // n_cols
                                 if row_idx == n_rows - 1:
@@ -4227,6 +4356,39 @@ def populate_results_tabs(
             tab_widget.addTab(
                 dist_tab, "📊 " + localize_func("ANALYSIS_PAGE.distributions_tab")
             )
+
+        # === Confusion Matrix Tab (for supervised methods) ===
+        try:
+            rr_cm = getattr(result, "raw_results", {}) or {}
+            cm_y_true = rr_cm.get("confusion_matrix_y_true")
+            cm_y_pred = rr_cm.get("confusion_matrix_y_pred")
+            cm_labels = rr_cm.get("confusion_matrix_labels")
+            if cm_y_true is not None and cm_y_pred is not None and cm_labels is not None:
+                # Must have at least 2 labels to be meaningful.
+                cm_labels = [str(v) for v in list(cm_labels)]
+                if len(cm_labels) >= 2:
+                    from functions.visualization.model_evaluation import (
+                        create_confusion_matrix_figure,
+                    )
+
+                    fig_cm = create_confusion_matrix_figure(
+                        y_true=np.asarray(cm_y_true),
+                        y_pred=np.asarray(cm_y_pred),
+                        class_labels=cm_labels,
+                        title="Confusion Matrix",
+                        normalize=True,
+                        figsize=(6.6, 5.6),
+                    )
+                    cm_tab = matplotlib_widget_class()
+                    cm_tab.update_plot(fig_cm)
+                    cm_tab.setMinimumHeight(420)
+                    tab_widget.addTab(
+                        cm_tab,
+                        "📊 " + localize_func("ANALYSIS_PAGE.confusion_matrix_tab"),
+                    )
+        except Exception:
+            # Optional: never break the Results UI if confusion-matrix plotting fails.
+            pass
 
         # === Legacy Secondary Figure Tab (deprecated but kept for compatibility) ===
         if hasattr(result, "secondary_figure") and result.secondary_figure:

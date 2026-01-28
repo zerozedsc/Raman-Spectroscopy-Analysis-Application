@@ -1556,26 +1556,48 @@ class DataPackagePage(QWidget):
             )
             return
 
-        default_filename = f"{dataset_name.replace(' ', '_').lower()}_metadata.json"
-        path, _ = QFileDialog.getSaveFileName(
-            self,
-            LOCALIZE("DATA_PACKAGE_PAGE.save_meta_dialog_title"),
-            os.path.join(data_dir, default_filename),
-            f"JSON Files (*.json)",
-        )
+        from components.widgets import get_export_options
+        from pathlib import Path
 
-        if path:
-            manual_meta = self._get_metadata_from_editor()
-            try:
-                with open(path, "w", encoding="utf-8") as f:
-                    json.dump(manual_meta, f, indent=4, ensure_ascii=False)
-                self.showNotification.emit(
-                    LOCALIZE("NOTIFICATIONS.meta_save_success"), "success"
-                )
-            except Exception as e:
-                self.showNotification.emit(
-                    LOCALIZE("NOTIFICATIONS.meta_save_error", error=str(e)), "error"
-                )
+        default_filename = f"{dataset_name.replace(' ', '_').lower()}_metadata.json"
+        default_dir = str(data_dir)
+        default_base = str(Path(default_filename).stem)
+
+        opts = get_export_options(
+            self,
+            title=LOCALIZE("DATA_PACKAGE_PAGE.save_meta_dialog_title"),
+            formats=[("json", "JSON (.json)")],
+            default_directory=default_dir,
+            default_filename=default_base,
+            show_filename=True,
+            show_format=False,
+            # Labels
+            format_label="Export Format:",
+            location_label="Save Location:",
+            filename_label="Filename:",
+            browse_button_text="Browse...",
+            select_location_title="Select Location",
+            show_metadata_checkbox=False,
+        )
+        if opts is None:
+            return
+
+        base = str(opts.filename or default_base).strip() or default_base
+        if not base.lower().endswith(".json"):
+            base = f"{base}.json"
+        path = str(Path(str(opts.directory)) / base)
+
+        manual_meta = self._get_metadata_from_editor()
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(manual_meta, f, indent=4, ensure_ascii=False)
+            self.showNotification.emit(
+                LOCALIZE("NOTIFICATIONS.meta_save_success"), "success"
+            )
+        except Exception as e:
+            self.showNotification.emit(
+                LOCALIZE("NOTIFICATIONS.meta_save_error", error=str(e)), "error"
+            )
 
     def clear_importer_fields(self):
         """Clear all importer fields and reset state."""

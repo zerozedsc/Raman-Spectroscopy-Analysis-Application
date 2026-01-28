@@ -647,35 +647,52 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
             },
             "function": "perform_band_ratio_analysis",
         }
-        # NOTE: ANOVA temporarily disabled - not ready for production use
-        # "anova_test": {
-        #     "name": "ANOVA Statistical Test",
-        #     "description": "One-way ANOVA across multiple groups",
-        #     "min_datasets": 3,
-        #     "max_datasets": None,
-        #     "dataset_selection_mode": "multi",
-        #     "params": {
-        #         "alpha": {
-        #             "type": "double_spinbox",
-        #             "default": 0.05,
-        #             "range": (0.01, 0.1),
-        #             "step": 0.01,
-        #             "label": "Significance Level (α)"
-        #         },
-        #         "post_hoc": {
-        #             "type": "combo",
-        #             "options": ["tukey", "bonferroni", "none"],
-        #             "default": "tukey",
-        #             "label": "Post-hoc Test"
-        #         },
-        #         "show_boxplot": {
-        #             "type": "checkbox",
-        #             "default": True,
-        #             "label": "Show Box Plot"
-        #         }
-        #     },
-        #     "function": "perform_anova_test"
-        # }
+        ,
+        "anova_test": {
+            "name": "ANOVA (Wavenumber-wise)",
+            "description": "One-way ANOVA across 3+ groups at each wavenumber (supports grouped mode and multiple-testing correction)",
+            "min_datasets": 3,
+            "max_datasets": None,
+            "dataset_selection_mode": "multi",
+            "params": {
+                "alpha": {
+                    "type": "double_spinbox",
+                    "default": 0.05,
+                    "range": (0.001, 0.2),
+                    "step": 0.005,
+                    "label": "Significance Level (α)",
+                },
+                "p_adjust": {
+                    "type": "combo",
+                    "options": ["none", "fdr_bh", "bonferroni"],
+                    "default": "fdr_bh",
+                    "label": "Multiple-testing correction",
+                },
+                "post_hoc": {
+                    "type": "combo",
+                    "options": ["none", "tukey"],
+                    "default": "none",
+                    "label": "Post-hoc test (optional)",
+                },
+                "max_posthoc_wavenumbers": {
+                    "type": "spinbox",
+                    "default": 20,
+                    "range": (0, 200),
+                    "label": "Max post-hoc wavenumbers (0=off)",
+                },
+                "show_mean_overlay": {
+                    "type": "checkbox",
+                    "default": True,
+                    "label": "Show mean spectra overlay",
+                },
+                "highlight_significant": {
+                    "type": "checkbox",
+                    "default": True,
+                    "label": "Highlight significant regions",
+                },
+            },
+            "function": "perform_anova_test",
+        }
     },
     "visualization": {
         "heatmap": {

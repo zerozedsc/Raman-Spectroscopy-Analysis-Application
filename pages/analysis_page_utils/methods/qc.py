@@ -102,6 +102,7 @@ def perform_outlier_detection(
     is_outlier = None
     warn_msgs: list[str] = []
     used_method = method
+    threshold = None
 
     if method == "mahalanobis_mcd":
         # NOTE: MinCovDet can be very slow / unstable in high-dimensional space.
@@ -120,8 +121,8 @@ def perform_outlier_detection(
             d2 = mcd.mahalanobis(X_det)
             scores = d2
             # threshold by percentile to match contamination
-            thr = float(np.quantile(d2, 1.0 - contamination))
-            is_outlier = d2 >= thr
+            threshold = float(np.quantile(d2, 1.0 - contamination))
+            is_outlier = d2 >= threshold
             model = mcd
         except Exception as e:
             # Fast, stable fallback (still Mahalanobis-like)
@@ -135,8 +136,8 @@ def perform_outlier_detection(
             precision = lw.precision_
             d2 = np.einsum("ij,jk,ik->i", centered, precision, centered)
             scores = d2
-            thr = float(np.quantile(d2, 1.0 - contamination))
-            is_outlier = d2 >= thr
+            threshold = float(np.quantile(d2, 1.0 - contamination))
+            is_outlier = d2 >= threshold
             model = lw
     elif method == "elliptic_envelope":
         # EllipticEnvelope uses a robust covariance estimator internally; use
@@ -160,6 +161,7 @@ def perform_outlier_detection(
         is_outlier = pred < 0
         # decision_function: higher is more normal
         scores = -ee.decision_function(X_det)
+        threshold = float(np.quantile(np.asarray(scores, dtype=float), 1.0 - contamination))
         model = ee
     else:
         iso = IsolationForest(
@@ -170,6 +172,7 @@ def perform_outlier_detection(
         pred = iso.fit_predict(X_det)
         is_outlier = pred < 0
         scores = -iso.score_samples(X_det)
+        threshold = float(np.quantile(np.asarray(scores, dtype=float), 1.0 - contamination))
         model = iso
 
     if progress_callback:
@@ -192,32 +195,114 @@ def perform_outlier_detection(
     ax1.grid(True, alpha=0.25)
     ax1.legend(loc="best")
 
-    # Score vs index plot
-    fig2, ax2 = plt.subplots(figsize=(10, 4))
-    ax2.plot(np.arange(len(scores)), scores, linewidth=1.0, color="black")
-    ax2.scatter(np.where(out_m)[0], np.asarray(scores)[out_m], color="red", s=30, label="Outlier")
-    ax2.set_title("Outlier Scores")
+    # Secondary figure: scores + mean spectra (inliers vs outliers)
+    fig2, (ax2, ax3) = plt.subplots(
+        2,
+        1,
+        figsize=(11, 8),
+        gridspec_kw={"height_ratios": [1.0, 1.2], "hspace": 0.35},
+    )
+
+    s_arr = np.asarray(scores, dtype=float)
+    ax2.plot(np.arange(len(s_arr)), s_arr, linewidth=1.0, color="#111111", alpha=0.9)
+    ax2.scatter(np.where(out_m)[0], s_arr[out_m], color="#dc3545", s=30, label="Outlier")
+    if threshold is not None and np.isfinite(threshold):
+        ax2.axhline(float(threshold), color="#dc3545", linestyle="--", linewidth=1.0, alpha=0.6, label="Threshold")
+    ax2.set_title("Outlier Scores", fontweight="bold")
     ax2.set_xlabel("Spectrum index")
     ax2.set_ylabel("Score (higher = more outlier-like)")
     ax2.grid(True, alpha=0.25)
-    ax2.legend(loc="best")
+    ax2.legend(loc="best", fontsize=9)
+
+    # Mean spectra comparison
+    try:
+        Xin = np.asarray(X, dtype=float)[in_m, :]
+        Xout = np.asarray(X, dtype=float)[out_m, :]
+        wn = np.asarray(wavenumbers, dtype=float).reshape(-1)
+
+        if Xin.size:
+            mu_in = np.nanmean(Xin, axis=0)
+            sd_in = np.nanstd(Xin, axis=0)
+            ax3.plot(wn, mu_in, color="#1f77b4", linewidth=1.8, label=f"Inlier mean (n={int(np.sum(in_m))})")
+            ax3.fill_between(wn, mu_in - sd_in, mu_in + sd_in, color="#1f77b4", alpha=0.18)
+
+        if Xout.size:
+            mu_out = np.nanmean(Xout, axis=0)
+            sd_out = np.nanstd(Xout, axis=0)
+            ax3.plot(wn, mu_out, color="#dc3545", linewidth=1.8, label=f"Outlier mean (n={int(np.sum(out_m))})")
+            ax3.fill_between(wn, mu_out - sd_out, mu_out + sd_out, color="#dc3545", alpha=0.18)
+
+        ax3.set_title("Mean Spectra: Inliers vs Outliers", fontweight="bold")
+        ax3.set_xlabel("Wavenumber (cm⁻¹)")
+        ax3.set_ylabel("Intensity")
+        ax3.grid(True, alpha=0.25)
+        ax3.legend(loc="best", fontsize=9)
+    except Exception:
+        ax3.text(
+            0.5,
+            0.5,
+            "Mean spectra comparison unavailable",
+            ha="center",
+            va="center",
+            transform=ax3.transAxes,
+        )
+        ax3.axis("off")
+
+    # Dataset extraction for easier filtering in the table
+    label_strs = [str(v) for v in labels]
+    datasets = [s.rsplit("_", 1)[0] if "_" in s else s for s in label_strs]
 
     df = pd.DataFrame(
         {
-            "label": [str(v) for v in labels],
+            "dataset": datasets,
+            "label": label_strs,
             "outlier": is_outlier.astype(bool),
-            "score": np.asarray(scores, dtype=float),
+            "score": s_arr,
             "pc1": Z[:, 0],
             "pc2": Z[:, 1],
         }
     )
 
     n_out = int(np.sum(is_outlier))
+    n_in = int(np.sum(~is_outlier))
+
+    # Extreme outliers (top-N by score)
+    extreme_n = int(params.get("extreme_n", 10))
+    extreme_n = int(np.clip(extreme_n, 1, max(1, len(label_strs))))
+    extreme_idx = list(np.argsort(-s_arr)[:extreme_n])
+    extreme_items = [
+        {
+            "rank": int(i + 1),
+            "index": int(idx),
+            "label": label_strs[idx],
+            "score": float(s_arr[idx]),
+            "outlier": bool(is_outlier[idx]),
+        }
+        for i, idx in enumerate(extreme_idx)
+    ]
+
+    # Best-effort silhouette diagnostic: does removing outliers increase clusterability?
+    sil_full = None
+    sil_inliers = None
+    try:
+        if n_samples >= 4:
+            km = KMeans(n_clusters=2, random_state=0, n_init=10)
+            lab_full = km.fit_predict(Z[:, :2])
+            sil_full = float(silhouette_score(Z[:, :2], lab_full))
+        if n_in >= 4:
+            km2 = KMeans(n_clusters=2, random_state=0, n_init=10)
+            lab_in = km2.fit_predict(Z[in_m, :2])
+            sil_inliers = float(silhouette_score(Z[in_m, :2], lab_in))
+    except Exception:
+        sil_full = None
+        sil_inliers = None
 
     summary = (
         f"Outlier detection completed. Method: {used_method}. "
         f"Outliers: {n_out}/{len(labels)} (contamination={contamination})."
     )
+    if threshold is not None and np.isfinite(threshold):
+        summary += f" Threshold: {float(threshold):.4g}."
 
     detailed_summary = ""
     if warn_msgs:
@@ -231,6 +316,27 @@ def perform_outlier_detection(
         for m in shown:
             detailed_summary += f"- {m}\n"
 
+    # Add quantitative stats
+    try:
+        detailed_summary += "\nScore statistics:\n"
+        detailed_summary += f"- Inliers: n={n_in}\n"
+        detailed_summary += f"- Outliers: n={n_out}\n"
+        detailed_summary += f"- Score min/median/max: {float(np.nanmin(s_arr)):.4g} / {float(np.nanmedian(s_arr)):.4g} / {float(np.nanmax(s_arr)):.4g}\n"
+        if threshold is not None and np.isfinite(threshold):
+            detailed_summary += f"- Threshold (quantile 1-contamination): {float(threshold):.4g}\n"
+        if sil_full is not None:
+            detailed_summary += f"\nSilhouette (k=2 on PCA scatter): full={sil_full:.3f}"
+            if sil_inliers is not None:
+                detailed_summary += f", inliers-only={sil_inliers:.3f}"
+            detailed_summary += "\n"
+
+        detailed_summary += "\nExtreme scores (top):\n"
+        for it in extreme_items[:10]:
+            flag = "OUT" if it["outlier"] else "IN"
+            detailed_summary += f"- #{it['rank']} idx={it['index']} score={it['score']:.4g} [{flag}] {it['label']}\n"
+    except Exception:
+        pass
+
     return {
         "primary_figure": fig1,
         "secondary_figure": fig2,
@@ -243,6 +349,13 @@ def perform_outlier_detection(
             "detector_pca_model": det_pca,
             "fit_warnings": warn_msgs,
             "used_method": used_method,
+            "threshold": threshold,
+            "scores": s_arr,
+            "labels": label_strs,
+            "outlier_mask": is_outlier.astype(bool),
+            "extreme": extreme_items,
+            "silhouette_full": sil_full,
+            "silhouette_inliers": sil_inliers,
         },
     }
 

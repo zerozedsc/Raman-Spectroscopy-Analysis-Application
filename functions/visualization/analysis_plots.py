@@ -219,6 +219,11 @@ def create_spectral_heatmap(
     data_ordered = data_matrix[row_order, :][:, col_order]
     labels_ordered = [labels[i] for i in row_order]
 
+    # Wavenumbers in display order (imshow columns are 0..n-1)
+    wn_display = (
+        wavenumbers[col_order] if (hasattr(wavenumbers, "size") and wavenumbers.size) else wavenumbers
+    )
+
     if progress_callback:
         progress_callback(70)
 
@@ -254,7 +259,10 @@ def create_spectral_heatmap(
         if cluster_rows and show_dendrograms:
             # ✅ USER FIX: Add meaningful labels (dataset names) and colored branches
             # Extract just dataset names (remove spectrum numbers) for cleaner labels
-            dataset_only_labels = [label.rsplit('_', 1)[0] if '_' in label else label for label in labels_ordered]
+            dataset_only_labels = [
+                label.rsplit('_', 1)[0] if '_' in label else label
+                for label in labels
+            ]
             
             # Create dendrogram with colored branches based on clustering
             dend_result = dendrogram(
@@ -295,6 +303,31 @@ def create_spectral_heatmap(
         data_ordered, aspect="auto", cmap=colormap, interpolation="nearest"
     )
 
+    # ✅ Fix: show actual wavenumber ticks (imshow uses pixel indices by default)
+    try:
+        wn = _as_float_1d(wn_display)
+        n_cols = int(wn.size)
+        if n_cols > 0:
+            max_ticks = int(params.get("max_xticks", 10))
+            tick_idx = np.linspace(0, n_cols - 1, min(max_ticks, n_cols), dtype=int)
+            tick_idx = np.unique(tick_idx)
+            ax_heatmap.set_xticks(tick_idx)
+            ax_heatmap.set_xticklabels([f"{wn[i]:.0f}" for i in tick_idx], rotation=45, ha="right", fontsize=9)
+    except Exception:
+        pass
+
+    # Optional: y tick labels (only when small enough to stay readable)
+    try:
+        max_yticks = int(params.get("max_yticks", 40))
+        if labels_ordered and len(labels_ordered) <= max_yticks:
+            yl = [lbl.rsplit('_', 1)[0] if '_' in lbl else lbl for lbl in labels_ordered]
+            ax_heatmap.set_yticks(np.arange(len(yl)))
+            ax_heatmap.set_yticklabels(yl, fontsize=8)
+        else:
+            ax_heatmap.set_yticks([])
+    except Exception:
+        pass
+
     # Colorbar
     cbar = plt.colorbar(im, ax=ax_heatmap)
     cbar.set_label("Normalized Intensity" if normalize else "Intensity", fontsize=12)
@@ -329,6 +362,50 @@ def create_spectral_heatmap(
     summary += "  • Branch height = dissimilarity measure\n"
     summary += "  • Labels show dataset names for identification\n"
 
+    # Quantitative cluster metrics (best-effort)
+    metrics_payload: Dict[str, Any] = {}
+    metrics_lines: list[str] = []
+    try:
+        from scipy.spatial.distance import pdist
+        from scipy.cluster.hierarchy import cophenet, fcluster
+
+        if row_linkage is not None:
+            coph_corr, _ = cophenet(row_linkage, pdist(data_matrix))
+            if np.isfinite(coph_corr):
+                metrics_payload["row_cophenetic_correlation"] = float(coph_corr)
+                metrics_lines.append(f"Row cophenetic correlation: {float(coph_corr):.3f}")
+
+            # Optional silhouette if the user provides a cluster count
+            n_clusters = params.get("n_clusters", None)
+            if n_clusters is not None:
+                try:
+                    n_clusters_i = int(n_clusters)
+                except Exception:
+                    n_clusters_i = None
+
+                if n_clusters_i is not None and n_clusters_i >= 2 and n_clusters_i < int(data_matrix.shape[0]):
+                    try:
+                        labels_flat = fcluster(row_linkage, t=n_clusters_i, criterion="maxclust")
+                        from sklearn.metrics import silhouette_score
+
+                        sil = float(silhouette_score(data_matrix, labels_flat, metric="euclidean"))
+                        metrics_payload["row_silhouette"] = sil
+                        metrics_payload["n_clusters"] = n_clusters_i
+                        metrics_lines.append(f"Row silhouette (k={n_clusters_i}): {sil:.3f}")
+                    except Exception:
+                        pass
+
+        if col_linkage is not None:
+            coph_corr_c, _ = cophenet(col_linkage, pdist(data_matrix.T))
+            if np.isfinite(coph_corr_c):
+                metrics_payload["col_cophenetic_correlation"] = float(coph_corr_c)
+                metrics_lines.append(f"Col cophenetic correlation: {float(coph_corr_c):.3f}")
+    except Exception:
+        pass
+
+    if metrics_lines:
+        summary += "\n📈 Cluster Quality Metrics (best-effort):\n" + "\n".join(f"  • {s}" for s in metrics_lines) + "\n"
+
     return {
         "primary_figure": fig,
         "secondary_figure": None,
@@ -340,7 +417,8 @@ def create_spectral_heatmap(
             "labels": labels_ordered,
             "row_order": row_order,
             "col_order": col_order,
-            "wavenumbers": wavenumbers[col_order] if wavenumbers.size else wavenumbers,
+            "wavenumbers": wn_display,
+            "cluster_metrics": metrics_payload,
         },
     }
 
@@ -436,7 +514,7 @@ def create_mean_spectra_overlay(
     ax.set_title("Mean Spectra Overlay", fontsize=14, fontweight="bold")
     ax.legend(loc="best")
     ax.grid(True, alpha=0.3)
-    ax.invert_xaxis()
+
 
     if progress_callback:
         progress_callback(90)
@@ -573,8 +651,12 @@ def create_waterfall_plot(
         )
         ax.set_title("3D Waterfall Plot", fontsize=14, fontweight="bold")
 
-        # Invert x-axis (Raman convention)
-        ax.set_xlim(wavenumbers.max(), wavenumbers.min())
+        # X-axis direction: increasing left→right
+        try:
+            wv = np.asarray(wavenumbers, dtype=float).reshape(-1)
+            ax.set_xlim(float(np.nanmin(wv)), float(np.nanmax(wv)))
+        except Exception:
+            ax.set_xlim(wavenumbers.min(), wavenumbers.max())
         ax.set_ylim(0, len(all_spectra_normalized) * offset_scale)
         ax.set_zlim(0, 1.1)
 
@@ -619,7 +701,6 @@ def create_waterfall_plot(
         if show_grid:
             ax.grid(True, alpha=0.3, axis="x")
 
-        ax.invert_xaxis()
         ax.set_yticks([])  # Remove y-ticks (offsets are arbitrary)
 
     if progress_callback:
@@ -954,6 +1035,12 @@ def create_peak_scatter(
         from mpl_toolkits.mplot3d import Axes3D
 
         fig = plt.figure(figsize=(12, 9))
+        # Hint to the Qt embedding layer: avoid tight_layout during resize for 3D plots.
+        try:
+            fig._skip_tight_layout = True  # used by MatplotlibWidget
+            fig._tight_layout_on_resize = False
+        except Exception:
+            pass
         ax = fig.add_subplot(111, projection="3d")
 
         for j, dataset_name in enumerate(dataset_names):
@@ -974,9 +1061,9 @@ def create_peak_scatter(
                 linewidth=0.5,
             )
 
-        ax.set_xlabel(f"{peak_positions[0]:.0f} cm⁻¹", fontsize=11, labelpad=10)
-        ax.set_ylabel(f"{peak_positions[1]:.0f} cm⁻¹", fontsize=11, labelpad=10)
-        ax.set_zlabel(f"{peak_positions[2]:.0f} cm⁻¹", fontsize=11, labelpad=10)
+        ax.set_xlabel(f"Intensity at {peak_positions[0]:.0f} cm⁻¹", fontsize=11, labelpad=10)
+        ax.set_ylabel(f"Intensity at {peak_positions[1]:.0f} cm⁻¹", fontsize=11, labelpad=10)
+        ax.set_zlabel(f"Intensity at {peak_positions[2]:.0f} cm⁻¹", fontsize=11, labelpad=10)
         ax.set_title(
             "3D Peak Intensity Scatter Plot", fontsize=14, fontweight="bold", pad=20
         )
@@ -984,6 +1071,12 @@ def create_peak_scatter(
         # Sensible default camera angle (aligns with waterfall's readability)
         try:
             ax.view_init(elev=float(params.get("elev", 20)), azim=float(params.get("azim", 45)))
+        except Exception:
+            pass
+
+        # Make depth perception more stable across Matplotlib versions.
+        try:
+            ax.grid(True, alpha=0.25)
         except Exception:
             pass
 

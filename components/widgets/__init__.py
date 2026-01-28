@@ -31,6 +31,15 @@ from .views_widget import GroupTreeManager
 
 from .matplotlib_widget import MatplotlibWidget, plot_spectra
 from .component_selector_panel import ComponentSelectorPlotPanel
+from .loading_overlay import LoadingOverlay
+from .export_dialogs import (
+    ExportOptions,
+    get_export_options,
+    ExportBundleOptions,
+    get_export_bundle_options,
+    ExportShapBundleOptions,
+    get_export_shap_bundle_options,
+)
 from .icons import (
     load_icon,
     create_button_icon,
@@ -50,6 +59,13 @@ __all__ = [
     "MatplotlibWidget",
     "plot_spectra",
     "ComponentSelectorPlotPanel",
+    "LoadingOverlay",
+    "ExportOptions",
+    "get_export_options",
+    "ExportBundleOptions",
+    "get_export_bundle_options",
+    "ExportShapBundleOptions",
+    "get_export_shap_bundle_options",
     "load_icon",
     "create_button_icon",
     "create_toolbar_icon",

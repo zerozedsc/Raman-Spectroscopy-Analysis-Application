@@ -173,6 +173,20 @@ def perform_pls_da_analysis(
 
     cm = confusion_matrix(y, y_pred_cv, labels=list(range(len(classes))))
 
+    # Prepare plotting-friendly labels for downstream UI (confusion-matrix heatmap)
+    def _idx_to_label(idx: int) -> str:
+        try:
+            i = int(idx)
+        except Exception:
+            return "(unknown)"
+        if i < 0 or i >= len(classes):
+            return "(unknown)"
+        return str(classes[i])
+
+    cm_labels = [str(v) for v in classes]
+    cm_y_true = [_idx_to_label(v) for v in y]
+    cm_y_pred = [_idx_to_label(v) for v in y_pred_cv]
+
     if progress_callback:
         progress_callback(75)
 
@@ -220,7 +234,6 @@ def perform_pls_da_analysis(
             ax.set_ylabel("VIP")
             ax.set_title("VIP Scores (Variable Importance in Projection)")
             ax.grid(True, alpha=0.25)
-            ax.invert_xaxis()
             ax_idx += 1
         else:
             vip = None
@@ -236,7 +249,6 @@ def perform_pls_da_analysis(
             ax.set_title("PLS X Weights (per component)")
             ax.grid(True, alpha=0.25)
             ax.legend(loc="best")
-            ax.invert_xaxis()
 
         axes[-1].set_xlabel("Wavenumber (cm⁻¹)")
 
@@ -265,6 +277,9 @@ def perform_pls_da_analysis(
             "classes": classes,
             "cv_accuracy_mean": cv_acc_mean,
             "confusion_matrix": cm,
+            "confusion_matrix_labels": cm_labels,
+            "confusion_matrix_y_true": cm_y_true,
+            "confusion_matrix_y_pred": cm_y_pred,
             "pls_model": pls,
             # Standardized component-viewer payload (used by Results UI)
             "wavenumbers": np.asarray(wavenumbers, dtype=float),
@@ -354,6 +369,20 @@ def perform_lda_analysis(
     cm = confusion_matrix(y, y_pred_cv, labels=list(range(len(classes))))
     cv_acc = float(np.mean(y_pred_cv == y))
 
+    # Prepare plotting-friendly labels for downstream UI (confusion-matrix heatmap)
+    def _idx_to_label(idx: int) -> str:
+        try:
+            i = int(idx)
+        except Exception:
+            return "(unknown)"
+        if i < 0 or i >= len(classes):
+            return "(unknown)"
+        return str(classes[i])
+
+    cm_labels = [str(v) for v in classes]
+    cm_y_true = [_idx_to_label(v) for v in y]
+    cm_y_pred = [_idx_to_label(v) for v in y_pred_cv]
+
     # --- Plot ---
     fig1, ax1 = plt.subplots(figsize=(9, 7))
 
@@ -400,7 +429,6 @@ def perform_lda_analysis(
                 ax2.set_xlabel("Wavenumber (cm⁻¹)")
                 ax2.set_ylabel("LDA coef")
                 ax2.set_title("LDA Coefficients vs Wavenumber")
-                ax2.invert_xaxis()
             ax2.grid(True, alpha=0.25)
     except Exception:
         pass
@@ -430,6 +458,9 @@ def perform_lda_analysis(
             "classes": classes,
             "cv_accuracy": cv_acc,
             "confusion_matrix": cm,
+            "confusion_matrix_labels": cm_labels,
+            "confusion_matrix_y_true": cm_y_true,
+            "confusion_matrix_y_pred": cm_y_pred,
             "lda_model": lda,
             "pca_model": pca_model,
         },

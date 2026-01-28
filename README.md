@@ -4,7 +4,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![PySide6](https://img.shields.io/badge/GUI-PySide6-green.svg)](https://www.qt.io/qt-for-python)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application)
-[![Documentation](https://readthedocs.org/projects/raman-spectroscopy-analysis/badge/?version=latest)](https://raman-spectroscopy-analysis.readthedocs.io/)
+[![Documentation](https://readthedocs.org/projects/raman-spectroscopy-analysis-application/badge/?version=latest)](https://raman-spectroscopy-analysis-application.readthedocs.io/en/latest/)
 
 <div align="center">
   <img src="readme/images/app-main-interface.png" alt="Main application interface" width="800"/>
@@ -18,7 +18,7 @@
 
 📖 **[Read in English](readme/README_EN.md)** | **[日本語で読む](readme/README_JA.md)**
 
-📚 **[Full Documentation](https://raman-spectroscopy-analysis.readthedocs.io/)** | **[完全なドキュメント](https://raman-spectroscopy-analysis.readthedocs.io/ja/)**
+📚 **[Full Documentation](https://raman-spectroscopy-analysis-application.readthedocs.io/en/latest/)** | **[完全なドキュメント](https://raman-spectroscopy-analysis-application.readthedocs.io/ja/latest/)**
 
 ---
 
@@ -35,7 +35,7 @@ An **open-source**, **cross-platform** desktop application designed for **real-t
 | 🤖 **Machine Learning**          | Complete ML pipeline with SVM, Random Forest, XGBoost, Logistic Regression, and SHAP interpretability          |
 | 🎨 **Modern GUI**                | Intuitive PySide6/Qt6 interface with multi-language support (English/Japanese)                                 |
 | 🧪 **Research-Grade**            | Validated parameter constraints from peer-reviewed literature                                                  |
-| 🚀 **Production Ready**          | Portable executables and installer for clinical deployment                                                     |
+| 📦 **Distribution (Windows)**    | Portable executable available via Releases; installer workflow is still being finalized                        |
 | 🌍 **Open Source**               | MIT License, contributions welcome                                                                             |
 
 ### 🎓 Academic Context
@@ -59,11 +59,11 @@ uv venv
 uv pip install -e .
 uv run python main.py
 
-# Or use traditional pip
+# Or use a traditional venv + pip
 python -m venv .venv
-.venv\Scripts\activate  # Windows: .venv\Scripts\activate
-source .venv/bin/activate  # macOS/Linux
-pip install -r requirements.txt
+.venv\Scripts\activate  # Windows
+# source .venv/bin/activate  # macOS/Linux
+pip install -e .
 python main.py
 ```
 
@@ -73,7 +73,7 @@ Download pre-built executable from [Releases](https://github.com/zerozedsc/Raman
 
 ### Option 3: Installer (Windows Only)
 
-Download and run the installer from [Releases](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/releases) for a complete installation with Start Menu integration.
+The Windows installer workflow is still being finalized. For now, please use the **Portable Executable** option or run from source.
 
 ---
 
@@ -81,19 +81,19 @@ Download and run the installer from [Releases](https://github.com/zerozedsc/Rama
 
 ### 📖 User Documentation
 
-| Document                                                                    | Description                             |
-| --------------------------------------------------------------------------- | --------------------------------------- |
-| [📘 Full Documentation](https://raman-spectroscopy-analysis.readthedocs.io/) | Complete online documentation (English) |
-| [📗 Complete English Guide](readme/README_EN.md)                             | Comprehensive user guide with tutorials |
-| [📕 完全な日本語ガイド](readme/README_JA.md)                                 | 日本語の完全なユーザーガイド            |
-| [📄 Development Guidelines](readme/DEVELOPMENT_GUIDELINES.md)                | For contributors and developers         |
+| Document                                                                                          | Description                             |
+| ------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| [📘 Full Documentation](https://raman-spectroscopy-analysis-application.readthedocs.io/en/latest/) | Complete online documentation (English) |
+| [📗 Complete English Guide](readme/README_EN.md)                                                   | Comprehensive user guide with tutorials |
+| [📕 完全な日本語ガイド](readme/README_JA.md)                                                       | 日本語の完全なユーザーガイド            |
+| [📄 Development Guidelines](readme/DEVELOPMENT_GUIDELINES.md)                                      | For contributors and developers         |
 
 ### 🔗 Quick Links
 
-- [Installation Guide](https://raman-spectroscopy-analysis.readthedocs.io/en/latest/installation.html)
-- [User Guide](https://raman-spectroscopy-analysis.readthedocs.io/en/latest/user-guide/index.html)
-- [Analysis Methods Reference](https://raman-spectroscopy-analysis.readthedocs.io/en/latest/analysis-methods/index.html)
-- [API Documentation](https://raman-spectroscopy-analysis.readthedocs.io/en/latest/api/index.html)
+- [Installation Guide](https://raman-spectroscopy-analysis-application.readthedocs.io/en/latest/installation.html)
+- [User Guide](https://raman-spectroscopy-analysis-application.readthedocs.io/en/latest/user-guide/index.html)
+- [Analysis Methods Reference](https://raman-spectroscopy-analysis-application.readthedocs.io/en/latest/analysis-methods/index.html)
+- [API Documentation](https://raman-spectroscopy-analysis-application.readthedocs.io/en/latest/api/index.html)
 - [Changelog](CHANGELOG.md)
 - [License](LICENSE)
 
@@ -144,7 +144,7 @@ git push origin feature/your-feature
 - 🐛 **Bug Reports:** [GitHub Issues](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/issues)
 - 💬 **Questions & Discussions:** [GitHub Discussions](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/discussions)
 - 📧 **Direct Contact:** [@zerozedsc](https://github.com/zerozedsc)
-- 📖 **Documentation:** [ReadTheDocs](https://raman-spectroscopy-analysis.readthedocs.io/)
+- 📖 **Documentation:** [ReadTheDocs](https://raman-spectroscopy-analysis-application.readthedocs.io/en/latest/)
 
 ---
 
@@ -153,7 +153,7 @@ git push origin feature/your-feature
 If you use this software in your research, please cite:
 
 ```bibtex
-@software{rozain2025raman,
+@software{muhammadhelmirozain2025raman,
   author = {Rozain, Muhammad Helmi bin},
   title = {Raman Spectroscopy Analysis Application: A Comprehensive Platform for Real-Time Spectral Classification},
   year = {2025},
@@ -168,6 +168,8 @@ If you use this software in your research, please cite:
 ## ⚖️ License
 
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+> Note: This software is intended for **research use only** and is **not approved** for clinical diagnostic purposes.
 
 ---
 

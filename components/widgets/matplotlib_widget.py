@@ -505,6 +505,35 @@ class MatplotlibWidget(QWidget):
         """
         Clears the current figure and replaces it with a new one.
         """
+        # Allow the source figure to provide layout hints for embedded rendering.
+        # (Useful for plots that intentionally avoid tight_layout(), e.g., 3D axes.)
+        try:
+            if hasattr(new_figure, "_tight_layout_rect"):
+                self._tight_layout_rect = list(getattr(new_figure, "_tight_layout_rect"))
+        except Exception:
+            pass
+        try:
+            if hasattr(new_figure, "_tight_layout_pad"):
+                self._tight_layout_pad = float(getattr(new_figure, "_tight_layout_pad"))
+        except Exception:
+            pass
+        try:
+            if hasattr(new_figure, "_skip_tight_layout"):
+                self._skip_tight_layout = bool(getattr(new_figure, "_skip_tight_layout"))
+        except Exception:
+            self._skip_tight_layout = False
+
+        # Allow the source figure to influence resize-time layout behavior.
+        # 3D figures are especially sensitive to tight_layout() during resize.
+        try:
+            if hasattr(new_figure, "_tight_layout_on_resize"):
+                self._tight_layout_on_resize = bool(getattr(new_figure, "_tight_layout_on_resize"))
+            else:
+                # Default unless the figure explicitly opts out.
+                self._tight_layout_on_resize = not bool(getattr(self, "_skip_tight_layout", False))
+        except Exception:
+            self._tight_layout_on_resize = True
+
         self.figure.clear()
         # This is a way to "copy" the contents of the new figure
         # to the existing figure managed by the canvas.
@@ -702,6 +731,29 @@ class MatplotlibWidget(QWidget):
                         label = collection.get_label()
                         alpha = collection.get_alpha() or 1.0
 
+                        def _pick_sizes(n: int):
+                            try:
+                                s = np.asarray(sizes).reshape(-1)
+                            except Exception:
+                                s = np.array([50.0])
+                            if s.size == n:
+                                return s
+                            if s.size > 0:
+                                return float(s[0])
+                            return 50.0
+
+                        def _pick_colors(n: int):
+                            try:
+                                c = np.asarray(facecolors)
+                            except Exception:
+                                return None
+                            if c.size == 0:
+                                return None
+                            # Accept per-point colors or a single RGBA row.
+                            if (c.ndim == 2 and c.shape[0] == n) or (c.ndim == 2 and c.shape[0] == 1):
+                                return c
+                            return None
+
                         if is_3d and hasattr(collection, "_offsets3d"):
                             xs, ys, zs = collection._offsets3d
                             if len(xs) > 0:
@@ -709,8 +761,8 @@ class MatplotlibWidget(QWidget):
                                     xs,
                                     ys,
                                     zs,
-                                    c=facecolors if len(facecolors) > 0 else None,
-                                    s=sizes[0] if len(sizes) > 0 else 50,
+                                    c=_pick_colors(len(xs)),
+                                    s=_pick_sizes(len(xs)),
                                     edgecolors=edgecolors if len(edgecolors) > 0 else None,
                                     label=(label if label and not label.startswith("_") else None),
                                     alpha=alpha,
@@ -721,8 +773,8 @@ class MatplotlibWidget(QWidget):
                                 new_ax.scatter(
                                     offsets[:, 0],
                                     offsets[:, 1],
-                                    c=facecolors if len(facecolors) > 0 else None,
-                                    s=sizes[0] if len(sizes) > 0 else 50,
+                                    c=_pick_colors(len(offsets)),
+                                    s=_pick_sizes(len(offsets)),
                                     edgecolors=edgecolors if len(edgecolors) > 0 else None,
                                     label=(label if label and not label.startswith("_") else None),
                                     alpha=alpha,
@@ -963,14 +1015,39 @@ class MatplotlibWidget(QWidget):
 
                     elif isinstance(patch, Rectangle):
                         # Recreate rectangle (for bar plots)
+                        # IMPORTANT:
+                        # Bars commonly have transparent edges (edge alpha=0) and store the bar
+                        # opacity as a *global* patch alpha. If we pass both edgecolor=(...,0)
+                        # and alpha=0.75, Matplotlib applies the global alpha to the edge too,
+                        # turning it into a visible black outline. With many bars this looks
+                        # like a black plot. To preserve transparency, bake alpha into RGBA and
+                        # avoid passing a global alpha.
+                        def _with_alpha(c, a):
+                            if a is None:
+                                return c
+                            try:
+                                cc = tuple(c)
+                            except Exception:
+                                return c
+                            if len(cc) == 4:
+                                return (cc[0], cc[1], cc[2], float(cc[3]) * float(a))
+                            return c
+
+                        pa = None
+                        try:
+                            pa = patch.get_alpha()
+                        except Exception:
+                            pa = None
+
+                        fc = patch.get_facecolor()
+                        ec = patch.get_edgecolor()
                         new_rect = Rectangle(
                             xy=(patch.get_x(), patch.get_y()),
                             width=patch.get_width(),
                             height=patch.get_height(),
-                            facecolor=patch.get_facecolor(),
-                            edgecolor=patch.get_edgecolor(),
+                            facecolor=_with_alpha(fc, pa),
+                            edgecolor=_with_alpha(ec, pa),
                             linewidth=patch.get_linewidth(),
-                            alpha=patch.get_alpha(),
                         )
                         new_ax.add_patch(new_rect)
                         create_logs(
@@ -1319,7 +1396,38 @@ class MatplotlibWidget(QWidget):
 
         import warnings
 
+        # 3D axes are frequently incompatible with tight_layout and can end up
+        # rendered blank/white after tight_layout rearranges positions.
+        # Preserve the copied axes positions for 3D figures.
+        has_3d_axes = False
         try:
+            for _ax in self.figure.get_axes():
+                try:
+                    if getattr(_ax, "name", "") == "3d" or isinstance(_ax, Axes3D):
+                        has_3d_axes = True
+                        break
+                except Exception:
+                    continue
+        except Exception:
+            has_3d_axes = False
+
+        try:
+            if bool(getattr(self, "_skip_tight_layout", False)) or has_3d_axes:
+                # Prevent resizeEvent from re-applying tight_layout (can blank 3D axes intermittently).
+                try:
+                    self._tight_layout_on_resize = False
+                except Exception:
+                    pass
+                # Best-effort: keep original axes geometry. Apply only minimal padding.
+                try:
+                    self.figure.subplots_adjust(left=0.08, right=0.98, bottom=0.10, top=0.92)
+                except Exception:
+                    pass
+                self.canvas.draw()
+                # ✅ FIX #2 (P0): Close source figure to prevent memory leak
+                plt.close(new_figure)
+                return
+
             # Dynamic rect: prevent clipping of long categorical tick labels (e.g., band ratio groups)
             rect = list(getattr(self, "_tight_layout_rect", [0, 0.03, 1, 0.95]))
             try:
@@ -1504,10 +1612,6 @@ class MatplotlibWidget(QWidget):
                     tgt.set_va(src.get_va())
                     tgt.set_fontsize(src.get_fontsize())
                     tgt.set_color(src.get_color())
-                if ax.xaxis_inverted():
-                    new_ax.invert_xaxis()
-                if ax.yaxis_inverted():
-                    new_ax.invert_yaxis()
                 new_ax.set_aspect(ax.get_aspect())
             except Exception as e:
                 create_logs(__name__, __file__, f"Failed to copy ticks/labels: {e}", status="debug")
@@ -1545,19 +1649,86 @@ class MatplotlibWidget(QWidget):
             # Apply legend configuration
             legend = ax.get_legend()
             if legend and legend.get_texts():
-                handles, labels = ax.get_legend_handles_labels()
-                if handles and labels:
-                    if "legend" in config:
-                        leg_cfg = config["legend"]
-                        new_ax.legend(
-                            handles,
-                            labels,
-                            loc=leg_cfg.get("loc", "best"),
-                            fontsize=leg_cfg.get("fontsize", 9),
-                            framealpha=leg_cfg.get("framealpha", 0.8),
-                        )
-                    else:
-                        new_ax.legend(handles, labels, loc="best")
+                # NOTE: `ax.get_legend_handles_labels()` does *not* include proxy handles passed
+                # directly into `ax.legend(handles=[...])`. SHAP uses proxy Patch handles for the
+                # Positive/Negative legend, so we must copy from the Legend object itself.
+                try:
+                    legend_labels = [t.get_text() for t in legend.get_texts()]
+                except Exception:
+                    legend_labels = []
+
+                try:
+                    legend_handles = getattr(legend, "legend_handles", None)
+                    if legend_handles is None:
+                        legend_handles = getattr(legend, "legendHandles", None)
+                    if legend_handles is None:
+                        legend_handles = []
+                    legend_handles = list(legend_handles)
+                except Exception:
+                    legend_handles = []
+
+                # Fallback: if we couldn't introspect the Legend, attempt axes-derived handles.
+                if not legend_handles or not legend_labels:
+                    try:
+                        h, l = ax.get_legend_handles_labels()
+                        legend_handles = list(h)
+                        legend_labels = list(l)
+                    except Exception:
+                        legend_handles = []
+                        legend_labels = []
+
+                if legend_handles and legend_labels:
+                    # Recreate handles so we don't reuse Artists tied to the source figure.
+                    new_handles = []
+                    try:
+                        from matplotlib.lines import Line2D
+                        from matplotlib.patches import Patch as _LegendPatch
+                    except Exception:
+                        Line2D = None  # type: ignore
+                        _LegendPatch = None  # type: ignore
+
+                    for h in legend_handles[: len(legend_labels)]:
+                        try:
+                            if _LegendPatch is not None and hasattr(h, "get_facecolor") and hasattr(h, "get_edgecolor"):
+                                new_h = _LegendPatch(
+                                    facecolor=h.get_facecolor(),
+                                    edgecolor=h.get_edgecolor(),
+                                    hatch=(h.get_hatch() if hasattr(h, "get_hatch") else None),
+                                    alpha=(h.get_alpha() if hasattr(h, "get_alpha") else None),
+                                )
+                                new_handles.append(new_h)
+                            elif Line2D is not None and hasattr(h, "get_xdata") and hasattr(h, "get_color"):
+                                new_h = Line2D(
+                                    [0, 1],
+                                    [0, 0],
+                                    color=h.get_color(),
+                                    linestyle=(h.get_linestyle() if hasattr(h, "get_linestyle") else "-"),
+                                    linewidth=(h.get_linewidth() if hasattr(h, "get_linewidth") else 1.5),
+                                    marker=(h.get_marker() if hasattr(h, "get_marker") else None),
+                                    markersize=(h.get_markersize() if hasattr(h, "get_markersize") else 6),
+                                    alpha=(h.get_alpha() if hasattr(h, "get_alpha") else None),
+                                )
+                                new_handles.append(new_h)
+                            else:
+                                # Best-effort fallback.
+                                new_handles.append(h)
+                        except Exception:
+                            new_handles.append(h)
+
+                    try:
+                        if "legend" in config:
+                            leg_cfg = config["legend"]
+                            new_ax.legend(
+                                new_handles,
+                                legend_labels,
+                                loc=leg_cfg.get("loc", "best"),
+                                fontsize=leg_cfg.get("fontsize", 9),
+                                framealpha=leg_cfg.get("framealpha", 0.8),
+                            )
+                        else:
+                            new_ax.legend(new_handles, legend_labels, loc="best")
+                    except Exception:
+                        pass
 
             # Apply title configuration
             if "title" in config and ax.get_title():
@@ -1776,8 +1947,31 @@ class MatplotlibWidget(QWidget):
                         alpha=collection.get_alpha() or 1.0,
                     )
 
-        # Copy patches (if not too many)
-        if len(source_ax.patches) <= 100:
+        # Copy patches
+        #
+        # Historically we limited patch copying to small counts to avoid slow redraws for
+        # heatmaps/correlation plots. However, bar charts with many bins (notably the SHAP
+        # contributions plot across the full Raman axis) can legitimately contain thousands
+        # of Rectangle patches; skipping them makes the embedded plot appear blank.
+        patch_count = 0
+        try:
+            patch_count = len(source_ax.patches)
+        except Exception:
+            patch_count = 0
+
+        allow_large_rectangles = False
+        if patch_count > 100 and (not has_images):
+            try:
+                from matplotlib.patches import Rectangle
+
+                # If *all* patches are Rectangles and the count is still reasonable, copy them.
+                allow_large_rectangles = patch_count <= 8000 and all(
+                    isinstance(p, Rectangle) for p in source_ax.patches
+                )
+            except Exception:
+                allow_large_rectangles = False
+
+        if patch_count <= 100 or allow_large_rectangles:
             from matplotlib.patches import (
                 Ellipse,
                 Rectangle,
@@ -1815,15 +2009,62 @@ class MatplotlibWidget(QWidget):
                     )
                     target_ax.add_patch(new_patch)
                 elif isinstance(patch, Rectangle):
+                    # IMPORTANT: avoid global alpha which can re-enable transparent edges on
+                    # dense bar plots (e.g., SHAP) and make the plot look black.
+                    def _with_alpha(c, a):
+                        if a is None:
+                            return c
+                        try:
+                            cc = tuple(c)
+                        except Exception:
+                            return c
+                        if len(cc) == 4:
+                            return (cc[0], cc[1], cc[2], float(cc[3]) * float(a))
+                        return c
+
+                    pa = None
+                    try:
+                        pa = patch.get_alpha()
+                    except Exception:
+                        pa = None
+
+                    fc = patch.get_facecolor()
+                    ec = patch.get_edgecolor()
                     new_patch = Rectangle(
                         xy=(patch.get_x(), patch.get_y()),
                         width=patch.get_width(),
                         height=patch.get_height(),
-                        facecolor=patch.get_facecolor(),
-                        edgecolor=patch.get_edgecolor(),
+                        facecolor=_with_alpha(fc, pa),
+                        edgecolor=_with_alpha(ec, pa),
+                        linestyle=patch.get_linestyle(),
                         linewidth=patch.get_linewidth(),
-                        alpha=patch.get_alpha(),
                     )
+                    try:
+                        # Preserve fill/clip/z-order/label when available (helps fidelity for bar plots)
+                        new_patch.set_fill(patch.get_fill())
+                    except Exception:
+                        pass
+                    try:
+                        if hasattr(patch, "get_hatch"):
+                            new_patch.set_hatch(patch.get_hatch())
+                    except Exception:
+                        pass
+                    try:
+                        if hasattr(patch, "get_clip_on"):
+                            new_patch.set_clip_on(patch.get_clip_on())
+                    except Exception:
+                        pass
+                    try:
+                        if hasattr(patch, "get_zorder"):
+                            new_patch.set_zorder(patch.get_zorder())
+                    except Exception:
+                        pass
+                    try:
+                        lbl = patch.get_label() if hasattr(patch, "get_label") else ""
+                        if lbl and not str(lbl).startswith("_"):
+                            new_patch.set_label(lbl)
+                    except Exception:
+                        pass
                     target_ax.add_patch(new_patch)
                 elif isinstance(patch, PathPatch):
                     # Boxplots (patch_artist=True) use PathPatch boxes.
@@ -2048,7 +2289,17 @@ class MatplotlibWidget(QWidget):
         # Grid
         ax.grid(config.get("grid", True), alpha=0.3)
 
-        self.figure.tight_layout()
+        # NOTE: tight_layout() is frequently incompatible with 3D axes and can
+        # collapse the axes into a blank/white region. Use a conservative padding
+        # adjustment instead.
+        try:
+            setattr(self.figure, "_skip_tight_layout", True)
+        except Exception:
+            pass
+        try:
+            self.figure.subplots_adjust(left=0.08, right=0.98, bottom=0.10, top=0.92)
+        except Exception:
+            pass
         self.canvas.draw()
 
     def plot_dendrogram(

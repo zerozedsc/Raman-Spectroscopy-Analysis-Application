@@ -1,100 +1,139 @@
-# ラマン分光分析アプリケーション (Raman Spectroscopy Analysis Application)
-## 完全版ドキュメント (日本語)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](../LICENSE)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![PySide6](https://img.shields.io/badge/GUI-PySide6-green.svg)](https://www.qt.io/qt-for-python)
+# ラマン分光解析アプリケーション（日本語）
 
-**バージョン:** 1.0.0  
-**最終更新:** 2026年1月  
-**言語:** 日本語
+![Raman App Main Interface](images/app-main-interface.png)
 
----
+本リポジトリは、**学部4年の卒業研究（最終年度研究）**として開発した成果物であり、**リアルタイムのラマンスペクトル解析・分類**をテーマにしています。
 
-## 目次
+## 📚 ドキュメント
 
-1. [はじめに](#はじめに)
-2. [インストール](#インストール)
-3. [使い方 (Getting Started)](#使い方)
-4. [機能一覧](#機能一覧)
-5. [ユーザーインターフェース](#ユーザーインターフェース)
-6. [前処理手法 (Preprocessing)](#前処理手法)
-7. [解析手法 (Analysis)](#解析手法)
-8. [開発 (Development)](#開発)
-9. [プロジェクトへの貢献](#プロジェクトへの貢献)
-10. [トラブルシューティング](#トラブルシューティング)
-11. [APIリファレンス](#apiリファレンス)
-12. [ライセンス](#ライセンス)
+- 英語ドキュメント: https://raman-spectroscopy-analysis-application.readthedocs.io/en/latest/
+- 日本語ドキュメント: https://raman-spectroscopy-analysis-application.readthedocs.io/ja/latest/
 
----
+## ✅ 必要要件
 
-## はじめに
+- Python $\ge 3.12$ かつ $< 3.13$（`pyproject.toml` を参照）
 
-### プロジェクトについて
+## 🚀 ソースから起動
 
-本ラマン分光分析アプリケーションは、ラマン分光法を用いた**リアルタイム分類および疾患検出**のために設計された包括的なデスクトップソフトウェアです。本プロジェクトは、**富山大学 臨床フォトニクスおよび情報工学研究室**の指導の下、**卒業研究**として開発されました。
+### 方法A: UV（推奨）
 
-<div align="center">
-  <img src="images/app-main-interface.png" alt="アプリケーション概要" width="800"/>
-</div>
+```bash
+pip install uv
+uv venv
+uv pip install -e .
+uv run python main.py
+```
 
-### 研究背景
+### 方法B: venv + pip
 
-#### 現状の課題
+```bash
+python -m venv .venv
+.venv\Scripts\activate   # Windows
+# source .venv/bin/activate  # macOS/Linux
 
-ラマン分光分析における現在の課題：
+pip install -e .
+python main.py
+```
 
-1. **手作業による処理**
-   - 研究者がMATLABやPythonスクリプトを用いて手動でスペクトルを処理する必要がある
-   - 時間がかかり、人為的ミスのリスクがある
-   - プログラミングの専門知識が必要
+## 📦 対応I/O（現状）
 
-2. **高額な商用ソフトウェア**
-   - 既存の医療/生物学的分光ソフトウェアは高価なライセンスが必要
-   - カスタマイズ性が低い
-   - 特定のベンダーに依存してしまう
+### 読み込み（インポート）
 
-3. **オープンソースソリューションの不足**
-   - 利用可能なオープンソースGUIアプリケーションが少ない
-   - コミュニティ主導の開発が限定的
-   - 最新の機械学習ツールとの統合が不十分
+- `.csv`
+- `.txt`
+- `.asc` / `.ascii`
+- `.pkl`
 
-#### プロジェクトの目標
+### 書き出し（エクスポート）
 
-本プロジェクトは以下の目標を掲げています：
+- プロット: **PNG**, **SVG**
+- データ: **CSV**, **XLSX**, **JSON**, **TXT**, **PKL**
+- 「レポート出力」: 単一PDFではなく、ファイル一式を含む**フォルダ**を生成します。
 
-1. **包括的な分析ツールの提供**
-   - 完全な前処理パイプラインの実装
-   - 従来の手法と最新の分類アルゴリズムの両方をサポート
-   - カスタムパイプライン設定の実現
+> 研究用途向けです。臨床診断目的での利用は想定しておらず、承認もされていません。
 
-2. **使いやすいソフトウェアの開発**
-   - プログラマーでなくても使える直感的なGUI
-   - リアルタイム処理と可視化のサポート
-   - クロスプラットフォーム対応
+<!--
+LEGACY DOCUMENTATION BELOW (OUTDATED)
 
-3. **研究および臨床利用の促進**
-   - 医療応用のための説明可能性（Explainability）の実装
-   - 詳細な結果解釈の提供
-   - 臨床意思決定ワークフローの支援
+以下は過去の内容を履歴として残していますが、Python要件、インストール手順（`requirements.txt`）、
+対応フォーマット、PDF出力などが現状と一致しない可能性があります。
 
-### 学術情報
 
-**学生:** ムハマド ヘルミ ビン ロザイン (Muhammad Helmi bin Rozain)  
-**学籍番号:** 12270294  
-**所属:** 富山大学 工学部  
-**研究室:** [臨床フォトニクスおよび情報工学研究室](http://www3.u-toyama.ac.jp/medphoto/)
+## 📚 ドキュメント
 
-**指導教員:**
-- 大嶋　佑介 先生 (Oshima Yusuke)
-- 竹谷　皓規 先生 (Taketani Akinori)
+- 英語ドキュメント: https://raman-spectroscopy-analysis-application.readthedocs.io/en/latest/
+- 日本語ドキュメント: https://raman-spectroscopy-analysis-application.readthedocs.io/ja/latest/
 
-### 主な機能
+## ✅ 現在対応していること
 
-- ✅ **40種類以上の前処理手法** - 研究で検証されたアルゴリズム
-- ✅ **リアルタイム解析** - インタラクティブな可視化と分類
-- ✅ **モダンなGUI** - 直感的なPySide6/Qt6インターフェース
-- ✅ **多言語対応** - 日本語と英語をサポート
+### データの読み込み（インポート）
+
+現状の実装（データローダ）で対応している形式：
+
+- `.csv`
+- `.txt`
+- `.asc` / `.ascii`
+- `.pkl`
+
+### 書き出し（エクスポート）
+
+- プロット: **PNG**, **SVG**
+- データ: **CSV**, **XLSX**, **JSON**, **TXT**, **PKL**
+- 「レポート出力」: 単一PDFではなく、`plot.png` / `data.csv` / `report.txt` などを含む**フォルダ**を生成します。
+
+## 🚀 インストール / 起動
+
+### 必要要件
+
+- **Python $\ge 3.12$ かつ $< 3.13$**（`pyproject.toml` を参照）
+- Windows を主対象（ポータブル配布）としていますが、ソースからは macOS/Linux でも実行できます。
+
+### 方法A: UV（推奨）
+
+```bash
+git clone https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application.git
+cd Raman-Spectroscopy-Analysis-Application
+
+pip install uv
+uv venv
+uv pip install -e .
+uv run python main.py
+```
+
+### 方法B: 通常の venv + pip
+
+```bash
+git clone https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application.git
+cd Raman-Spectroscopy-Analysis-Application
+
+python -m venv .venv
+.venv\Scripts\activate   # Windows
+# source .venv/bin/activate  # macOS/Linux
+
+pip install -e .
+python main.py
+```
+
+### 方法C: ポータブル実行ファイル（Windows）
+
+以下からダウンロードできます：
+
+- https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/releases
+
+## 🧪 スモークテスト
+
+簡易スモークテスト用のスクリプトがあります：
+
+```bash
+uv run python smoke_tests.py
+```
+
+## 🛠️ 開発メモ
+
+- 開発ガイドライン: `readme/DEVELOPMENT_GUIDELINES.md`
+- `functions/` や `components/` 以下のAPIは内部実装として変更される可能性があります。公開APIとして固定したい場合は、ドキュメント側で明示します。
+
 - ✅ **オープンソース** - 学術および商用利用可能なMITライセンス
 - ✅ **クロスプラットフォーム** - Windows, macOS, Linux対応
 
@@ -788,3 +827,4 @@ University of Toyama
     <a href="https://www.u-toyama.ac.jp/">富山大学</a>
   </p>
 </div>
+-->

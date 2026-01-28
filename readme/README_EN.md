@@ -1,42 +1,64 @@
-# Raman Spectroscopy Analysis Application
-## Complete English Documentation
+# Raman Spectroscopy Analysis Application (English)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](../LICENSE)
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![PySide6](https://img.shields.io/badge/GUI-PySide6-green.svg)](https://www.qt.io/qt-for-python)
+![Raman App Main Interface](images/app-main-interface.png)
 
-**Version:** 1.0.0  
-**Last Updated:** January 2026  
-**Language:** English
+This repository is part of my **final year bachelor research project**, focused on **real-time Raman spectral analysis and classification**.
 
----
+## 📚 Documentation
 
-## Table of Contents
+- English docs: https://raman-spectroscopy-analysis-application.readthedocs.io/en/latest/
+- Japanese docs: https://raman-spectroscopy-analysis-application.readthedocs.io/ja/latest/
 
-1. [Introduction](#introduction)
-2. [Installation](#installation)
-3. [Getting Started](#getting-started)
-4. [Features](#features)
-5. [User Interface Guide](#user-interface-guide)
-6. [Preprocessing Methods](#preprocessing-methods)
-7. [Analysis Methods](#analysis-methods)
-8. [Development](#development)
-9. [Contributing](#contributing)
-10. [Troubleshooting](#troubleshooting)
-11. [API Reference](#api-reference)
-12. [License](#license)
+## ✅ Requirements
 
----
+- Python $\ge 3.12$ and $< 3.13$ (see `pyproject.toml`)
 
-## Introduction
+## 🚀 Run from source
 
-### About the Project
+### Option A: UV (recommended)
 
-The Raman Spectroscopy Analysis Application is a comprehensive desktop software designed for **real-time classification and disease detection** using Raman spectroscopy. This project was developed as a **final year project** at the **University of Toyama**, under the supervision of the **Laboratory for Clinical Photonics and Information Engineering**.
+```bash
+pip install uv
+uv venv
+uv pip install -e .
+uv run python main.py
+```
 
-<div align="center">
-  <img src="images/app-overview.png" alt="Application overview" width="800"/>
-</div>
+### Option B: venv + pip
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate   # Windows
+# source .venv/bin/activate  # macOS/Linux
+
+pip install -e .
+python main.py
+```
+
+## 📦 Supported I/O (current)
+
+### Import formats
+
+- `.csv`
+- `.txt`
+- `.asc` / `.ascii`
+- `.pkl`
+
+### Export formats
+
+- Plot export: **PNG**, **SVG**
+- Data export: **CSV**, **XLSX**, **JSON**, **TXT**, **PKL**
+- “Export report”: creates an **output folder** (not a single PDF).
+
+> Research use only: this software is **not approved** for clinical diagnostic purposes.
+
+<!--
+LEGACY DOCUMENTATION BELOW (OUTDATED)
+
+The remainder of this file is preserved for historical reference, but it may contain
+outdated or incorrect statements (e.g., older Python requirements, `requirements.txt`
+install instructions, unsupported file formats, and PDF export claims).
+
 
 ### Research Background
 
@@ -135,81 +157,99 @@ source .venv/bin/activate
 # 4. Install dependencies
 pip install -r requirements.txt
 
-# 5. Run the application
-python main.py
-```
+# Raman Spectroscopy Analysis Application (English)
 
-#### Method 2: Using UV Package Manager (Recommended for Users)
+![Raman App Main Interface](images/app-main-interface.png)
+
+A desktop GUI application for Raman spectroscopy data analysis and machine learning experimentation.
+
+This repository is part of my **final year bachelor research project**, focused on **real-time Raman spectral analysis and classification**.
+
+## 🎓 Academic / Research Context
+
+This software was developed as a final-year undergraduate research project. The goal is to provide a practical tool to:
+
+- Load Raman spectra datasets
+- Apply preprocessing pipelines
+- Run analysis / visualization
+- Experiment with ML classification models in a GUI workflow
+
+> Research use only: this software is **not approved** for clinical diagnostic purposes.
+
+## 📚 Documentation
+
+- English docs: https://raman-spectroscopy-analysis-application.readthedocs.io/en/latest/
+- Japanese docs: https://raman-spectroscopy-analysis-application.readthedocs.io/ja/latest/
+
+## ✅ What the app supports (current)
+
+### Data import
+
+Supported file formats (confirmed from the current loader implementation):
+
+- `.csv`
+- `.txt`
+- `.asc` / `.ascii`
+- `.pkl`
+
+### Exports
+
+- Plot export: **PNG**, **SVG**
+- Data export: **CSV**, **XLSX**, **JSON**, **TXT**, **PKL**
+- “Export report”: creates an **output folder** (e.g., `plot.png`, `data.csv`, `report.txt`, and metadata) — not a single PDF.
+
+## 🚀 Installation / Running
+
+### Requirements
+
+- **Python $\ge 3.12$ and $< 3.13$** (see `pyproject.toml`)
+- Windows is the primary target (portable builds), but running from source also works on macOS/Linux.
+
+### Option A: Install and run with UV (recommended)
 
 ```bash
-# 1. Install UV package manager
-pip install uv
-
-# 2. Clone and navigate to repository
 git clone https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application.git
 cd Raman-Spectroscopy-Analysis-Application
 
-# 3. Create environment and install dependencies
+pip install uv
 uv venv
 uv pip install -e .
-
-# 4. Run the application
 uv run python main.py
 ```
 
-#### Method 3: Portable Executable (Windows Only)
-
-For clinical deployment without Python installation:
-
-1. Download the latest portable executable from [Releases](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/releases)
-2. Extract the ZIP file to your desired location
-3. Run `RamanApp.exe`
-
-**Features:**
-- ✅ No installation required
-- ✅ All dependencies bundled
-- ✅ Single executable file (375 MB)
-- ✅ Portable - run from USB drive
-
-#### Method 4: Installer (Windows Only)
-
-For permanent installation on Windows:
-
-1. Download the installer from [Releases](https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/releases)
-2. Run the `.exe` installer
-3. Follow the installation wizard
-4. Launch from Start Menu or Desktop shortcut
-
-**Features:**
-- ✅ Professional installation experience
-- ✅ Start Menu integration
-- ✅ File association for project files
-- ✅ Easy uninstallation
-
-### Verifying Installation
-
-After installation, verify everything works:
+### Option B: Traditional venv + pip
 
 ```bash
-# Run a quick test
-python -c "import PySide6; print('PySide6 OK')"
-python -c "import ramanspy; print('RamanSPy OK')"
-python -c "import numpy; print('NumPy OK')"
+git clone https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application.git
+cd Raman-Spectroscopy-Analysis-Application
 
-# Or run the application
+python -m venv .venv
+.venv\Scripts\activate   # Windows
+# source .venv/bin/activate  # macOS/Linux
+
+pip install -e .
 python main.py
 ```
 
----
+### Option C: Portable executable (Windows)
 
-## Getting Started
+Download from:
 
-### First Launch
+- https://github.com/zerozedsc/Raman-Spectroscopy-Analysis-Application/releases
 
-When you first launch the application:
+## 🧪 Smoke testing
 
-1. **Language Selection**
-   - Choose your preferred language (English/Japanese)
+This repository currently provides a lightweight smoke test script:
+
+```bash
+uv run python smoke_tests.py
+```
+
+## 🛠️ Development notes
+
+- Developer guidelines: `readme/DEVELOPMENT_GUIDELINES.md`
+- The internal modules under `functions/` and `components/` are still evolving; treat them as implementation details unless explicitly documented as stable.
+
    - Can be changed later in settings
 
 2. **Welcome Screen**
@@ -1881,3 +1921,4 @@ See [CHANGELOG.md](../CHANGELOG.md) for detailed version history.
   </p>
   <p><strong>富山大学 臨床フォトニクスおよび情報工学研究室</strong></p>
 </div>
+-->

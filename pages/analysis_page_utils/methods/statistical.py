@@ -137,7 +137,6 @@ def perform_spectral_comparison(
     ax1.set_title("Spectral Comparison", fontsize=14, fontweight="bold")
     ax1.legend(loc="best")
     ax1.grid(True, alpha=0.3)
-    ax1.invert_xaxis()
 
     # Create secondary figure: P-value plot
     fig2, ax2 = plt.subplots(figsize=(12, 4))
@@ -154,7 +153,7 @@ def perform_spectral_comparison(
     ax2.set_title("Statistical Significance", fontsize=14, fontweight="bold")
     ax2.legend(loc="best")
     ax2.grid(True, alpha=0.3)
-    ax2.invert_xaxis()
+
 
     if progress_callback:
         progress_callback(90)
@@ -502,7 +501,7 @@ def perform_peak_analysis(
     )
     ax1.legend(loc="best")
     ax1.grid(True, alpha=0.3)
-    ax1.invert_xaxis()
+
 
     # Create secondary figure: Peak intensity distribution
     fig2, ax2 = plt.subplots(figsize=(10, 6))
@@ -789,115 +788,351 @@ def perform_anova_test(
     if progress_callback:
         progress_callback(10)
 
-    # Get parameters
-    alpha = params.get("alpha", 0.05)
-    post_hoc = params.get("post_hoc", True)
+    # --- Parameters ---
+    alpha = float(params.get("alpha", 0.05))
+    p_adjust = str(params.get("p_adjust", "fdr_bh")).lower()  # none|fdr_bh|bonferroni
+    post_hoc = str(params.get("post_hoc", "none")).lower()  # none|tukey
+    max_posthoc_wavenumbers = int(params.get("max_posthoc_wavenumbers", 20))
+    show_mean_overlay = bool(params.get("show_mean_overlay", True))
+    highlight_significant = bool(params.get("highlight_significant", True))
 
-    # Check number of groups
-    if len(dataset_data) < 3:
-        raise ValueError("At least 3 datasets required for ANOVA")
+    # Group labels for grouped mode
+    group_labels_map = params.get("_group_labels", None)
+    if not isinstance(group_labels_map, dict):
+        group_labels_map = None
 
-    # Get common wavenumbers
-    dataset_names = list(dataset_data.keys())
-    wavenumbers = dataset_data[dataset_names[0]].index.values
+    if progress_callback:
+        progress_callback(15)
+
+    # Build aligned matrix (n_spectra, n_wavenumbers) on a common wavenumber grid
+    from .exploratory import interpolate_to_common_wavenumbers_with_groups
+
+    wavenumbers, X, labels = interpolate_to_common_wavenumbers_with_groups(
+        dataset_data,
+        group_labels_map=group_labels_map,
+        method="linear",
+    )
+    wavenumbers = np.asarray(wavenumbers, dtype=float)
+    X = np.asarray(X, dtype=float)
+    labels = [str(v) for v in (labels or [])]
+
+    if X.ndim != 2 or wavenumbers.ndim != 1 or X.shape[1] != wavenumbers.size:
+        raise ValueError(
+            f"ANOVA internal shape mismatch: X={getattr(X, 'shape', None)} vs wavenumbers={wavenumbers.size}"
+        )
+
+    # Determine groups (datasets or grouped labels)
+    unique_groups = sorted(set(labels))
+    if len(unique_groups) < 3:
+        raise ValueError(
+            "ANOVA requires at least 3 groups. "
+            "Select 3+ datasets in simple mode, or define 3+ groups in grouped mode."
+        )
 
     if progress_callback:
         progress_callback(30)
 
-    # Perform ANOVA at each wavenumber
-    f_statistics = []
-    p_values = []
+    # Pre-index spectra rows by group for speed
+    idx_by_group: dict[str, np.ndarray] = {}
+    labels_arr = np.asarray(labels, dtype=object)
+    for g in unique_groups:
+        idx_by_group[g] = np.where(labels_arr == g)[0]
 
-    for i in range(len(wavenumbers)):
-        groups = [dataset_data[name].iloc[i, :].values for name in dataset_names]
-        f_stat, p_val = stats.f_oneway(*groups)
-        f_statistics.append(f_stat)
-        p_values.append(p_val)
+    # Perform per-wavenumber one-way ANOVA
+    n_wn = int(wavenumbers.size)
+    f_statistics = np.full((n_wn,), np.nan, dtype=float)
+    p_values = np.full((n_wn,), np.nan, dtype=float)
 
-    f_statistics = np.array(f_statistics)
-    p_values = np.array(p_values)
+    # Require at least 2 finite samples per group at a given wavenumber to run f_oneway
+    for i in range(n_wn):
+        groups: list[np.ndarray] = []
+        valid = True
+        for g in unique_groups:
+            rows = idx_by_group[g]
+            if rows.size <= 0:
+                valid = False
+                break
+            vals = np.asarray(X[rows, i], dtype=float)
+            vals = vals[np.isfinite(vals)]
+            if vals.size < 2:
+                valid = False
+                break
+            groups.append(vals)
 
-    # Identify significant wavenumbers
-    significant_mask = p_values < alpha
+        if not valid:
+            continue
+
+        try:
+            f_stat, p_val = stats.f_oneway(*groups)
+            f_statistics[i] = float(f_stat)
+            p_values[i] = float(p_val)
+        except Exception:
+            # Keep NaNs on failure
+            continue
+
+        # Progress updates (best-effort, not too chatty)
+        if progress_callback and (i % max(int(n_wn / 10), 50) == 0):
+            progress_callback(30 + int((i / max(n_wn - 1, 1)) * 30))
+
+    # Multiple testing correction across wavenumbers
+    p_adj = None
+    p_sig = p_values
+    if p_adjust in {"fdr", "fdr_bh", "bh"}:
+        try:
+            from statsmodels.stats.multitest import fdrcorrection
+
+            valid = np.isfinite(p_values)
+            q = np.full_like(p_values, np.nan)
+            if np.any(valid):
+                _rej, q_valid = fdrcorrection(p_values[valid], alpha=alpha)
+                q[valid] = q_valid
+            p_adj = q
+            p_sig = q
+        except Exception:
+            p_adj = None
+            p_sig = p_values
+    elif p_adjust == "bonferroni":
+        valid = np.isfinite(p_values)
+        m = int(np.sum(valid))
+        q = np.full_like(p_values, np.nan)
+        if m > 0:
+            q[valid] = np.minimum(p_values[valid] * float(m), 1.0)
+        p_adj = q
+        p_sig = q
+    else:
+        p_adj = None
+        p_sig = p_values
+
+    significant_mask = (p_sig < alpha) & np.isfinite(p_sig)
 
     if progress_callback:
         progress_callback(70)
 
-    # Create primary figure: F-statistic plot
+    # Helper: compress significant mask into contiguous segments (avoid thousands of axvspan calls)
+    def _mask_to_segments(mask: np.ndarray) -> list[tuple[int, int]]:
+        mask = np.asarray(mask, dtype=bool)
+        if mask.size == 0:
+            return []
+        idx = np.where(mask)[0]
+        if idx.size == 0:
+            return []
+        segs: list[tuple[int, int]] = []
+        start = int(idx[0])
+        prev = int(idx[0])
+        for k in idx[1:]:
+            k = int(k)
+            if k == prev + 1:
+                prev = k
+                continue
+            segs.append((start, prev))
+            start = k
+            prev = k
+        segs.append((start, prev))
+        return segs
+
+    # Create primary figure: F-statistic + significance curve
     fig1, (ax1a, ax1b) = plt.subplots(2, 1, figsize=(12, 8))
 
-    ax1a.plot(wavenumbers, f_statistics, linewidth=1.5, color="blue")
+    ax1a.plot(wavenumbers, f_statistics, linewidth=1.5, color="#0066cc")
     ax1a.set_ylabel("F-statistic", fontsize=12)
     ax1a.set_title("ANOVA Results", fontsize=14, fontweight="bold")
     ax1a.grid(True, alpha=0.3)
-    ax1a.invert_xaxis()
 
-    ax1b.plot(wavenumbers, -np.log10(p_values), linewidth=1.5, color="black")
-    ax1b.axhline(-np.log10(alpha), color="red", linestyle="--", label=f"α = {alpha}")
+
+    eps = 1e-300
+    y_vals = p_sig
+    y_label = "-log₁₀(p)"
+    if p_adj is not None:
+        y_label = "-log₁₀(q)"
+    ax1b.plot(wavenumbers, -np.log10(np.clip(y_vals, eps, 1.0)), linewidth=1.5, color="#222222")
+
+    # Make the alpha threshold line unmissable and always within view.
+    thr_y = float(-np.log10(np.clip(alpha, eps, 1.0)))
+    ax1b.axhline(
+        thr_y,
+        color="red",
+        linestyle="--",
+        linewidth=2.2,
+        alpha=0.95,
+        zorder=10,
+        label=f"α = {alpha:g}",
+    )
+    try:
+        y0, y1 = ax1b.get_ylim()
+        pad = max(0.08 * (y1 - y0), 0.25)
+        ax1b.set_ylim(min(y0, thr_y - pad), max(y1, thr_y + pad))
+    except Exception:
+        pass
+    try:
+        ax1b.annotate(
+            f"α = {alpha:g}",
+            xy=(0.02, thr_y),
+            xycoords=("axes fraction", "data"),
+            va="bottom",
+            ha="left",
+            fontsize=10,
+            color="red",
+            bbox=dict(
+                facecolor="white",
+                edgecolor="red",
+                boxstyle="round,pad=0.25",
+                alpha=0.85,
+            ),
+        )
+    except Exception:
+        pass
     ax1b.set_xlabel("Wavenumber (cm⁻¹)", fontsize=12)
-    ax1b.set_ylabel("-log₁₀(p-value)", fontsize=12)
+    ax1b.set_ylabel(y_label, fontsize=12)
     ax1b.legend(loc="best")
     ax1b.grid(True, alpha=0.3)
-    ax1b.invert_xaxis()
 
-    plt.tight_layout()
 
-    # Create secondary figure: Mean spectra of all groups
-    fig2, ax2 = plt.subplots(figsize=(12, 6))
+    try:
+        fig1.tight_layout()
+    except Exception:
+        pass
 
-    colors = plt.cm.tab10(np.linspace(0, 1, len(dataset_names)))
-    for i, name in enumerate(dataset_names):
-        mean_spec = dataset_data[name].mean(axis=1).values
-        ax2.plot(wavenumbers, mean_spec, label=name, color=colors[i], linewidth=1.5)
+    # Create secondary figure: Mean spectra by group (optional)
+    fig2 = None
+    if show_mean_overlay:
+        fig2, ax2 = plt.subplots(figsize=(12, 6))
 
-    # Highlight significant regions
-    if np.any(significant_mask):
-        y_min, y_max = ax2.get_ylim()
-        sig_regions = np.where(significant_mask)[0]
-        for idx in sig_regions:
-            ax2.axvspan(
-                wavenumbers[idx] - 2, wavenumbers[idx] + 2, alpha=0.1, color="yellow"
-            )
+        cmap = plt.get_cmap("tab20", max(len(unique_groups), 3))
+        group_colors = [cmap(i) for i in range(len(unique_groups))]
 
-    ax2.set_xlabel("Wavenumber (cm⁻¹)", fontsize=12)
-    ax2.set_ylabel("Intensity", fontsize=12)
-    ax2.set_title("Mean Spectra by Group", fontsize=14, fontweight="bold")
-    ax2.legend(loc="best")
-    ax2.grid(True, alpha=0.3)
-    ax2.invert_xaxis()
+        for gi, g in enumerate(unique_groups):
+            rows = idx_by_group[g]
+            if rows.size <= 0:
+                continue
+            mean_spec = np.nanmean(X[rows, :], axis=0)
+            ax2.plot(wavenumbers, mean_spec, label=str(g), color=group_colors[gi], linewidth=1.6)
+
+        if highlight_significant and np.any(significant_mask):
+            segs = _mask_to_segments(significant_mask)
+            # Cap segments to avoid pathological overdraw
+            if len(segs) > 250:
+                segs = segs[:250]
+
+            # Use half-step padding based on wavenumber spacing
+            dx = float(np.nanmedian(np.abs(np.diff(wavenumbers)))) if wavenumbers.size > 1 else 2.0
+            pad = max(dx * 0.5, 1.0)
+            for a, b in segs:
+                x0 = float(wavenumbers[a])
+                x1 = float(wavenumbers[b])
+                lo = min(x0, x1) - pad
+                hi = max(x0, x1) + pad
+                ax2.axvspan(lo, hi, alpha=0.12, color="#ffe066")
+
+        ax2.set_xlabel("Wavenumber (cm⁻¹)", fontsize=12)
+        ax2.set_ylabel("Intensity", fontsize=12)
+        ax2.set_title("Mean Spectra by Group", fontsize=14, fontweight="bold")
+        ax2.legend(loc="best")
+        ax2.grid(True, alpha=0.3)
+
+
+        try:
+            fig2.tight_layout()
+        except Exception:
+            pass
 
     if progress_callback:
-        progress_callback(90)
+        progress_callback(85)
+
+    # Optional post-hoc: Tukey HSD on a limited number of significant wavenumbers
+    posthoc_tables: dict[str, pd.DataFrame] | None = None
+    if post_hoc == "tukey" and max_posthoc_wavenumbers != 0:
+        try:
+            from statsmodels.stats.multicomp import pairwise_tukeyhsd
+
+            sig_idx = np.where(significant_mask)[0]
+            if sig_idx.size:
+                if max_posthoc_wavenumbers > 0:
+                    sig_idx = sig_idx[: int(max_posthoc_wavenumbers)]
+
+                posthoc_tables = {}
+                for idx in sig_idx:
+                    idx = int(idx)
+                    y = np.asarray(X[:, idx], dtype=float)
+                    labs = labels_arr
+                    m = np.isfinite(y)
+                    if np.sum(m) < 3:
+                        continue
+                    y2 = y[m]
+                    labs2 = labs[m]
+                    if len(set([str(v) for v in labs2])) < 3:
+                        continue
+                    tuk = pairwise_tukeyhsd(endog=y2, groups=labs2, alpha=alpha)
+                    try:
+                        tbl = pd.DataFrame(
+                            tuk.summary().data[1:],
+                            columns=tuk.summary().data[0],
+                        )
+                    except Exception:
+                        # Fallback: store as text table
+                        tbl = pd.DataFrame({"tukey_summary": [str(tuk.summary())]})
+                    posthoc_tables[f"{float(wavenumbers[idx]):.3f}"] = tbl
+        except Exception:
+            posthoc_tables = None
+
+    if progress_callback:
+        progress_callback(92)
 
     # Create data table
-    results_df = pd.DataFrame(
-        {
-            "Wavenumber": wavenumbers,
-            "F_statistic": f_statistics,
-            "p_value": p_values,
-            "Significant": significant_mask,
-        }
-    )
+    out = {
+        "Wavenumber": wavenumbers,
+        "F_statistic": f_statistics,
+        "p_value": p_values,
+    }
+    if p_adj is not None:
+        out["q_value"] = p_adj
+    out["Significant"] = significant_mask
+    results_df = pd.DataFrame(out)
 
-    n_significant = np.sum(significant_mask)
-    pct_significant = n_significant / len(wavenumbers) * 100
+    n_significant = int(np.sum(significant_mask))
+    pct_significant = (n_significant / float(n_wn) * 100.0) if n_wn else 0.0
 
-    summary = f"ANOVA completed across {len(dataset_names)} groups.\n"
+    group_counts = {g: int(idx_by_group[g].size) for g in unique_groups}
+
+    corr_label = "none"
+    if p_adjust in {"fdr", "fdr_bh", "bh"}:
+        corr_label = "FDR (BH)"
+    elif p_adjust == "bonferroni":
+        corr_label = "Bonferroni"
+
+    summary = f"ANOVA completed across {len(unique_groups)} groups.\n"
     summary += f"Significant wavenumbers: {n_significant} ({pct_significant:.1f}%)\n"
-    summary += f"Significance level: α = {alpha}"
+    summary += f"α = {alpha:g}, p_adjust = {corr_label}"
+
+    detailed = "Groups (spectra counts):\n" + "\n".join(
+        [f"- {g}: {group_counts[g]}" for g in unique_groups]
+    )
+    if group_labels_map:
+        detailed += "\n\nMode: grouped (datasets mapped to user-defined groups)"
+    else:
+        detailed += "\n\nMode: simple (each dataset is a group)"
+    if posthoc_tables:
+        detailed += f"\n\nPost-hoc: Tukey HSD computed for {len(posthoc_tables)} significant wavenumbers (capped)."
 
     return {
         "primary_figure": fig1,
         "secondary_figure": fig2,
         "data_table": results_df,
         "summary_text": summary,
-        "detailed_summary": f"Groups: {', '.join(dataset_names)}",
+        "detailed_summary": detailed,
         "raw_results": {
+            "wavenumbers": wavenumbers,
+            "labels": labels,
+            "unique_labels": unique_groups,
+            "group_counts": group_counts,
             "f_statistics": f_statistics,
             "p_values": p_values,
+            "p_adjust": p_adjust,
+            "p_adjusted": p_adj,
+            "p_used_for_significance": p_sig,
             "significant_mask": significant_mask,
-            "dataset_names": dataset_names,
+            "posthoc": posthoc_tables,
         },
+        "loadings_figure": None,
     }
 
 
@@ -1013,7 +1248,7 @@ def perform_pairwise_statistical_tests(
         ax1.set_title("Mean Spectra Overlay (Pairwise)")
         ax1.grid(True, alpha=0.3)
         ax1.legend(loc="best")
-        ax1.invert_xaxis()
+
 
     # Plot 2: p-value curve
     fig2, ax2 = plt.subplots(figsize=(12, 4))
@@ -1034,7 +1269,7 @@ def perform_pairwise_statistical_tests(
     ax2.set_title(f"Pairwise Significance ({test_type})")
     ax2.grid(True, alpha=0.3)
     ax2.legend(loc="best")
-    ax2.invert_xaxis()
+
 
     if progress_callback:
         progress_callback(90)

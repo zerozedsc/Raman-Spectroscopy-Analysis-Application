@@ -146,7 +146,7 @@ def perform_mcr_als_analysis(
     ax1.set_ylabel("Intensity (a.u.)")
     ax1.grid(True, alpha=0.25)
     ax1.legend(loc="best")
-    ax1.invert_xaxis()
+
 
     # Concentration heatmap
     fig2, ax2 = plt.subplots(figsize=(10, 4))
@@ -234,7 +234,7 @@ def perform_nmf_analysis(
     ax1.set_ylabel("Intensity (a.u.)")
     ax1.grid(True, alpha=0.25)
     ax1.legend(loc="best")
-    ax1.invert_xaxis()
+
 
     # Mixing coefficients heatmap
     fig2, ax2 = plt.subplots(figsize=(10, 4))
@@ -322,7 +322,7 @@ def perform_ica_analysis(
     ax1.set_ylabel("Relative intensity")
     ax1.grid(True, alpha=0.25)
     ax1.legend(loc="best")
-    ax1.invert_xaxis()
+
 
     fig2, ax2 = plt.subplots(figsize=(10, 4))
     im = ax2.imshow(S, aspect="auto", interpolation="nearest")

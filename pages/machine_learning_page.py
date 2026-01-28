@@ -62,7 +62,10 @@ from functions.visualization.model_evaluation import (
 	create_roc_curve_figure,
 )
 from functions.visualization.classification_report import create_classification_report_table
-from functions.visualization.pca_decision_boundary import create_pca_decision_boundary_figure
+from functions.visualization.pca_decision_boundary import (
+	create_pca_decision_boundary_figure,
+	create_pca_scatter_figure,
+)
 from components.widgets.grouping.dnd_widgets import DatasetSourceList, GroupDropList
 from pages.machine_learning_page_utils.thread import MLTrainingOutput, MLTrainingThread
 from utils import LOCALIZE, PROJECT_MANAGER, RAMAN_DATA, register_groups_changed_listener
@@ -165,6 +168,138 @@ class _DestinationDialog(QDialog):
 
 		# File name
 		self.name_edit = QLineEdit(self._filename)
+
+
+@dataclass(frozen=True)
+class _SHAPOptions:
+	source: str  # "train" or "test"
+	sample_index: int
+	background_samples: int
+	max_evals: int  # 0 = auto
+	top_k: int
+	random_state: int
+
+
+class _SHAPOptionsDialog(QDialog):
+	def __init__(
+		self,
+		*,
+		train_count: int = 0,
+		test_count: int = 0,
+		default_source: str = "test",
+		default_sample_index: int = 0,
+		default_background_samples: int = 30,
+		default_max_evals: int = 0,
+		default_top_k: int = 12,
+		default_random_state: int = 0,
+		parent=None,
+	):
+		super().__init__(parent)
+		self.setWindowTitle(LOCALIZE("ML_PAGE.shap_dialog_title"))
+		self.setModal(True)
+		self._train_count = max(0, int(train_count))
+		self._test_count = max(0, int(test_count))
+
+		self._opts = _SHAPOptions(
+			source=str(default_source or "test"),
+			sample_index=int(default_sample_index),
+			background_samples=int(default_background_samples),
+			max_evals=int(default_max_evals),
+			top_k=int(default_top_k),
+			random_state=int(default_random_state),
+		)
+
+		root = QVBoxLayout(self)
+		root.setContentsMargins(16, 16, 16, 16)
+		root.setSpacing(12)
+
+		form = QFormLayout()
+		form.setVerticalSpacing(10)
+		form.setHorizontalSpacing(12)
+		root.addLayout(form)
+
+		self.source_combo = QComboBox()
+		self.source_combo.addItem(LOCALIZE("ML_PAGE.shap_source_test"), userData="test")
+		self.source_combo.addItem(LOCALIZE("ML_PAGE.shap_source_train"), userData="train")
+		# Default selection
+		if str(default_source) == "train":
+			self.source_combo.setCurrentIndex(1)
+		form.addRow(QLabel(LOCALIZE("ML_PAGE.shap_source_label")), self.source_combo)
+
+		self.sample_index_spin = CustomSpinBox()
+		self.sample_index_spin.setRange(0, 0)
+		self.sample_index_spin.setValue(int(default_sample_index))
+		form.addRow(QLabel(LOCALIZE("ML_PAGE.shap_sample_index")), self.sample_index_spin)
+
+		def _sync_index_range() -> None:
+			src = str(self.source_combo.currentData() or self.source_combo.currentText()).strip() or "test"
+			count = self._train_count if src == "train" else self._test_count
+			max_idx = max(0, int(count) - 1)
+			try:
+				self.sample_index_spin.setRange(0, max_idx)
+			except Exception:
+				pass
+			# Clamp current value
+			try:
+				v = int(self.sample_index_spin.value())
+				self.sample_index_spin.setValue(int(max(0, min(v, max_idx))))
+			except Exception:
+				pass
+
+		_sync_index_range()
+		self.source_combo.currentIndexChanged.connect(_sync_index_range)
+
+		self.bg_samples_spin = CustomSpinBox()
+		self.bg_samples_spin.setRange(1, 1000)
+		self.bg_samples_spin.setValue(int(default_background_samples))
+		form.addRow(QLabel(LOCALIZE("ML_PAGE.shap_background_samples")), self.bg_samples_spin)
+
+		# Advanced: max_evals for permutation explainer.
+		# 0 means "auto" (the worker will set it to >= 2*num_features+1).
+		self.max_evals_spin = CustomSpinBox()
+		self.max_evals_spin.setRange(0, 200000)
+		self.max_evals_spin.setValue(int(default_max_evals))
+		form.addRow(QLabel(LOCALIZE("ML_PAGE.shap_max_evals")), self.max_evals_spin)
+
+		self.top_k_spin = CustomSpinBox()
+		self.top_k_spin.setRange(5, 200)
+		self.top_k_spin.setValue(int(default_top_k))
+		form.addRow(QLabel(LOCALIZE("ML_PAGE.shap_top_k")), self.top_k_spin)
+
+		self.seed_spin = CustomSpinBox()
+		self.seed_spin.setRange(0, 999999)
+		self.seed_spin.setValue(int(default_random_state))
+		form.addRow(QLabel(LOCALIZE("ML_PAGE.shap_seed")), self.seed_spin)
+
+		btn_row = QHBoxLayout()
+		btn_row.addStretch(1)
+		cancel_btn = QPushButton(LOCALIZE("COMMON.cancel"))
+		cancel_btn.setCursor(Qt.PointingHandCursor)
+		cancel_btn.setStyleSheet(get_base_style("secondary_button"))
+		cancel_btn.clicked.connect(self.reject)
+		run_btn = QPushButton(LOCALIZE("ML_PAGE.shap_run"))
+		run_btn.setCursor(Qt.PointingHandCursor)
+		run_btn.setStyleSheet(get_base_style("primary_button"))
+		run_btn.clicked.connect(self._on_run)
+		btn_row.addWidget(cancel_btn)
+		btn_row.addWidget(run_btn)
+		root.addLayout(btn_row)
+
+	def _on_run(self):
+		src = str(self.source_combo.currentData() or self.source_combo.currentText()).strip() or "test"
+		self._opts = _SHAPOptions(
+			source=src,
+			sample_index=int(self.sample_index_spin.value()),
+			background_samples=int(self.bg_samples_spin.value()),
+			max_evals=int(self.max_evals_spin.value()),
+			top_k=int(self.top_k_spin.value()),
+			random_state=int(self.seed_spin.value()),
+		)
+		self.accept()
+
+	@property
+	def options(self) -> _SHAPOptions:
+		return self._opts
 		form.addRow(QLabel(LOCALIZE("ML_PAGE.dialog_filename")), self.name_edit)
 
 		# Optional checkbox
@@ -293,7 +428,7 @@ class MachineLearningPage(QWidget):
 
 			/* Fix: Windows theme can render combo popup dark; force light popup like Analysis page */
 			QComboBox {
-				background: #ffffff;
+				background-color: #ffffff;
 				color: #212529;
 				border: 1px solid #ced4da;
 				border-radius: 6px;
@@ -305,15 +440,29 @@ class MachineLearningPage(QWidget):
 			QComboBox::drop-down {
 				border: none;
 				width: 26px;
-				background: #ffffff;
+				background-color: #ffffff;
 			}
 			QComboBox QAbstractItemView {
-				background: #ffffff;
+				background-color: #ffffff;
 				color: #212529;
 				selection-background-color: #0078d4;
 				selection-color: #ffffff;
 				outline: 0;
 				border: 1px solid #ced4da;
+				/* Some Windows styles can render the popup with a transparent base unless explicit */
+				alternate-background-color: #ffffff;
+			}
+			QComboBox QAbstractItemView::item {
+				background-color: #ffffff;
+				padding: 6px 10px;
+			}
+			QComboBox QAbstractItemView::item:selected {
+				background-color: #0078d4;
+				color: #ffffff;
+			}
+			QComboBox QAbstractItemView::item:hover {
+				background-color: #e7f1ff;
+				color: #212529;
 			}
 		""")
 
@@ -579,6 +728,17 @@ class MachineLearningPage(QWidget):
 		right_actions = QHBoxLayout()
 		right_actions.setContentsMargins(0, 0, 0, 0)
 		right_actions.addStretch(1)
+		self.pca_view_combo = QComboBox()
+		self.pca_view_combo.setObjectName("mlPcaViewCombo")
+		self.pca_view_combo.setMinimumWidth(190)
+		self.pca_view_combo.addItem("PCA + Decision Boundary", userData="boundary")
+		self.pca_view_combo.addItem("PCA only", userData="pca_only")
+		right_actions.addWidget(self.pca_view_combo)
+		self.shap_button = QPushButton()
+		self.shap_button.setObjectName("mlShapButton")
+		self.shap_button.setCursor(Qt.PointingHandCursor)
+		self.shap_button.setStyleSheet(get_base_style("secondary_button"))
+		right_actions.addWidget(self.shap_button)
 		self.export_report_button = QPushButton()
 		self.export_report_button.setObjectName("mlExportReportButton")
 		self.export_report_button.setCursor(Qt.PointingHandCursor)
@@ -654,6 +814,8 @@ class MachineLearningPage(QWidget):
 		self.load_model_button.clicked.connect(self._load_model)
 		self.evaluate_button.clicked.connect(self._evaluate_external_dataset)
 		self.export_report_button.clicked.connect(self._export_classification_report)
+		self.pca_view_combo.currentIndexChanged.connect(self._render_pca_plot)
+		self.shap_button.clicked.connect(self._run_shap)
 
 	def _build_model_param_tabs(self):
 		# Helper for tab inner layout
@@ -812,13 +974,25 @@ class MachineLearningPage(QWidget):
 		self.groups_title_label.setText(LOCALIZE("ML_PAGE.groups_title"))
 		self.add_group_button.setText(LOCALIZE("ML_PAGE.add_group"))
 		self.clear_groups_button.setText(LOCALIZE("ML_PAGE.clear_groups"))
-		self.start_training_button.setText(LOCALIZE("ML_PAGE.start_training"))
+		self._set_training_button_state(bool(self._training_thread and self._training_thread.isRunning()))
 		self.save_model_button.setText(LOCALIZE("ML_PAGE.save_model"))
 		self.load_model_button.setText(LOCALIZE("ML_PAGE.load_model"))
 		self.export_report_button.setText(LOCALIZE("ML_PAGE.export_report"))
 		try:
 			self.export_report_button.setToolTip(LOCALIZE("ML_PAGE.export_report_tooltip"))
 		except Exception:
+			pass
+		self.shap_button.setText(LOCALIZE("ML_PAGE.shap_button"))
+		try:
+			self.shap_button.setToolTip(LOCALIZE("ML_PAGE.shap_button_tooltip"))
+		except Exception:
+			pass
+		try:
+			self.pca_view_combo.setItemText(0, LOCALIZE("ML_PAGE.pca_view_boundary"))
+			self.pca_view_combo.setItemText(1, LOCALIZE("ML_PAGE.pca_view_pca_only"))
+			self.pca_view_combo.setToolTip(LOCALIZE("ML_PAGE.pca_view_tooltip"))
+		except Exception:
+			# Fallback: keep default English labels.
 			pass
 		self.evaluate_button.setText(LOCALIZE("ML_PAGE.evaluate_dataset"))
 		self.status_label.setText(LOCALIZE("ML_PAGE.status_ready"))
@@ -1387,16 +1561,108 @@ class MachineLearningPage(QWidget):
 		"""Build a stable display-label map for ML plots.
 
 		We keep training/evaluation labels as-is (can be Japanese), but for the ML Results
-		plots we use English-only labels (Class 1, Class 2, ...).
+		plots we prefer the original labels when they are ASCII-safe. Otherwise, we fall
+		back to English-only labels (Class 1, Class 2, ...) to avoid Matplotlib glyph
+		issues when the UI language is Japanese.
 		"""
 		labels = [str(l) for l in (class_labels or [])]
 		out: Dict[str, str] = {}
 		for i, lab in enumerate(labels):
-			out[lab] = f"Class {i + 1}"
+			# ASCII-safe labels are OK to show directly.
+			try:
+				lab.encode("ascii")
+			except Exception:
+				out[lab] = f"Class {i + 1}"
+			else:
+				out[lab] = lab
 		return out
 
-	def _set_controls_enabled(self, enabled: bool):
-		self.start_training_button.setEnabled(enabled)
+	def _current_pca_view_mode(self) -> str:
+		"""Return the current PCA view mode.
+
+		Returns:
+			"boundary" (default) or "pca_only".
+		"""
+		btn = getattr(self, "pca_view_combo", None)
+		if btn is None:
+			return "boundary"
+		try:
+			val = str(btn.currentData() or btn.currentText()).strip()
+		except Exception:
+			return "boundary"
+		return val or "boundary"
+
+	def _render_pca_plot(self):
+		"""Re-render the PCA plot from the last training output without retraining."""
+		if not getattr(self, "_last_training_output", None):
+			return
+		if not hasattr(self, "pca_plot"):
+			return
+
+		try:
+			out = self._last_training_output
+			label_display = self._build_plot_label_display_map(list(getattr(out.split, "class_labels", []) or []))
+			model_name_en = self._model_display_name_en(getattr(out, "model_key", None))
+			model_key = str(getattr(out, "model_key", "") or "")
+			mode = self._current_pca_view_mode()
+
+			if mode == "pca_only":
+				title = f"PCA (2D) (Model: {model_name_en})"
+				fig = create_pca_scatter_figure(
+					X=np.asarray(out.split.X_train, dtype=float),
+					y=np.asarray(out.split.y_train, dtype=object),
+					title=title,
+					label_display_map=label_display,
+				)
+			else:
+				# Note: decision boundary is computed by a visualization classifier in PCA space.
+				# For unsupported model_key values (e.g., xgboost), the visualization falls back
+				# to logistic regression. Avoid claiming the boundary corresponds to the true model.
+				if model_key in {"logistic_regression", "svm", "random_forest"}:
+					title = f"PCA + Decision Boundary (Visualization: {model_name_en})"
+				else:
+					title = "PCA + Decision Boundary (Visualization)"
+				fig = create_pca_decision_boundary_figure(
+					X=np.asarray(out.split.X_train, dtype=float),
+					y=np.asarray(out.split.y_train, dtype=object),
+					model_key=model_key,
+					model_params=dict(getattr(out, "model_params", {}) or {}),
+					title=title,
+					label_display_map=label_display,
+				)
+
+			# Update the Matplotlib widget.
+			if hasattr(self.pca_plot, "update_plot_with_config"):
+				# Background is image-based; don't add colorbar (it tends to clutter this view).
+				self.pca_plot.update_plot_with_config(
+					fig,
+					{
+						"colorbar": False,
+						"subplots_adjust": {"left": 0.08, "right": 0.985, "bottom": 0.12, "top": 0.90},
+						"figure": {
+							"tight_layout": False,
+							"constrained_layout": False,
+							"tight_layout_on_resize": False,
+						},
+					},
+				)
+			else:
+				self.pca_plot.figure.clear()
+				ax = self.pca_plot.figure.add_subplot(111)
+				# Best effort: draw the figure into existing canvas.
+				try:
+					ax.remove()
+				except Exception:
+					pass
+				self.pca_plot.figure = fig
+				self.pca_plot.canvas.draw()
+		except Exception as e:
+			self._append_log(f"[DEBUG] PCA plot render failed: {e}")
+
+	def _set_controls_enabled(self, enabled: bool, *, keep_training_button_enabled: bool = False):
+		# During training we keep the training button enabled so it can act as "Stop".
+		if not keep_training_button_enabled:
+			self.start_training_button.setEnabled(enabled)
 		self.add_group_button.setEnabled(enabled)
 		self.clear_groups_button.setEnabled(enabled)
 		self.datasets_refresh_button.setEnabled(enabled)
@@ -1408,12 +1674,89 @@ class MachineLearningPage(QWidget):
 		self.save_model_button.setEnabled(enabled)
 		self.load_model_button.setEnabled(enabled)
 		self.export_report_button.setEnabled(enabled)
+		self.shap_button.setEnabled(enabled)
+		self.pca_view_combo.setEnabled(enabled)
 		self.evaluate_button.setEnabled(enabled)
 		self.eval_dataset_combo.setEnabled(enabled)
 		self.eval_true_label_combo.setEnabled(enabled)
 
+	def _set_training_button_state(self, running: bool) -> None:
+		"""Toggle Start/Stop training button UI."""
+		try:
+			if running:
+				self.start_training_button.setText(LOCALIZE("ML_PAGE.stop_training"))
+				# Use danger styling so it reads as an interrupt action.
+				self.start_training_button.setStyleSheet(
+					get_base_style("danger_button")
+					+ "QPushButton { font-size: 14px; font-weight: 600; }"
+				)
+			else:
+				self.start_training_button.setText(LOCALIZE("ML_PAGE.start_training"))
+				self.start_training_button.setStyleSheet(
+					get_base_style("primary_button")
+					+ "QPushButton { font-size: 14px; font-weight: 600; }"
+				)
+			self.start_training_button.setEnabled(True)
+		except Exception:
+			pass
+
+	def _stop_training(self) -> None:
+		"""Best-effort cancellation of in-flight training.
+
+		We do a cooperative cancel first; if the worker doesn't stop quickly (e.g., stuck
+		inside a long sklearn fit), we fall back to a hard QThread termination.
+		"""
+		t = self._training_thread
+		if t is None or (not t.isRunning()):
+			return
+
+		self._append_log("[DEBUG] Stop training requested")
+		self.status_label.setText(LOCALIZE("ML_PAGE.status_stopping"))
+		# Detach UI from worker signals to avoid late updates after stop.
+		try:
+			t.progress_updated.disconnect()
+		except Exception:
+			pass
+		try:
+			t.status_updated.disconnect()
+		except Exception:
+			pass
+		try:
+			t.training_error.disconnect()
+		except Exception:
+			pass
+		try:
+			t.training_completed.disconnect()
+		except Exception:
+			pass
+
+		try:
+			t.requestInterruption()
+		except Exception:
+			pass
+
+		# Give the worker a brief chance to exit cleanly.
+		try:
+			t.wait(200)
+		except Exception:
+			pass
+		if t.isRunning():
+			try:
+				t.terminate()
+				t.wait(1000)
+			except Exception:
+				pass
+
+		self._training_thread = None
+		self.progress.setValue(0)
+		self.status_label.setText(LOCALIZE("ML_PAGE.status_cancelled"))
+		self._set_training_button_state(False)
+		self._set_controls_enabled(True)
+
 	def _start_training(self):
+		# Toggle: while running, this button becomes "Stop training".
 		if self._training_thread and self._training_thread.isRunning():
+			self._stop_training()
 			return
 
 		assignments = self._build_group_assignments()
@@ -1451,7 +1794,8 @@ class MachineLearningPage(QWidget):
 		)
 		self.progress.setValue(0)
 		self.status_label.setText(LOCALIZE("ML_PAGE.status_training"))
-		self._set_controls_enabled(False)
+		self._set_training_button_state(True)
+		self._set_controls_enabled(False, keep_training_button_enabled=True)
 
 		self._training_thread = MLTrainingThread(
 			raman_data=RAMAN_DATA,
@@ -1473,6 +1817,7 @@ class MachineLearningPage(QWidget):
 		self._append_log(f"[DEBUG] Training error: {msg}")
 		self.status_label.setText(LOCALIZE("COMMON.error"))
 		self.progress.setValue(0)
+		self._set_training_button_state(False)
 		self._set_controls_enabled(True)
 		QMessageBox.critical(self, LOCALIZE("COMMON.error"), msg)
 
@@ -1738,11 +2083,15 @@ class MachineLearningPage(QWidget):
 		return "\n".join(lines).strip() + "\n"
 
 	def _on_training_completed(self, out: MLTrainingOutput):
+		# Training completed successfully; restore Start/Stop button state.
+		self._set_training_button_state(False)
 		self._trained_model = out.model
 		self._trained_axis = np.asarray(out.split.common_axis, dtype=float)
 		self._trained_class_labels = list(out.split.class_labels)
 		self._trained_model_key = out.model_key
 		self._trained_model_params = dict(out.model_params)
+		# Cache full training output so plots can be re-rendered without retraining.
+		self._last_training_output = out
 		try:
 			self._last_train_context["completed_at"] = datetime.datetime.now().isoformat()
 		except Exception:
@@ -1831,36 +2180,113 @@ class MachineLearningPage(QWidget):
 		except Exception as e:
 			self._append_log(f"[DEBUG] Prediction distribution plot failed: {e}")
 
-		# PCA + decision boundary (visualization-only)
+		# PCA view (boundary vs PCA-only) - visualization-only, no retraining
 		try:
-			pca_fig = create_pca_decision_boundary_figure(
-				X=np.asarray(out.split.X_train, dtype=float),
-				y=np.asarray(out.split.y_train, dtype=object),
-				model_key=str(out.model_key),
-				model_params=dict(out.model_params),
-				title="PCA + Decision Boundary",
-				label_display_map=label_display_map,
-			)
-			# Background is image-based; don't add colorbar (it tends to clutter this view).
-			self.pca_plot.update_plot_with_config(
-				pca_fig,
-				{
-					"colorbar": False,
-					# Make this plot fill the canvas better and avoid cumulative shrink
-					# from repeated tight_layout calls during resize.
-					"subplots_adjust": {"left": 0.08, "right": 0.985, "bottom": 0.12, "top": 0.90},
-					"figure": {
-						"tight_layout": False,
-						"constrained_layout": False,
-						"tight_layout_on_resize": False,
-					},
-				},
-			)
+			self._render_pca_plot()
 		except Exception as e:
-			self._append_log(f"[DEBUG] PCA boundary plot failed: {e}")
+			self._append_log(f"[DEBUG] PCA plot failed: {e}")
 
 		self.status_label.setText(LOCALIZE("ML_PAGE.status_done"))
 		self._set_controls_enabled(True)
+		# Enable SHAP once a model exists.
+		try:
+			self.shap_button.setEnabled(True)
+		except Exception:
+			pass
+
+	def _run_shap(self):
+		"""Compute SHAP per-spectrum explanation using the already-trained model."""
+		out = getattr(self, "_last_training_output", None)
+		if out is None:
+			QMessageBox.warning(self, LOCALIZE("COMMON.warning"), LOCALIZE("ML_PAGE.error_no_model"))
+			return
+
+		# Build explain candidates from all samples that participated in training (train+test).
+		try:
+			x_train = np.asarray(out.split.X_train, dtype=float)
+			x_test = np.asarray(out.split.X_test, dtype=float)
+			y_train = np.asarray(out.split.y_train, dtype=object)
+			y_test = np.asarray(out.split.y_test, dtype=object)
+
+			feature_axis = np.asarray(out.split.common_axis, dtype=float)
+
+			raw_train_names = getattr(out.split, "sample_dataset_names_train", None)
+			raw_test_names = getattr(out.split, "sample_dataset_names_test", None)
+			train_names = [] if raw_train_names is None else list(raw_train_names)
+			test_names = [] if raw_test_names is None else list(raw_test_names)
+
+			# Combine train + test to allow selecting a dataset and spectrum directly.
+			x_explain = x_train if x_test.size == 0 else np.concatenate([x_train, x_test], axis=0)
+			y_explain = y_train if y_test.size == 0 else np.concatenate([y_train, y_test], axis=0)
+			dataset_names = list(train_names) + list(test_names)
+		except Exception as e:
+			QMessageBox.critical(self, LOCALIZE("COMMON.error"), str(e))
+			return
+
+		# Parameter dialog (dataset + spectrum index + preview + metadata)
+		default_seed = 0
+		try:
+			default_seed = int(self._last_train_context.get("random_state") or 0)
+		except Exception:
+			default_seed = 0
+		if default_seed == 0:
+			try:
+				default_seed = int(getattr(self, "random_state_spin", None).value())
+			except Exception:
+				default_seed = 0
+
+		try:
+			from pages.machine_learning_page_utils.shap_parameter_dialog import SHAPParameterDialog
+		except Exception as e:
+			QMessageBox.critical(self, LOCALIZE("COMMON.error"), str(e))
+			return
+
+		dlg = SHAPParameterDialog(
+			source="all",
+			x_explain=x_explain,
+			y_explain=y_explain,
+			dataset_names=dataset_names,
+			feature_axis=feature_axis,
+			default_random_state=int(default_seed),
+			parent=self,
+		)
+		if dlg.exec() != QDialog.Accepted:
+			return
+		sel = dlg.selection()
+
+		idx = int(sel.global_index)
+		self._append_log(
+			f"[DEBUG] SHAP settings: source={sel.source} dataset={sel.dataset_name} within={sel.index_within_dataset} global={idx} bg={sel.background_samples} max_evals={sel.max_evals} top_k={sel.top_k} seed={sel.random_state}"
+		)
+
+		try:
+			from pages.machine_learning_page_utils.shap_explain_dialog import SHAPExplainDialog
+		except Exception as e:
+			QMessageBox.critical(self, LOCALIZE("COMMON.error"), str(e))
+			return
+
+		default_dir = self._default_report_export_dir()
+		base = self._default_model_basename()
+		dataset_part = _sanitize_filename_component(sel.dataset_name)
+		dialog = SHAPExplainDialog(
+			model=out.model,
+			x_train=x_train,
+			x_explain=x_explain,
+			y_explain=y_explain,
+			feature_axis=feature_axis,
+			dataset_names=dataset_names,
+			class_labels=list(out.split.class_labels),
+			source=str(sel.source),
+			selected_index=idx,
+			background_samples=int(sel.background_samples),
+			max_evals=int(sel.max_evals),
+			top_k=int(sel.top_k),
+			random_state=int(sel.random_state),
+			default_export_dir=default_dir,
+			default_base_name=f"{base}_shap_{dataset_part}_idx{int(sel.index_within_dataset)}_gi{idx}",
+			parent=self,
+		)
+		dialog.exec()
 
 	def _populate_report_table(self, rows: List[Dict[str, object]]):
 		"""Populate the classification report table."""
@@ -1997,41 +2423,95 @@ class MachineLearningPage(QWidget):
 			QMessageBox.warning(self, LOCALIZE("COMMON.warning"), LOCALIZE("ML_PAGE.error_no_report"))
 			return
 
+		from pathlib import Path
+		from components.widgets import get_export_bundle_options
+
 		default_dir = self._default_report_export_dir()
 		base = self._default_model_basename()
-		dlg = _DestinationDialog(
-			title=LOCALIZE("ML_PAGE.export_dialog_title"),
-			default_dir=default_dir,
-			default_filename=f"classification_report_{base}.csv",
-			ok_text_key="ML_PAGE.dialog_export",
-			show_save_params=False,
-			parent=self,
-		)
-		if dlg.exec() != QDialog.Accepted:
-			return
-		out_dir = dlg.selected_dir()
-		filename = dlg.filename()
-		if not filename:
-			return
-		if not filename.lower().endswith(".csv"):
-			filename = f"{filename}.csv"
-		path = os.path.join(out_dir, filename)
 
+		opts = get_export_bundle_options(
+			self,
+			title=LOCALIZE("ML_PAGE.export_dialog_title"),
+			default_directory=default_dir,
+			default_base_name=f"{base}",
+			default_image_format="png",
+			# Labels (keep simple if localization keys are missing)
+			location_label="Save Location:",
+			base_name_label="Base Name:",
+			browse_button_text="Browse...",
+			select_location_title="Select Location",
+			image_format_label="Image Format:",
+			section_label="Include:",
+			report_csv_label="Classification report (CSV)",
+			report_json_label="Classification report (JSON)",
+			confusion_label="Confusion matrix (image)",
+			pca_boundary_label="PCA / decision boundary (image)",
+			roc_label="ROC curve (image)",
+			pred_dist_label="Prediction distribution (image)",
+			feat_imp_label="Feature importance (image)",
+		)
+		if opts is None:
+			return
+
+		out_dir = Path(opts.directory)
+		img_ext = ".png" if opts.image_format == "png" else ".svg"
+		created: List[str] = []
+		missing: List[str] = []
+
+		# 1) Classification report
 		headers = ["class", "precision", "recall", "f1-score", "support"]
 		try:
-			with open(path, "w", newline="", encoding="utf-8") as f:
-				writer = csv.DictWriter(f, fieldnames=headers)
-				writer.writeheader()
-				for row in rows:
-					writer.writerow({h: row.get(h, "") for h in headers})
-			self._append_log(f"[DEBUG] Exported classification report to {path}")
-			try:
-				title = LOCALIZE("COMMON.info")
-			except Exception:
-				title = "Info"
-			QMessageBox.information(self, title, f"{LOCALIZE('ML_PAGE.export_report')}\n{path}")
+			if opts.export_report_csv:
+				path = out_dir / f"classification_report_{opts.base_name}.csv"
+				with open(path, "w", newline="", encoding="utf-8") as f:
+					writer = csv.DictWriter(f, fieldnames=headers)
+					writer.writeheader()
+					for row in rows:
+						writer.writerow({h: row.get(h, "") for h in headers})
+				created.append(str(path))
+
+			if opts.export_report_json:
+				path = out_dir / f"classification_report_{opts.base_name}.json"
+				with open(path, "w", encoding="utf-8") as f:
+					json.dump(rows, f, ensure_ascii=False, indent=2)
+				created.append(str(path))
 		except Exception as e:
 			QMessageBox.critical(self, LOCALIZE("COMMON.error"), str(e))
+			return
+
+		# Helper to save a matplotlib figure
+		def _save_fig(fig, stem: str) -> None:
+			if fig is None:
+				missing.append(stem)
+				return
+			try:
+				path = out_dir / f"{stem}_{opts.base_name}{img_ext}"
+				fig.savefig(str(path), dpi=300, bbox_inches="tight", format=opts.image_format)
+				created.append(str(path))
+			except Exception:
+				missing.append(stem)
+
+		# 2) Plots
+		if opts.export_confusion_matrix:
+			_save_fig(getattr(self.cm_plot, "figure", None), "confusion_matrix")
+		if opts.export_pca_boundary:
+			_save_fig(getattr(self.pca_plot, "figure", None), "pca_boundary")
+		if opts.export_roc_curve:
+			_save_fig(getattr(self.roc_plot, "figure", None), "roc_curve")
+		if opts.export_prediction_distribution:
+			_save_fig(getattr(self.pd_plot, "figure", None), "prediction_distribution")
+		if opts.export_feature_importance:
+			_save_fig(getattr(self.fi_plot, "figure", None), "feature_importance")
+
+		if not created:
+			QMessageBox.warning(self, LOCALIZE("COMMON.warning"), LOCALIZE("ML_PAGE.error_no_report"))
+			return
+
+		self._append_log(f"[DEBUG] Exported ML report bundle ({len(created)} files)")
+		msg = "\n".join(created)
+		if missing:
+			msg += "\n\nMissing / not available:\n" + "\n".join(sorted(set(missing)))
+		QMessageBox.information(self, LOCALIZE("COMMON.info"), msg)
 
 	def _load_model(self):
 		default_dir = self._default_model_save_dir()
@@ -2044,7 +2524,29 @@ class MachineLearningPage(QWidget):
 		if not path:
 			return
 
-		payload = joblib.load(path)
+		# Security warning: pickle/joblib files can execute arbitrary code when loaded.
+		try:
+			resp = QMessageBox.warning(
+				self,
+				LOCALIZE("ML_PAGE.load_model_security_warning_title"),
+				LOCALIZE("ML_PAGE.load_model_security_warning_text", path=path),
+				QMessageBox.Yes | QMessageBox.No,
+				QMessageBox.No,
+			)
+		except Exception:
+			resp = QMessageBox.Yes
+		if resp != QMessageBox.Yes:
+			return
+
+		try:
+			payload = joblib.load(path)
+		except Exception as e:
+			QMessageBox.critical(
+				self,
+				LOCALIZE("COMMON.error"),
+				LOCALIZE("ML_PAGE.load_model_failed").format(error=str(e)),
+			)
+			return
 		self._trained_model = payload.get("model")
 		self._trained_axis = payload.get("common_axis")
 		self._trained_class_labels = list(payload.get("class_labels") or [])

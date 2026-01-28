@@ -69,6 +69,10 @@ class MLTrainingThread(QThread):
 			self.status_updated.emit("Preparing data...")
 			self.progress_updated.emit(10)
 
+			if self.isInterruptionRequested():
+				self.status_updated.emit("Cancelled")
+				return
+
 			split = prepare_train_test_split(
 				raman_data=self._raman_data,
 				group_assignments=self._group_assignments,
@@ -77,8 +81,16 @@ class MLTrainingThread(QThread):
 				random_state=self._random_state,
 			)
 
+			if self.isInterruptionRequested():
+				self.status_updated.emit("Cancelled")
+				return
+
 			self.status_updated.emit("Training model...")
 			self.progress_updated.emit(55)
+
+			if self.isInterruptionRequested():
+				self.status_updated.emit("Cancelled")
+				return
 
 			if self._model_key == "logistic_regression":
 				res = train_logistic_regression(
@@ -137,8 +149,16 @@ class MLTrainingThread(QThread):
 			else:
 				raise ValueError(f"Unknown model_key: {self._model_key}")
 
+			if self.isInterruptionRequested():
+				self.status_updated.emit("Cancelled")
+				return
+
 			self.status_updated.emit("Finalizing results...")
 			self.progress_updated.emit(90)
+
+			if self.isInterruptionRequested():
+				self.status_updated.emit("Cancelled")
+				return
 
 			out = MLTrainingOutput(
 				model=res.model,

@@ -58,6 +58,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QFrame,
     QSplitter,
+    QApplication,
 )
 from PySide6.QtCore import Qt, Signal, QSize
 from PySide6.QtGui import QFont
@@ -190,6 +191,102 @@ class AnalysisPage(QWidget):
             return None
         return os.path.join(d, "index.json")
 
+    def _history_params_json_path(self, storage_id: str) -> str | None:
+        d = self._get_history_storage_dir()
+        if not d:
+            return None
+        return os.path.join(d, f"{storage_id}.params.json")
+
+    def _history_params_pickle_path(self, storage_id: str) -> str | None:
+        d = self._get_history_storage_dir()
+        if not d:
+            return None
+        return os.path.join(d, f"{storage_id}.params.pkl")
+
+    def _jsonify_params_value(self, v: Any) -> Any:
+        """Best-effort conversion of parameters to JSON-safe types.
+
+        Goal: avoid pickle for persisted analysis history while keeping
+        reproducibility for common numeric/scalar types.
+        """
+
+        if v is None or isinstance(v, (str, int, float, bool)):
+            return v
+
+        # Common containers
+        if isinstance(v, (list, tuple, set)):
+            return [self._jsonify_params_value(x) for x in v]
+
+        if isinstance(v, dict):
+            out: dict[str, Any] = {}
+            for k, vv in v.items():
+                # JSON object keys must be strings.
+                out[str(k)] = self._jsonify_params_value(vv)
+            return out
+
+        # numpy scalar / pandas scalar-ish
+        try:
+            # numpy scalars often have .item(); pandas scalars may as well
+            item = getattr(v, "item", None)
+            if callable(item):
+                return self._jsonify_params_value(item())
+        except Exception:
+            pass
+
+        # numpy arrays
+        try:
+            tolist = getattr(v, "tolist", None)
+            if callable(tolist):
+                return self._jsonify_params_value(tolist())
+        except Exception:
+            pass
+
+        # datetime/date
+        try:
+            isoformat = getattr(v, "isoformat", None)
+            if callable(isoformat):
+                return str(isoformat())
+        except Exception:
+            pass
+
+        # Fallback: store string representation (may not be perfectly reversible)
+        return str(v)
+
+    def _write_history_params_json(self, storage_id: str, payload: dict) -> bool:
+        """Persist history params as JSON (safe by default).
+
+        Returns True if written successfully.
+        """
+
+        p = self._history_params_json_path(storage_id)
+        if not p:
+            return False
+
+        try:
+            safe_payload = self._jsonify_params_value(payload)
+            with open(p, "w", encoding="utf-8") as f:
+                json.dump(safe_payload, f, indent=2, ensure_ascii=False)
+            return True
+        except Exception as e:
+            create_logs(
+                "AnalysisPage",
+                "analysis_history",
+                f"Failed to persist history params JSON for {storage_id}: {e}",
+                status="warning",
+            )
+            return False
+
+    def _read_history_params_json(self, storage_id: str) -> dict | None:
+        p = self._history_params_json_path(storage_id)
+        if not p or not os.path.exists(p):
+            return None
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+            return payload if isinstance(payload, dict) else None
+        except Exception:
+            return None
+
     def _load_persisted_history(self) -> None:
         """Load persisted history metadata for the current project."""
         history_dir = self._get_history_storage_dir()
@@ -271,7 +368,6 @@ class AnalysisPage(QWidget):
             item.storage_id = item.timestamp.strftime("%Y%m%d_%H%M%S_%f")
 
         meta_path = os.path.join(history_dir, f"{item.storage_id}.meta.json")
-        params_path = os.path.join(history_dir, f"{item.storage_id}.params.pkl")
 
         meta = {
             "id": item.storage_id,
@@ -290,25 +386,20 @@ class AnalysisPage(QWidget):
         except Exception:
             pass
 
-        # Parameters can contain non-JSON types; store as pickle.
+        # Persist params in JSON (safer than pickle; supports common scalar/array types).
         try:
-            with open(params_path, "wb") as f:
-                pickle.dump(
-                    {
-                        "parameters": item.parameters,
-                        "group_labels": item.group_labels,
-                        "dataset_names": item.dataset_names,
-                    },
-                    f,
-                    protocol=pickle.HIGHEST_PROTOCOL,
-                )
-        except Exception as e:
-            create_logs(
-                "AnalysisPage",
-                "analysis_history",
-                f"Failed to persist params for history item {item.storage_id}: {e}",
-                status="warning",
+            self._write_history_params_json(
+                item.storage_id,
+                {
+                    "version": 1,
+                    "parameters": item.parameters,
+                    "group_labels": item.group_labels,
+                    "dataset_names": item.dataset_names,
+                },
             )
+        except Exception:
+            # Non-fatal: history entry can still be listed/restored with defaults.
+            pass
 
         # Update index
         index_path = self._history_index_path()
@@ -393,16 +484,42 @@ class AnalysisPage(QWidget):
             self.analysis_thread.cancel()
             self.analysis_thread.wait()
         
+        # Cleanup figures to avoid slow memory growth across long sessions.
+        try:
+            if self.current_result:
+                tmp = AnalysisHistoryItem(
+                    timestamp=datetime.now(),
+                    category=str(self.current_category or ""),
+                    method_key=str(self.current_method_key or ""),
+                    method_name="",
+                    dataset_names=[],
+                    parameters={},
+                    result=self.current_result,
+                )
+                self._cleanup_history_item(tmp)
+        except Exception:
+            pass
+
+        try:
+            for it in list(self.analysis_history or []):
+                self._cleanup_history_item(it)
+        except Exception:
+            pass
+
         # Reset state variables
         self.current_view = "startup"
         self.current_category = None
         self.current_method_key = None
         self.current_result = None
         self.analysis_history = []
-        
+        self._history_by_id = {}
+
         # Clear sidebar
-        if hasattr(self, "sidebar_widget"):
-            self.sidebar_widget.history_list.clear()
+        try:
+            if hasattr(self, "history_sidebar") and getattr(self.history_sidebar, "history_list", None):
+                self.history_sidebar.history_list.clear()
+        except Exception:
+            pass
         
         # Remove method view if it exists
         if self.method_view:
@@ -481,11 +598,7 @@ class AnalysisPage(QWidget):
             on_stop=self._stop_analysis,
         )
 
-        # Connect export buttons (plot export via matplotlib toolbar)
-        results_panel = self.method_view.results_panel
-        results_panel.export_data_btn.clicked.connect(
-            self.method_view._handle_export_csv
-        )
+        # Export button is wired inside MethodView to a unified bundle export dialog.
 
         self.view_stack.addWidget(self.method_view)
         self.view_stack.setCurrentWidget(self.method_view)
@@ -1007,8 +1120,8 @@ class AnalysisPage(QWidget):
             # Custom widget so we can attach a per-item delete button.
             w = QWidget()
             w_layout = QVBoxLayout(w)
-            w_layout.setContentsMargins(8, 6, 8, 6)
-            w_layout.setSpacing(2)
+            w_layout.setContentsMargins(10, 8, 10, 8)
+            w_layout.setSpacing(4)
 
             top_row = QHBoxLayout()
             top_row.setContentsMargins(0, 0, 0, 0)
@@ -1057,7 +1170,11 @@ class AnalysisPage(QWidget):
             w_layout.addLayout(top_row)
 
             method_label = QLabel(str(item.method_name))
-            method_label.setStyleSheet("font-size: 12px; font-weight: 700; color: #2c3e50;")
+            method_label.setStyleSheet("font-size: 13px; font-weight: 800; color: #1f2a37;")
+            try:
+                method_label.setWordWrap(True)
+            except Exception:
+                pass
             w_layout.addWidget(method_label)
 
             mode_label = QLabel(mode_line)
@@ -1070,7 +1187,23 @@ class AnalysisPage(QWidget):
             w_layout.addWidget(path_label)
 
             history_list.addItem(list_item)
-            list_item.setSizeHint(w.sizeHint())
+            # IMPORTANT: word-wrapped labels need a known width to compute height.
+            # Without this, Qt may size the item as if it were a single line, clipping the method name.
+            try:
+                vw = int(history_list.viewport().width())
+                if vw > 0:
+                    w.setFixedWidth(max(140, vw - 4))
+            except Exception:
+                pass
+            try:
+                w_layout.activate()
+                w.adjustSize()
+            except Exception:
+                pass
+            try:
+                list_item.setSizeHint(w.sizeHint())
+            except Exception:
+                list_item.setSizeHint(w.sizeHint())
             history_list.setItemWidget(list_item, w)
 
     def _delete_history_item(self, storage_id: str) -> None:
@@ -1105,7 +1238,7 @@ class AnalysisPage(QWidget):
         # Remove from disk
         history_dir = self._get_history_storage_dir()
         if history_dir:
-            for suffix in (".meta.json", ".params.pkl"):
+            for suffix in (".meta.json", ".params.json", ".params.pkl"):
                 p = os.path.join(history_dir, f"{storage_id}{suffix}")
                 try:
                     if os.path.exists(p):
@@ -1155,140 +1288,207 @@ class AnalysisPage(QWidget):
         if history_item is None:
             return
 
-        # UX: show a loading overlay immediately when restoring.
+        # UX: restoring can take time (unpickling params, rebuilding widgets, large figures).
+        # Show a wait cursor immediately and a results overlay as soon as the method view exists.
         try:
-            if self.method_view and hasattr(self.method_view.results_panel, "show_loading"):
-                self.method_view.results_panel.show_loading("⏳ Restoring...")
+            QApplication.setOverrideCursor(Qt.WaitCursor)
         except Exception:
             pass
 
-        # Load persisted parameters if needed
-        if not history_item.parameters and history_item.storage_id:
-            history_dir = self._get_history_storage_dir()
-            if history_dir:
-                params_path = os.path.join(history_dir, f"{history_item.storage_id}.params.pkl")
-                try:
-                    with open(params_path, "rb") as f:
-                        payload = pickle.load(f)
-                    if isinstance(payload, dict):
-                        history_item.parameters = payload.get("parameters") or {}
-                        gl = payload.get("group_labels")
+        try:
+            try:
+                self.history_sidebar.history_list.setEnabled(False)
+            except Exception:
+                pass
+
+            # Load persisted parameters if needed
+            if not history_item.parameters and history_item.storage_id:
+                history_dir = self._get_history_storage_dir()
+                if history_dir:
+                    # Prefer safe JSON params.
+                    json_payload = self._read_history_params_json(history_item.storage_id)
+                    if isinstance(json_payload, dict):
+                        p = json_payload.get("parameters")
+                        history_item.parameters = p if isinstance(p, dict) else (history_item.parameters or {})
+                        gl = json_payload.get("group_labels")
                         history_item.group_labels = gl if isinstance(gl, dict) else history_item.group_labels
-                        dn = payload.get("dataset_names")
+                        dn = json_payload.get("dataset_names")
                         if isinstance(dn, list) and dn:
                             history_item.dataset_names = [str(x) for x in dn]
-                except Exception:
-                    history_item.parameters = history_item.parameters or {}
-
-        # Show method view for this analysis (pass saved params so widgets are pre-filled)
-        self.current_view = "method"
-        self.current_category = history_item.category
-        self.current_method_key = history_item.method_key
-
-        # Use existing method builder but inject saved params
-        # (Keeps behavior identical for fresh analyses)
-        self._show_method_view(history_item.category, history_item.method_key)
-        try:
-            # Rebuild params widget with saved params by recreating MethodView
-            if self.method_view:
-                # Replace method view with one that uses saved params
-                self.view_stack.removeWidget(self.method_view)
-                self.method_view.deleteLater()
-                self.method_view = None
-
-            dataset_names = list(self.raman_data.keys()) if self.raman_data else []
-            self.method_view = MethodView(
-                history_item.category,
-                history_item.method_key,
-                dataset_names,
-                self.localize,
-                self._run_analysis,
-                self._show_startup_view,
-                on_stop=self._stop_analysis,
-                saved_params=history_item.parameters,
-            )
-
-            results_panel = self.method_view.results_panel
-            results_panel.export_data_btn.clicked.connect(self.method_view._handle_export_csv)
-
-            self.view_stack.addWidget(self.method_view)
-            self.view_stack.setCurrentWidget(self.method_view)
-        except Exception:
-            pass
-
-        # Restore dataset selection and rerun (or show cached result if we have one).
-        if self.method_view and history_item.dataset_names:
-            ds_widget = self.method_view.dataset_widget
-            try:
-                if getattr(ds_widget, "mode", None) == "single":
-                    if ds_widget.simple_input and len(history_item.dataset_names) == 1:
-                        idx = ds_widget.simple_input.findText(history_item.dataset_names[0])
-                        if idx >= 0:
-                            ds_widget.simple_input.setCurrentIndex(idx)
-                else:
-                    # Multi mode
-                    if history_item.group_labels and getattr(ds_widget, "radio_group", None):
-                        # Enable grouped mode
-                        btn = ds_widget.radio_group.button(1)
-                        if btn is not None:
-                            btn.setChecked(True)
-
-                        # Convert dataset->group map into group->datasets
-                        groups: Dict[str, List[str]] = {}
-                        for ds_name, gname in history_item.group_labels.items():
-                            groups.setdefault(str(gname), []).append(str(ds_name))
-
-                        if getattr(ds_widget, "group_manager", None) is not None:
-                            ds_widget._suspend_group_persist = True
-                            try:
-                                ds_widget.group_manager.set_groups(groups)
-                            finally:
-                                ds_widget._suspend_group_persist = False
                     else:
-                        # Simple multi-selection list
-                        if ds_widget.simple_input:
-                            ds_widget.simple_input.clearSelection()
-                            for i in range(ds_widget.simple_input.count()):
-                                li = ds_widget.simple_input.item(i)
-                                if li and li.text() in history_item.dataset_names:
-                                    li.setSelected(True)
-            except Exception:
-                pass
+                        # Legacy: pickle (unsafe for untrusted projects) – ask before loading.
+                        params_path = self._history_params_pickle_path(history_item.storage_id)
+                        if params_path and os.path.exists(params_path):
+                            try:
+                                resp = QMessageBox.question(
+                                    self,
+                                    self.localize("ANALYSIS_PAGE.untrusted_history_title"),
+                                    self.localize("ANALYSIS_PAGE.untrusted_history_message"),
+                                    QMessageBox.Yes | QMessageBox.No,
+                                    QMessageBox.No,
+                                )
+                                if resp != QMessageBox.Yes:
+                                    return
+                            except Exception:
+                                # If localization/UI fails, be conservative.
+                                return
 
-        if history_item.result:
-            populate_results_tabs(
-                self.method_view.results_panel,
-                history_item.result,
-                self.localize,
-                MatplotlibWidget,
-                history_item.method_name,
-            )
-            self.current_result = history_item.result
+                            try:
+                                with open(params_path, "rb") as f:
+                                    payload = pickle.load(f)
+                                if isinstance(payload, dict):
+                                    history_item.parameters = payload.get("parameters") or {}
+                                    gl = payload.get("group_labels")
+                                    history_item.group_labels = gl if isinstance(gl, dict) else history_item.group_labels
+                                    dn = payload.get("dataset_names")
+                                    if isinstance(dn, list) and dn:
+                                        history_item.dataset_names = [str(x) for x in dn]
 
-            # Cached result restore: hide loading immediately.
+                                    # Best-effort migration: write JSON so future restores avoid pickle.
+                                    try:
+                                        self._write_history_params_json(
+                                            history_item.storage_id,
+                                            {
+                                                "version": 1,
+                                                "parameters": history_item.parameters,
+                                                "group_labels": history_item.group_labels,
+                                                "dataset_names": history_item.dataset_names,
+                                                "migrated_from": "pickle",
+                                            },
+                                        )
+                                    except Exception:
+                                        pass
+                            except Exception:
+                                history_item.parameters = history_item.parameters or {}
+
+            # Show method view for this analysis (pass saved params so widgets are pre-filled)
+            self.current_view = "method"
+            self.current_category = history_item.category
+            self.current_method_key = history_item.method_key
+
+            # Use existing method builder but inject saved params
+            # (Keeps behavior identical for fresh analyses)
+            self._show_method_view(history_item.category, history_item.method_key)
             try:
-                if self.method_view and hasattr(self.method_view.results_panel, "hide_loading"):
-                    self.method_view.results_panel.hide_loading()
-            except Exception:
-                pass
-        else:
-            # Re-run analysis to regenerate results.
-            try:
-                selection = self.method_view.dataset_widget.get_selection()
-                self._run_analysis(
+                # Rebuild params widget with saved params by recreating MethodView
+                if self.method_view:
+                    # Replace method view with one that uses saved params
+                    self.view_stack.removeWidget(self.method_view)
+                    self.method_view.deleteLater()
+                    self.method_view = None
+
+                dataset_names = list(self.raman_data.keys()) if self.raman_data else []
+                self.method_view = MethodView(
                     history_item.category,
                     history_item.method_key,
-                    selection,
-                    self.method_view.params_widget.dynamic_widget,
-                    history_restore_id=history_item.storage_id,
+                    dataset_names,
+                    self.localize,
+                    self._run_analysis,
+                    self._show_startup_view,
+                    on_stop=self._stop_analysis,
+                    saved_params=history_item.parameters,
                 )
-            except Exception as e:
-                create_logs(
-                    "AnalysisPage",
-                    "analysis_history",
-                    f"Failed to rerun analysis from history: {e}",
-                    status="warning",
+
+                # Export button is wired inside MethodView.
+
+                self.view_stack.addWidget(self.method_view)
+                self.view_stack.setCurrentWidget(self.method_view)
+            except Exception:
+                pass
+
+            # Show overlay after method view is active so the user sees feedback.
+            try:
+                if self.method_view and hasattr(self.method_view.results_panel, "show_loading"):
+                    self.method_view.results_panel.show_loading(
+                        self.localize("ANALYSIS_PAGE.restoring_history")
+                    )
+                QApplication.processEvents()
+            except Exception:
+                pass
+
+            # Restore dataset selection and rerun (or show cached result if we have one).
+            if self.method_view and history_item.dataset_names:
+                ds_widget = self.method_view.dataset_widget
+                try:
+                    if getattr(ds_widget, "mode", None) == "single":
+                        if ds_widget.simple_input and len(history_item.dataset_names) == 1:
+                            idx = ds_widget.simple_input.findText(history_item.dataset_names[0])
+                            if idx >= 0:
+                                ds_widget.simple_input.setCurrentIndex(idx)
+                    else:
+                        # Multi mode
+                        if history_item.group_labels and getattr(ds_widget, "radio_group", None):
+                            # Enable grouped mode
+                            btn = ds_widget.radio_group.button(1)
+                            if btn is not None:
+                                btn.setChecked(True)
+
+                            # Convert dataset->group map into group->datasets
+                            groups: Dict[str, List[str]] = {}
+                            for ds_name, gname in history_item.group_labels.items():
+                                groups.setdefault(str(gname), []).append(str(ds_name))
+
+                            if getattr(ds_widget, "group_manager", None) is not None:
+                                ds_widget._suspend_group_persist = True
+                                try:
+                                    ds_widget.group_manager.set_groups(groups)
+                                finally:
+                                    ds_widget._suspend_group_persist = False
+                        else:
+                            # Simple multi-selection list
+                            if ds_widget.simple_input:
+                                ds_widget.simple_input.clearSelection()
+                                for i in range(ds_widget.simple_input.count()):
+                                    li = ds_widget.simple_input.item(i)
+                                    if li and li.text() in history_item.dataset_names:
+                                        li.setSelected(True)
+                except Exception:
+                    pass
+
+            if history_item.result:
+                populate_results_tabs(
+                    self.method_view.results_panel,
+                    history_item.result,
+                    self.localize,
+                    MatplotlibWidget,
+                    history_item.method_name,
                 )
+                self.current_result = history_item.result
+
+                # Cached result restore: hide loading immediately.
+                try:
+                    if self.method_view and hasattr(self.method_view.results_panel, "hide_loading"):
+                        self.method_view.results_panel.hide_loading()
+                except Exception:
+                    pass
+            else:
+                # Re-run analysis to regenerate results.
+                try:
+                    selection = self.method_view.dataset_widget.get_selection()
+                    self._run_analysis(
+                        history_item.category,
+                        history_item.method_key,
+                        selection,
+                        self.method_view.params_widget.dynamic_widget,
+                        history_restore_id=history_item.storage_id,
+                    )
+                except Exception as e:
+                    create_logs(
+                        "AnalysisPage",
+                        "analysis_history",
+                        f"Failed to rerun analysis from history: {e}",
+                        status="warning",
+                    )
+        finally:
+            try:
+                self.history_sidebar.history_list.setEnabled(True)
+            except Exception:
+                pass
+
+            try:
+                QApplication.restoreOverrideCursor()
+            except Exception:
+                pass
 
     def _cleanup_history_item(self, item: AnalysisHistoryItem):
         """
@@ -1353,13 +1553,24 @@ class AnalysisPage(QWidget):
                 history_dir = self._get_history_storage_dir()
                 if history_dir and os.path.isdir(history_dir):
                     for fname in os.listdir(history_dir):
-                        if fname.endswith((".meta.json", ".params.pkl", "index.json")):
+                        if fname.endswith((".meta.json", ".params.json", ".params.pkl", "index.json")):
                             try:
                                 os.remove(os.path.join(history_dir, fname))
                             except Exception:
                                 continue
             except Exception:
                 pass
+
+    def closeEvent(self, event):
+        """Ensure threads/figures are cleaned up when the page is closed."""
+        try:
+            self.clear_project_data()
+        except Exception:
+            pass
+        try:
+            super().closeEvent(event)
+        except Exception:
+            pass
 
     def _on_dataset_changed(self):
         """Handle dataset changes (load/remove)."""
@@ -1395,6 +1606,124 @@ class AnalysisPage(QWidget):
                             widget.item(i).setSelected(True)
 
     # === Export Methods ===
+
+    def _export_analysis_bundle(self) -> None:
+        """Unified export flow for Analysis results (one button, tickbox selection)."""
+
+        if not self.current_result:
+            QMessageBox.warning(
+                self,
+                self.localize("ANALYSIS_PAGE.export_error_title"),
+                self.localize("ANALYSIS_PAGE.no_results_to_export"),
+            )
+            return
+
+        from pathlib import Path
+        from components.widgets import get_export_analysis_bundle_options
+
+        # Defaults
+        try:
+            method_name = ANALYSIS_METHODS[self.current_category][self.current_method_key]["name"]
+        except Exception:
+            method_name = "analysis"
+
+        base = f"{method_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        try:
+            default_dir = self.export_manager.get_default_export_dir()
+        except Exception:
+            default_dir = ""
+
+        opts = get_export_analysis_bundle_options(
+            self,
+            title=self.localize("ANALYSIS_PAGE.export"),
+            default_directory=default_dir,
+            default_base_name=base,
+            default_image_format="png",
+            # Labels (keep simple if localization keys are missing)
+            location_label="Save Location:",
+            base_name_label="Base Name:",
+            browse_button_text="Browse...",
+            select_location_title="Select Location",
+            image_format_label="Image Format:",
+            section_label="Include:",
+            data_csv_label="Data table (CSV)",
+            data_json_label="Data table (JSON)",
+            primary_plot_label="Primary plot (image)",
+            secondary_plot_label="Secondary plot (image)",
+        )
+        if opts is None:
+            return
+
+        out_dir = Path(opts.directory)
+        img_ext = ".png" if opts.image_format == "png" else ".svg"
+
+        created: List[str] = []
+        missing: List[str] = []
+
+        # Data table
+        try:
+            if self.current_result.data_table is not None:
+                import pandas as pd
+
+                df = (
+                    pd.DataFrame(self.current_result.data_table)
+                    if isinstance(self.current_result.data_table, dict)
+                    else self.current_result.data_table
+                )
+
+                if opts.export_data_csv:
+                    p = out_dir / f"analysis_data_{opts.base_name}.csv"
+                    df.to_csv(p, index=False)
+                    created.append(str(p))
+
+                if opts.export_data_json:
+                    p = out_dir / f"analysis_data_{opts.base_name}.json"
+                    try:
+                        # pandas to_json indent support varies; keep portable
+                        import json as _json
+
+                        with open(p, "w", encoding="utf-8") as f:
+                            _json.dump(df.to_dict(orient="records"), f, ensure_ascii=False, indent=2)
+                    except Exception:
+                        df.to_json(p, orient="records", force_ascii=False)
+                    created.append(str(p))
+            else:
+                if opts.export_data_csv or opts.export_data_json:
+                    missing.append("data_table")
+        except Exception as e:
+            QMessageBox.critical(self, self.localize("COMMON.error"), str(e))
+            return
+
+        # Figures
+        def _save_fig(fig, stem: str) -> None:
+            if fig is None:
+                missing.append(stem)
+                return
+            try:
+                p = out_dir / f"{stem}_{opts.base_name}{img_ext}"
+                fig.savefig(str(p), dpi=300, bbox_inches="tight", format=opts.image_format)
+                created.append(str(p))
+            except Exception:
+                missing.append(stem)
+
+        if opts.export_primary_plot:
+            _save_fig(getattr(self.current_result, "primary_figure", None), "analysis_plot")
+        if opts.export_secondary_plot:
+            _save_fig(getattr(self.current_result, "secondary_figure", None), "analysis_secondary_plot")
+
+        if not created:
+            QMessageBox.warning(
+                self,
+                self.localize("ANALYSIS_PAGE.export_error_title"),
+                self.localize("ANALYSIS_PAGE.no_results_to_export"),
+            )
+            return
+
+        msg = "\n".join(created)
+        if missing:
+            msg += "\n\nMissing / not available:\n" + "\n".join(sorted(set(missing)))
+
+        QMessageBox.information(self, self.localize("COMMON.info"), msg)
 
     def _export_png(self):
         """Export current plot as PNG."""

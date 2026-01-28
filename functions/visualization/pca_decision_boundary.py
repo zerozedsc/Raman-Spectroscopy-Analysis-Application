@@ -192,3 +192,104 @@ def create_pca_decision_boundary_figure(
 	# NOTE: don't call tight_layout() here. The embedded MatplotlibWidget manages
 	# layout, and repeated tight_layout() calls can cumulatively shrink the canvas.
 	return fig
+
+
+def create_pca_scatter_figure(
+	*,
+	X: np.ndarray,
+	y: np.ndarray,
+	title: str = "PCA (2D)",
+	figsize: Tuple[int, int] = (8, 5),
+	label_display_map: Optional[Dict[str, str]] = None,
+) -> plt.Figure:
+	"""Create a PCA(2) scatter plot (no decision boundary background)."""
+	X = np.asarray(X, dtype=float)
+	y = np.asarray(y, dtype=object)
+	if X.ndim != 2:
+		raise ValueError("X must be 2D")
+	if X.shape[0] != y.shape[0]:
+		raise ValueError("X and y must have the same number of samples")
+
+	labels = [str(v) for v in sorted(set(map(str, y)))]
+	label_to_int = {lab: i for i, lab in enumerate(labels)}
+	y_int = np.asarray([label_to_int.get(str(v), -1) for v in y], dtype=int)
+	mask = y_int >= 0
+	X = X[mask]
+	y_int = y_int[mask]
+
+	pipe = Pipeline(
+		[
+			("scaler", StandardScaler()),
+			("pca", PCA(n_components=2, random_state=0)),
+		]
+	)
+	X2 = pipe.fit_transform(X)
+	pc1 = X2[:, 0]
+	pc2 = X2[:, 1]
+
+	base = plt.cm.get_cmap("tab10", max(2, len(labels)))
+	label_to_color = {lab: base(i) for i, lab in enumerate(labels)}
+
+	fig = plt.Figure(figsize=figsize)
+	ax = fig.add_subplot(111)
+
+	for i, lab in enumerate(labels):
+		disp = str(label_display_map.get(lab, lab)) if label_display_map else lab
+		m = y_int == i
+		ax.scatter(
+			pc1[m],
+			pc2[m],
+			s=18,
+			alpha=0.85,
+			label=disp,
+			color=label_to_color.get(lab),
+			edgecolors="none",
+			zorder=2,
+		)
+
+	# Centroids + labels
+	x_min, x_max = float(pc1.min()), float(pc1.max())
+	y_min, y_max = float(pc2.min()), float(pc2.max())
+	dx = (x_max - x_min) * 0.012 if x_max > x_min else 0.02
+	dy = (y_max - y_min) * 0.012 if y_max > y_min else 0.02
+	for i, lab in enumerate(labels):
+		m = y_int == i
+		if not np.any(m):
+			continue
+		disp = str(label_display_map.get(lab, lab)) if label_display_map else lab
+		cx = float(np.mean(pc1[m]))
+		cy = float(np.mean(pc2[m]))
+		ax.scatter(
+			[cx],
+			[cy],
+			s=80,
+			marker="X",
+			color=label_to_color.get(lab),
+			edgecolors="black",
+			linewidths=1.0,
+			zorder=3,
+		)
+		lbl = ax.text(
+			cx + dx,
+			cy + dy,
+			str(disp),
+			fontsize=9,
+			fontweight="bold",
+			color=label_to_color.get(lab),
+			bbox=dict(boxstyle="round,pad=0.25", facecolor="white", edgecolor="none", alpha=0.85),
+			clip_on=False,
+			zorder=4,
+		)
+		try:
+			lbl.set_path_effects([pe.withStroke(linewidth=2.0, foreground="black", alpha=0.45)])
+		except Exception:
+			pass
+
+	ax.set_title(title)
+	ax.set_xlabel("PC1")
+	ax.set_ylabel("PC2")
+	ax.grid(True, alpha=0.25)
+	ax.set_aspect("auto")
+	ax.margins(x=0.02, y=0.02)
+	ax.legend(loc="best", fontsize=9)
+	return fig

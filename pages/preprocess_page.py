@@ -1586,207 +1586,54 @@ class PreprocessPage(QWidget):
                 )
                 return
 
-        # Create export dialog
-        from PySide6.QtWidgets import QDialog, QDialogButtonBox, QFileDialog, QCheckBox
+        # Standardized export dialog (shared widget)
+        from components.widgets import get_export_options
 
-        dialog = QDialog(self)
-        dialog.setWindowTitle(LOCALIZE("PREPROCESS.export_dialog_title"))
-        dialog.setMinimumWidth(550)
-
-        # Apply medical-themed styling to dialog
-        dialog.setStyleSheet(
-            """
-            QDialog {
-                background-color: #f8f9fa;
-            }
-            QLabel {
-                color: #2c3e50;
-                font-size: 13px;
-            }
-            QLabel#infoLabel {
-                color: #0078d4;
-                font-weight: 600;
-                background-color: #e3f2fd;
-                border-left: 4px solid #0078d4;
-                padding: 10px;
-                border-radius: 4px;
-            }
-            QLabel#hintLabel {
-                color: #6c757d;
-                font-size: 11px;
-                font-style: italic;
-            }
-            QLineEdit {
-                padding: 10px;
-                border: 2px solid #ced4da;
-                border-radius: 6px;
-                font-size: 13px;
-                background-color: white;
-            }
-            QLineEdit:focus {
-                border-color: #0078d4;
-                background-color: #f0f8ff;
-            }
-            QLineEdit:read-only {
-                background-color: #e9ecef;
-            }
-            QComboBox {
-                padding: 10px;
-                border: 2px solid #ced4da;
-                border-radius: 6px;
-                background-color: white;
-                font-size: 13px;
-            }
-            QComboBox:focus {
-                border-color: #0078d4;
-            }
-            QComboBox::drop-down {
-                border: none;
-                width: 30px;
-            }
-            QComboBox::down-arrow {
-                image: url(assets/icons/chevron-down.svg);
-                width: 12px;
-                height: 12px;
-            }
-            QPushButton {
-                background-color: #0078d4;
-                color: white;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 6px;
-                font-weight: 500;
-                font-size: 13px;
-            }
-            QPushButton:hover {
-                background-color: #106ebe;
-            }
-            QPushButton:pressed {
-                background-color: #005a9e;
-            }
-            QCheckBox {
-                color: #2c3e50;
-                font-size: 13px;
-                spacing: 8px;
-            }
-            QCheckBox::indicator {
-                width: 20px;
-                height: 20px;
-                border: 2px solid #ced4da;
-                border-radius: 4px;
-                background-color: white;
-            }
-            QCheckBox::indicator:hover {
-                border-color: #0078d4;
-            }
-            QCheckBox::indicator:checked {
-                background-color: #28a745;
-                border-color: #28a745;
-                image: url(assets/icons/checkmark.svg);
-            }
-            QDialogButtonBox QPushButton {
-                min-width: 80px;
-                padding: 10px 16px;
-            }
-        """
-        )
-
-        layout = QVBoxLayout(dialog)
-        layout.setSpacing(16)
-        layout.setContentsMargins(24, 24, 24, 24)
-
-        # Multiple dataset info
-        if len(dataset_names) > 1:
-            info_label = QLabel(
-                LOCALIZE("PREPROCESS.export_multiple_info", count=len(dataset_names))
-            )
-            info_label.setObjectName("infoLabel")
-            layout.addWidget(info_label)
-
-        # Format selection
-        format_layout = QHBoxLayout()
-        format_layout.addWidget(QLabel(LOCALIZE("PREPROCESS.export_format_label")))
-
-        format_combo = QComboBox()
         formats = [
             ("csv", LOCALIZE("PREPROCESS.export_format_csv")),
             ("txt", LOCALIZE("PREPROCESS.export_format_txt")),
             ("asc", LOCALIZE("PREPROCESS.export_format_asc")),
             ("pkl", LOCALIZE("PREPROCESS.export_format_pickle")),
         ]
-        for fmt_key, fmt_label in formats:
-            format_combo.addItem(fmt_label, fmt_key)
 
-        format_layout.addWidget(format_combo)
-        layout.addLayout(format_layout)
-
-        # File location selection
-        location_layout = QHBoxLayout()
-        location_layout.addWidget(QLabel(LOCALIZE("PREPROCESS.export_location_label")))
-
-        location_edit = QLineEdit()
-        location_edit.setPlaceholderText(LOCALIZE("PREPROCESS.export_select_location"))
-        location_edit.setReadOnly(True)
-
-        # Load last used export location
         last_export_path = getattr(self, "_last_export_location", None)
-        if last_export_path and os.path.exists(last_export_path):
-            location_edit.setText(last_export_path)
+        if not (last_export_path and os.path.exists(last_export_path)):
+            last_export_path = ""
 
-        browse_btn = QPushButton(LOCALIZE("PREPROCESS.export_browse_button"))
+        opts = get_export_options(
+            self,
+            title=LOCALIZE("PREPROCESS.export_dialog_title"),
+            formats=formats,
+            default_directory=last_export_path,
+            default_filename=dataset_names[0] if len(dataset_names) == 1 else "",
+            show_filename=(len(dataset_names) == 1),
+            show_format=True,
+            multiple_info_text=(
+                LOCALIZE("PREPROCESS.export_multiple_info", count=len(dataset_names))
+                if len(dataset_names) > 1
+                else None
+            ),
+            multiple_names_hint=(
+                LOCALIZE("PREPROCESS.export_multiple_names_info")
+                if len(dataset_names) > 1
+                else None
+            ),
+            format_label=LOCALIZE("PREPROCESS.export_format_label"),
+            location_label=LOCALIZE("PREPROCESS.export_location_label"),
+            filename_label=LOCALIZE("PREPROCESS.export_filename_label"),
+            browse_button_text=LOCALIZE("PREPROCESS.export_browse_button"),
+            select_location_title=LOCALIZE("PREPROCESS.export_select_location"),
+            show_metadata_checkbox=True,
+            metadata_checkbox_text=LOCALIZE("PREPROCESS.export_metadata_checkbox"),
+            metadata_tooltip=LOCALIZE("PREPROCESS.export_metadata_tooltip"),
+            default_export_metadata=True,
+        )
 
-        def browse_location():
-            # Use last location or current directory as starting point
-            start_path = location_edit.text() if location_edit.text() else os.getcwd()
-            path = QFileDialog.getExistingDirectory(
-                dialog, LOCALIZE("PREPROCESS.export_select_location"), start_path
-            )
-            if path:
-                location_edit.setText(path)
-
-        browse_btn.clicked.connect(browse_location)
-
-        location_layout.addWidget(location_edit, 1)
-        location_layout.addWidget(browse_btn)
-        layout.addLayout(location_layout)
-
-        # Filename (only for single export)
-        if len(dataset_names) == 1:
-            filename_layout = QHBoxLayout()
-            filename_layout.addWidget(
-                QLabel(LOCALIZE("PREPROCESS.export_filename_label"))
-            )
-
-            filename_edit = QLineEdit()
-            filename_edit.setText(dataset_names[0])
-            filename_layout.addWidget(filename_edit)
-            layout.addLayout(filename_layout)
-        else:
-            # For multiple exports, show info that original names will be used
-            multi_name_label = QLabel(LOCALIZE("PREPROCESS.export_multiple_names_info"))
-            multi_name_label.setObjectName("hintLabel")
-            multi_name_label.setWordWrap(True)
-            layout.addWidget(multi_name_label)
-
-        # Metadata export checkbox
-        metadata_checkbox = QCheckBox(LOCALIZE("PREPROCESS.export_metadata_checkbox"))
-        metadata_checkbox.setChecked(True)
-        metadata_checkbox.setToolTip(LOCALIZE("PREPROCESS.export_metadata_tooltip"))
-        layout.addWidget(metadata_checkbox)
-
-        # Dialog buttons
-        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        button_box.accepted.connect(dialog.accept)
-        button_box.rejected.connect(dialog.reject)
-        layout.addWidget(button_box)
-
-        # Execute dialog
-        if dialog.exec() == QDialog.Accepted:
+        if opts is not None:
             try:
-                # Get export parameters
-                export_format = format_combo.currentData()
-                export_path = location_edit.text()
-                export_metadata = metadata_checkbox.isChecked()
+                export_format = opts.format_key
+                export_path = opts.directory
+                export_metadata = bool(opts.export_metadata)
 
                 # Validate location
                 if not export_path:
@@ -1819,11 +1666,7 @@ class PreprocessPage(QWidget):
                 # Export single or multiple datasets
                 if len(dataset_names) == 1:
                     # Single export
-                    filename = (
-                        filename_edit.text()
-                        if len(dataset_names) == 1
-                        else dataset_names[0]
-                    )
+                    filename = opts.filename if len(dataset_names) == 1 else dataset_names[0]
 
                     if not filename:
                         self.showNotification.emit(

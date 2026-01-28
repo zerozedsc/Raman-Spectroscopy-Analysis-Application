@@ -1,9 +1,20 @@
 # Development Guidelines and Standards
 
+> **Status note (2026-01):** This repository is evolving as a **final year bachelor research project**.
+>
+> Some sections below are **legacy standards** and may reference folders that are not currently present.
+> For the current, minimal workflow:
+> - Python **>=3.12,<3.13** (see `pyproject.toml`)
+> - Install: `uv pip install -e .` (recommended) or `pip install -e .` in a venv
+> - Run: `python main.py`
+> - Smoke test: `python smoke_tests.py`
+
 ## Testing Standards (Added October 14, 2025)
 
 ### Test Script Organization
-**MANDATORY**: All test scripts MUST be saved in `test_script/` folder structure:
+**Legacy / optional**: Some historical test scripts used a `test_script/` folder. This structure is **not mandatory** in the current repository state.
+
+If you add/restore comprehensive tests, you may place them under `tests/` (preferred) or keep a dedicated script folder (e.g. `test_script/`).
 ```
 test_script/
 ├── test_preprocessing_comprehensive.py  # Comprehensive preprocessing tests
@@ -13,13 +24,13 @@ test_script/
 ```
 
 ### Environment and Execution
-1. **Use UV Environment**: This project uses UV package manager
+1. **Prefer UV**: This project supports the UV package manager (recommended for reproducible installs)
    ```bash
    cd test_script
    uv run python test_<name>.py
    ```
 
-2. **Never use pip/conda directly** for running tests
+2. Using a standard `venv` + `pip` is also acceptable (especially for contributors without UV).
 
 3. **Output Requirements**:
    - Generate timestamped output files
@@ -120,7 +131,6 @@ else
     else
         python -m venv venv
         source venv/bin/activate
-        [ -f "requirements.txt" ] && pip install -r requirements.txt
     fi
     
     python your_script.py
@@ -147,7 +157,6 @@ if exist "pyproject.toml" (
     ) else (
         python -m venv venv
         venv\Scripts\activate
-        if exist "requirements.txt" pip install -r requirements.txt
     )
     
     python your_script.py
@@ -157,7 +166,7 @@ if exist "pyproject.toml" (
 **Note**: After activating the virtual environment, verify it's active by checking `which python` (Linux/macOS) or `where python` (Windows) points to the venv's Python executable.
 
 ### Key Guidelines
-- **Dependency Management**: Always use `uv` for projects with `pyproject.toml` to ensure reproducible builds and latest stable package versions.
+- **Dependency Management**: Prefer `uv` for projects with `pyproject.toml`. If needed, `pip install -e .` in a virtual environment is acceptable.
 - **Virtual Environment**: Prefer venv over global installations to avoid conflicts. Activate the environment before running any scripts.
 - **Script Execution**: Run all Python scripts from the project root directory (user base dir) to ensure correct path resolution and imports.
 - **Validation**: Verify the environment is active by checking `which python` points to the venv's Python executable.

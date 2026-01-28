@@ -86,7 +86,7 @@ def create_derivative_spectra_plot(
     ax.set_ylabel("Intensity / derivative")
     ax.grid(True, alpha=0.25)
     ax.legend(loc="best", fontsize=9)
-    ax.invert_xaxis()
+
 
     summary = f"Derivative spectra computed (order={deriv_order}, window={window_length}, polyorder={polyorder})."
 

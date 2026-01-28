@@ -505,6 +505,8 @@ plt.show()
 
 **Note**: This typically uses the external `shap` library.
 
+**In this application**: SHAP explainability is exposed via the ML page **SHAP** action and produces a per-spectrum explanation with a contribution **bar plot across the Raman shift axis** (red = positive, blue = negative), a ranked contributor table, and an exportable bundle.
+
 ### Out-of-Bag (OOB) Score
 
 ```python

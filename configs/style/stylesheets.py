@@ -661,18 +661,40 @@ def get_main_stylesheet(font_family: str) -> str:
         }}
         
         /* --- Home Page Typography --- */
+        #homeTitleContainer {
+            background-color: transparent;
+        }
+
+        #homeAppIcon {
+            background-color: #e7f3ff;
+            border: 1px solid #cfe8ff;
+            border-radius: 10px;
+        }
+
         #homeTitle {{
-            font-size: 28px;
+            font-size: 30px;
             font-weight: 700;
             color: #1a1a1a;
             margin-bottom: 4px;
         }}
         
         #homeSubtitle {{
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 400;
             color: #6c757d;
             margin-bottom: 0px;
+            padding-left: 2px;
+        }}
+
+        #homeTitleDivider {
+            background-color: #e9ecef;
+            margin-top: 6px;
+        }
+
+        #homeVersion {{
+            font-size: 12px;
+            color: #98a2ad;
+            padding-top: 8px;
         }}
         
         #recentProjectsHeader {{
@@ -735,6 +757,16 @@ def get_main_stylesheet(font_family: str) -> str:
         #recentProjectItem:hover {{
             border-color: #0078d4;
             background-color: #f8fcff;
+        }}
+
+        /* Click/selection feedback (custom widget embedded in QListWidget) */
+        #recentProjectItem[selected="true"] {{
+            border-color: #0078d4;
+            background-color: #e7f3ff;
+        }}
+        #recentProjectItem[clickedFlash="true"] {{
+            border-color: #005a9e;
+            background-color: #d6ecff;
         }}
         
         #recentProjectItem #projectName {{

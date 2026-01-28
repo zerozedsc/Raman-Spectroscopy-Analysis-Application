@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QDialogButtonBox,
 )
-from PySide6.QtCore import Qt, QSize, Signal, QPropertyAnimation, QEasingCurve
+from PySide6.QtCore import Qt, QSize, Signal, QPropertyAnimation, QEasingCurve, QTimer
 from PySide6.QtGui import QIcon, QPixmap, QPainter, QMouseEvent, QFont
 from PySide6.QtSvg import QSvgRenderer
 from configs.configs import create_logs
@@ -209,9 +209,43 @@ class RecentProjectItemWidget(QWidget):
         self.setMinimumHeight(72)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
+        # Track selection/click feedback via dynamic properties (stylesheet-driven)
+        self.setProperty("selected", False)
+        self.setProperty("clickedFlash", False)
+
         # Enable hover tracking
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self._setup_ui(project_name, last_modified)
+
+    def set_selected(self, selected: bool) -> None:
+        try:
+            self.setProperty("selected", bool(selected))
+            self.style().unpolish(self)
+            self.style().polish(self)
+            self.update()
+        except Exception:
+            pass
+
+    def flash_clicked(self, ms: int = 180) -> None:
+        """Brief visual feedback for 'click succeeded' (without opening)."""
+        try:
+            self.setProperty("clickedFlash", True)
+            self.style().unpolish(self)
+            self.style().polish(self)
+            self.update()
+
+            def _clear() -> None:
+                try:
+                    self.setProperty("clickedFlash", False)
+                    self.style().unpolish(self)
+                    self.style().polish(self)
+                    self.update()
+                except Exception:
+                    pass
+
+            QTimer.singleShot(int(ms), _clear)
+        except Exception:
+            pass
 
     def _setup_ui(self, project_name: str, last_modified: str):
         layout = QHBoxLayout(self)
@@ -296,13 +330,43 @@ class HomePage(QWidget):
         layout.addWidget(actions_container)
         layout.addStretch()  # Push content to top
 
+        # Bottom-left version label (user requested)
+        try:
+            version_text = str(CONFIGS.get("version") or "").strip()
+        except Exception:
+            version_text = ""
+        if version_text:
+            version_label = QLabel(version_text)
+            version_label.setObjectName("homeVersion")
+            version_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
+            version_label.setWordWrap(False)
+            layout.addWidget(version_label)
+
         return sidebar
 
     def _create_title_section(self) -> QWidget:
         title_container = QWidget()
+        title_container.setObjectName("homeTitleContainer")
         title_layout = QVBoxLayout(title_container)
         title_layout.setContentsMargins(0, 0, 0, 0)
-        title_layout.setSpacing(12)
+        title_layout.setSpacing(10)
+
+        # Title row: app icon + title (cleaner, more "product" feel)
+        title_row = QWidget()
+        title_row.setObjectName("homeTitleRow")
+        title_row_layout = QHBoxLayout(title_row)
+        title_row_layout.setContentsMargins(0, 0, 0, 0)
+        title_row_layout.setSpacing(12)
+
+        app_icon_label = QLabel()
+        app_icon_label.setObjectName("homeAppIcon")
+        try:
+            ico = load_icon("app_icon", QSize(28, 28), "#0078d4")
+            app_icon_label.setPixmap(ico.pixmap(QSize(28, 28)))
+        except Exception:
+            pass
+        app_icon_label.setFixedSize(36, 36)
+        app_icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         title_label = QLabel(LOCALIZE("MAIN_WINDOW.title"))
         title_label.setObjectName("homeTitle")
@@ -311,6 +375,9 @@ class HomePage(QWidget):
             QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum
         )
 
+        title_row_layout.addWidget(app_icon_label)
+        title_row_layout.addWidget(title_label, 1)
+
         subtitle_label = QLabel(LOCALIZE("HOME_PAGE.subtitle"))
         subtitle_label.setObjectName("homeSubtitle")
         subtitle_label.setWordWrap(True)
@@ -318,8 +385,15 @@ class HomePage(QWidget):
             QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum
         )
 
-        title_layout.addWidget(title_label)
+        divider = QFrame()
+        divider.setObjectName("homeTitleDivider")
+        divider.setFrameShape(QFrame.Shape.HLine)
+        divider.setFrameShadow(QFrame.Shadow.Plain)
+        divider.setFixedHeight(1)
+
+        title_layout.addWidget(title_row)
         title_layout.addWidget(subtitle_label)
+        title_layout.addWidget(divider)
 
         return title_container
 
@@ -380,6 +454,11 @@ class HomePage(QWidget):
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
         self.recent_projects_list.setSpacing(8)
+        try:
+            # Single click = highlight/feedback; double click = open.
+            self.recent_projects_list.itemClicked.connect(self._handle_recent_item_clicked)
+        except Exception:
+            pass
         self.recent_projects_list.itemDoubleClicked.connect(
             self.handle_recent_item_opened
         )
@@ -388,6 +467,24 @@ class HomePage(QWidget):
         layout.addWidget(self.recent_projects_list, 1)
 
         return content_area
+
+    def _handle_recent_item_clicked(self, item: QListWidgetItem) -> None:
+        """Give clear feedback that the click was registered (selection + brief flash)."""
+        try:
+            for i in range(self.recent_projects_list.count()):
+                it = self.recent_projects_list.item(i)
+                w = self.recent_projects_list.itemWidget(it)
+                if isinstance(w, RecentProjectItemWidget):
+                    w.set_selected(it is item)
+        except Exception:
+            pass
+
+        try:
+            w = self.recent_projects_list.itemWidget(item)
+            if isinstance(w, RecentProjectItemWidget):
+                w.flash_clicked()
+        except Exception:
+            pass
 
     def _create_header_section(self) -> QWidget:
         header_container = QWidget()

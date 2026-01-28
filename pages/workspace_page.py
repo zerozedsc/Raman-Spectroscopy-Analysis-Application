@@ -4,6 +4,7 @@ from PySide6.QtCore import Qt, Signal
 
 from components.app_tabs import AppTabBar
 from components.page_registry import create_workspace_pages
+from components.widgets import LoadingOverlay
 from utils import *
 from configs.configs import *
 
@@ -53,6 +54,9 @@ class WorkspacePage(QWidget):
 
         main_layout.addWidget(self.tab_bar)
         main_layout.addWidget(self.page_stack, 1)
+
+        # Centralized, reusable loading overlay (covers the workspace during long operations).
+        self._loading_overlay = LoadingOverlay(self)
 
         # Update localized text for all components
         self.update_localized_text()
@@ -260,6 +264,13 @@ class WorkspacePage(QWidget):
     def load_project(self, project_path: str):
         """Load project and refresh all pages."""
         try:
+            # UX: show a blocking loading overlay during long loads.
+            try:
+                self._loading_overlay.show_loading(LOCALIZE("COMMON.loading_project"))
+                QApplication.processEvents()
+            except Exception:
+                pass
+
             # First, clear all existing project data from all pages
             for i in range(1, self.page_stack.count()):  # Skip home page (index 0)
                 widget = self.page_stack.widget(i)
@@ -324,3 +335,8 @@ class WorkspacePage(QWidget):
                 f"Error loading project {project_path}: {e}",
                 status="error",
             )
+        finally:
+            try:
+                self._loading_overlay.hide_loading()
+            except Exception:
+                pass

@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Optional, Any
 from pathlib import Path
 
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QMessageBox
 from PySide6.QtCore import QObject
 
 
@@ -52,16 +52,39 @@ class ExportManager(QObject):
             self._show_error(self.localize("ANALYSIS_PAGE.no_plot_to_export"))
             return False
 
-        # Get save path
-        file_path, _ = QFileDialog.getSaveFileName(
-            self.parent,
-            self.localize("ANALYSIS_PAGE.export_png_title"),
-            self._get_default_export_path(default_filename),
-            "PNG Images (*.png);;All Files (*.*)",
-        )
+        from components.widgets import get_export_options
 
-        if not file_path:
+        try:
+            default_path = Path(self._get_default_export_path(default_filename))
+            default_dir = str(default_path.parent)
+            default_base = default_path.stem
+        except Exception:
+            default_dir = ""
+            default_base = "analysis_plot"
+
+        opts = get_export_options(
+            self.parent,
+            title=self.localize("ANALYSIS_PAGE.export_png_title"),
+            formats=[("png", "PNG (.png)")],
+            default_directory=default_dir,
+            default_filename=default_base,
+            show_filename=True,
+            show_format=False,
+            # Labels
+            format_label="Export Format:",
+            location_label="Save Location:",
+            filename_label="Filename:",
+            browse_button_text="Browse...",
+            select_location_title="Select Location",
+            show_metadata_checkbox=False,
+        )
+        if opts is None:
             return False
+
+        base = str(opts.filename or default_base).strip() or default_base
+        if not base.lower().endswith(".png"):
+            base = f"{base}.png"
+        file_path = str(Path(str(opts.directory)) / base)
 
         try:
             figure.savefig(file_path, dpi=300, bbox_inches="tight", format="png")
@@ -90,15 +113,39 @@ class ExportManager(QObject):
             self._show_error(self.localize("ANALYSIS_PAGE.no_plot_to_export"))
             return False
 
-        file_path, _ = QFileDialog.getSaveFileName(
-            self.parent,
-            self.localize("ANALYSIS_PAGE.export_svg_title"),
-            self._get_default_export_path(default_filename),
-            "SVG Images (*.svg);;All Files (*.*)",
-        )
+        from components.widgets import get_export_options
 
-        if not file_path:
+        try:
+            default_path = Path(self._get_default_export_path(default_filename))
+            default_dir = str(default_path.parent)
+            default_base = default_path.stem
+        except Exception:
+            default_dir = ""
+            default_base = "analysis_plot"
+
+        opts = get_export_options(
+            self.parent,
+            title=self.localize("ANALYSIS_PAGE.export_svg_title"),
+            formats=[("svg", "SVG (.svg)")],
+            default_directory=default_dir,
+            default_filename=default_base,
+            show_filename=True,
+            show_format=False,
+            # Labels
+            format_label="Export Format:",
+            location_label="Save Location:",
+            filename_label="Filename:",
+            browse_button_text="Browse...",
+            select_location_title="Select Location",
+            show_metadata_checkbox=False,
+        )
+        if opts is None:
             return False
+
+        base = str(opts.filename or default_base).strip() or default_base
+        if not base.lower().endswith(".svg"):
+            base = f"{base}.svg"
+        file_path = str(Path(str(opts.directory)) / base)
 
         try:
             figure.savefig(file_path, format="svg", bbox_inches="tight")
@@ -127,15 +174,39 @@ class ExportManager(QObject):
             self._show_error(self.localize("ANALYSIS_PAGE.no_data_to_export"))
             return False
 
-        file_path, _ = QFileDialog.getSaveFileName(
-            self.parent,
-            self.localize("ANALYSIS_PAGE.export_csv_title"),
-            self._get_default_export_path(default_filename),
-            "CSV Files (*.csv);;All Files (*.*)",
-        )
+        from components.widgets import get_export_options
 
-        if not file_path:
+        try:
+            default_path = Path(self._get_default_export_path(default_filename))
+            default_dir = str(default_path.parent)
+            default_base = default_path.stem
+        except Exception:
+            default_dir = ""
+            default_base = "analysis_data"
+
+        opts = get_export_options(
+            self.parent,
+            title=self.localize("ANALYSIS_PAGE.export_csv_title"),
+            formats=[("csv", "CSV (.csv)")],
+            default_directory=default_dir,
+            default_filename=default_base,
+            show_filename=True,
+            show_format=False,
+            # Labels
+            format_label="Export Format:",
+            location_label="Save Location:",
+            filename_label="Filename:",
+            browse_button_text="Browse...",
+            select_location_title="Select Location",
+            show_metadata_checkbox=False,
+        )
+        if opts is None:
             return False
+
+        base = str(opts.filename or default_base).strip() or default_base
+        if not base.lower().endswith(".csv"):
+            base = f"{base}.csv"
+        file_path = str(Path(str(opts.directory)) / base)
 
         try:
             import pandas as pd
@@ -171,100 +242,54 @@ class ExportManager(QObject):
             self._show_error(self.localize("ANALYSIS_PAGE.no_data_to_export"))
             return False
         
-        from PySide6.QtWidgets import QDialog, QComboBox, QVBoxLayout, QHBoxLayout, QLabel, QDialogButtonBox
-        
-        # Create format selection dialog
-        dialog = QDialog(self.parent)
-        dialog.setWindowTitle("Export Data - Select Format")
-        dialog.setMinimumWidth(450)
-        
-        dialog.setStyleSheet("""
-            QDialog {
-                background-color: #f8f9fa;
-            }
-            QLabel {
-                color: #2c3e50;
-                font-size: 13px;
-            }
-            QComboBox {
-                padding: 10px;
-                border: 2px solid #ced4da;
-                border-radius: 6px;
-                background-color: white;
-                font-size: 13px;
-            }
-            QComboBox:focus {
-                border-color: #0078d4;
-            }
-            QPushButton {
-                background-color: #0078d4;
-                color: white;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 6px;
-                font-weight: 500;
-                font-size: 13px;
-            }
-            QPushButton:hover {
-                background-color: #106ebe;
-            }
-        """)
-        
-        layout = QVBoxLayout(dialog)
-        layout.setSpacing(16)
-        layout.setContentsMargins(24, 24, 24, 24)
-        
-        # Format selection
-        format_layout = QHBoxLayout()
-        format_layout.addWidget(QLabel("Export Format:"))
-        
-        format_combo = QComboBox()
+        from pathlib import Path
+
+        from components.widgets import get_export_options
+
+        export_dir_default = ""
+        try:
+            export_dir_default = str(Path(self._get_default_export_path("x")).parent)
+        except Exception:
+            export_dir_default = ""
         formats = [
-            ("csv", "CSV (Comma-Separated Values)"),
-            ("xlsx", "Excel Spreadsheet (.xlsx)"),
-            ("json", "JSON (JavaScript Object Notation)"),
-            ("txt", "Text File (Tab-delimited)"),
-            ("pkl", "Pickle (Python Binary)")
+            ("csv", "CSV (.csv)"),
+            ("xlsx", "Excel (.xlsx)"),
+            ("json", "JSON (.json)"),
+            ("txt", "Text (.txt)"),
+            ("pkl", "Pickle (.pkl)"),
         ]
-        for fmt_key, fmt_label in formats:
-            format_combo.addItem(fmt_label, fmt_key)
-        
-        format_layout.addWidget(format_combo)
-        layout.addLayout(format_layout)
-        
-        # Buttons
-        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        button_box.accepted.connect(dialog.accept)
-        button_box.rejected.connect(dialog.reject)
-        layout.addWidget(button_box)
-        
-        if dialog.exec() != QDialog.Accepted:
-            return False
-        
-        # Get selected format
-        selected_format = format_combo.currentData()
-        
-        # Map format to file filter
-        format_filters = {
-            "csv": "CSV Files (*.csv);;All Files (*.*)",
-            "xlsx": "Excel Files (*.xlsx);;All Files (*.*)",
-            "json": "JSON Files (*.json);;All Files (*.*)",
-            "txt": "Text Files (*.txt);;All Files (*.*)",
-            "pkl": "Pickle Files (*.pkl);;All Files (*.*)"
-        }
-        
-        default_file = f"{default_filename}.{selected_format}"
-        
-        # Get save path
-        file_path, _ = QFileDialog.getSaveFileName(
+
+        opts = get_export_options(
             self.parent,
-            f"Export Data as {selected_format.upper()}",
-            self._get_default_export_path(default_file),
-            format_filters.get(selected_format, "All Files (*.*)")
+            title=self.localize("ANALYSIS_PAGE.export_button"),
+            formats=formats,
+            default_directory=export_dir_default,
+            default_filename=default_filename,
+            show_filename=True,
+            show_format=True,
+            # Labels
+            format_label="Export Format:",
+            location_label="Save Location:",
+            filename_label="Filename:",
+            browse_button_text="Browse...",
+            select_location_title="Select Location",
+            show_metadata_checkbox=False,
         )
-        
-        if not file_path:
+
+        if opts is None:
             return False
+
+        selected_format = str(opts.format_key or "").strip().lower()
+        out_dir = str(opts.directory or "").strip()
+        base_name = str(opts.filename or "").strip() or default_filename
+
+        if not out_dir:
+            return False
+
+        ext = f".{selected_format}" if selected_format else ""
+        if ext and not base_name.lower().endswith(ext):
+            base_name = f"{base_name}{ext}"
+        file_path = str(Path(out_dir) / base_name)
         
         try:
             import pandas as pd
@@ -288,14 +313,21 @@ class ExportManager(QObject):
                 df.to_pickle(file_path)
             
             self._show_success(
-                f"Data exported successfully to:\\n{file_path}"
+                self.localize("ANALYSIS_PAGE.export_success").format(file_path)
             )
             return True
         except Exception as e:
-            self._show_error(
-                f"Export failed: {str(e)}"
-            )
+            self._show_error(self.localize("ANALYSIS_PAGE.export_error").format(str(e)))
             return False
+
+    def get_default_export_dir(self) -> str:
+        """Best-effort default export directory (project exports folder if available)."""
+        try:
+            from pathlib import Path
+
+            return str(Path(self._get_default_export_path("x")).parent)
+        except Exception:
+            return ""
     
     def export_full_report(
         self, result: Any, method_name: str, parameters: dict, dataset_name: str
@@ -312,12 +344,35 @@ class ExportManager(QObject):
         Returns:
             True if export succeeded
         """
-        folder_path = QFileDialog.getExistingDirectory(
-            self.parent,
-            self.localize("ANALYSIS_PAGE.export_report_title"),
-            self._get_default_export_path(""),
-        )
+        from components.widgets import get_export_options
 
+        default_dir = ""
+        try:
+            default_dir = str(Path(self._get_default_export_path("x")).parent)
+        except Exception:
+            default_dir = ""
+
+        opts = get_export_options(
+            self.parent,
+            title=self.localize("ANALYSIS_PAGE.export_report_title"),
+            formats=[("folder", "Folder")],
+            default_directory=default_dir,
+            default_filename="",
+            show_filename=False,
+            show_format=False,
+            multiple_info_text=self.localize("ANALYSIS_PAGE.export_report_title"),
+            # Labels
+            format_label="Export Format:",
+            location_label="Save Location:",
+            filename_label="Filename:",
+            browse_button_text="Browse...",
+            select_location_title="Select Location",
+            show_metadata_checkbox=False,
+        )
+        if opts is None:
+            return False
+
+        folder_path = str(opts.directory or "").strip()
         if not folder_path:
             return False
 

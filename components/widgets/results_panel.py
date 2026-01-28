@@ -195,7 +195,11 @@ class ResultsPanel(QWidget):
             """
         )
 
-        self.export_btn = QPushButton(self.localize("ANALYSIS_PAGE.export_csv"))
+        # Phase 3: user requested the Analysis export button be renamed from "Export CSV" to "Export"
+        try:
+            self.export_btn = QPushButton(self.localize("ANALYSIS_PAGE.export"))
+        except Exception:
+            self.export_btn = QPushButton(self.localize("ANALYSIS_PAGE.export_csv"))
         self.export_btn.setCursor(Qt.PointingHandCursor)
         self.export_btn.setVisible(False)
         self.export_btn.setStyleSheet(

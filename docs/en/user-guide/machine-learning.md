@@ -702,35 +702,32 @@ Key peaks: 1655, 1450, 1200 cm⁻¹
 
 #### SHAP Values (SHapley Additive exPlanations)
 
-**Purpose**: Explain individual predictions
+**Purpose**: Explain an individual prediction by attributing the model output to Raman-shift features.
 
-**Features**:
-- Per-sample feature contributions
-- Positive/negative effects
-- Global feature importance
-- Interaction effects
+**How SHAP works in this app**:
 
-**Example SHAP Plot**:
-```
-Feature Value vs SHAP Value
+1. Train a model on the ML page.
+2. Click **SHAP** (no retraining).
+3. In the SHAP parameter dialog, choose:
+   - Explain set (Train/Test)
+   - Dataset and spectrum index
+   - Background samples / Max evals / Top-k (when available)
+4. A **modal SHAP Result dialog** opens and shows progress.
 
-SHAP Value
-    ↑
-    │ ●  ●
-    │   ●  ●●
-  0 ├──────────  ●●
-    │ ●●      ●
-    │   ●  ●
-    └──────────→
-      Feature Value
-      
-Red dots: Disease samples
-Blue dots: Healthy samples
-```
+**What you will see** (tabs):
+- **Spectrum**: the selected spectrum (with contributor markers when available)
+- **SHAP**: a per-feature contribution bar plot across the Raman shift axis
+  - **Red** = positive contribution (pushes prediction toward the predicted class)
+  - **Blue** = negative contribution (pushes prediction away)
+- **Summary / Report**: predicted class name + probability and a ranked contributor table
+- **Provenance**: dataset/sample provenance (best-effort)
 
-**Interpretation**:
-- High feature value + positive SHAP → Increases disease probability
-- Low feature value + negative SHAP → Decreases disease probability
+**Export**:
+Use **Export** to write a SHAP bundle (plots + contributors CSV + raw JSON).
+
+**Performance notes**:
+- SHAP can be slow on large feature vectors; **Background samples** and **Max evals** have the biggest impact.
+- Use **Stop** to cancel a long run (cancellation is best-effort/cooperative).
 
 #### Permutation Importance
 

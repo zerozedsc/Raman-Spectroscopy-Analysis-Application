@@ -999,7 +999,7 @@ def perform_pca_analysis(
                         fontsize=title_size, fontweight='bold')
             ax.legend(loc='upper right', fontsize=10)
             ax.grid(True, alpha=0.3)
-            ax.invert_xaxis()  # Raman convention: high to low wavenumber
+            # Display wavenumber increasing left → right (avoid Raman-style inverted axis).
             
             # ✅ Only show x-axis labels and ticks on last row
             if is_last_row:
@@ -1734,6 +1734,39 @@ def perform_hierarchical_clustering(
     distance_metric = params.get("distance_metric", "euclidean")
     n_clusters = params.get("n_clusters", None)
 
+    show_labels = bool(params.get("show_labels", False))
+
+    # Build per-spectrum labels (dataset_name + column) for dendrogram display.
+    # The interpolation helper returns group labels (often dataset names repeated),
+    # which makes dendrogram tick labels unreadable/unhelpful.
+    def _truncate_label(s: str, max_len: int = 42) -> str:
+        s = str(s)
+        if len(s) <= max_len:
+            return s
+        return s[: max_len - 1] + "…"
+
+    sample_labels: List[str] = []
+    if show_labels:
+        for dataset_name, df in dataset_data.items():
+            try:
+                cols = list(getattr(df, "columns", []))
+            except Exception:
+                cols = []
+
+            if cols:
+                sample_labels.extend([
+                    _truncate_label(f"{dataset_name}:{col}") for col in cols
+                ])
+            else:
+                # Fallback: label by index if columns are missing
+                try:
+                    n_spectra = int(df.shape[1])
+                except Exception:
+                    n_spectra = 0
+                sample_labels.extend([
+                    _truncate_label(f"{dataset_name}:{i}") for i in range(n_spectra)
+                ])
+
     # ✅ FIX: Use interpolation to handle datasets with different wavenumber ranges
     # This resolves "ValueError: all input array dimensions except for concatenation axis must match"
     wavenumbers, X, labels = interpolate_to_common_wavenumbers_with_groups(
@@ -1760,8 +1793,47 @@ def perform_hierarchical_clustering(
     if progress_callback:
         progress_callback(70)
 
-    # Create dendrogram
-    fig, ax = plt.subplots(figsize=(12, 8))
+    # Create dendrogram (+ optional spectral heatmap) with robust readability.
+    n_samples = int(X.shape[0]) if hasattr(X, "shape") else 0
+
+    # When N is large, a full dendrogram becomes visually meaningless (cramped).
+    # Truncate aggressively to keep the plot interpretable.
+    max_leaf_labels = int(params.get("max_leaf_labels", 60))
+    max_full_dendrogram_leaves = int(params.get("max_full_dendrogram_leaves", 160))
+    max_heatmap_samples = int(params.get("max_heatmap_samples", 140))
+
+    should_truncate = bool(n_samples > max_full_dendrogram_leaves)
+
+    # Heatmap is useful for interpretation, but only when the row count is reasonable.
+    show_heatmap = bool((not should_truncate) and n_samples > 1 and n_samples <= max_heatmap_samples)
+
+    # For dendrogram+heatmap alignment, prefer top orientation.
+    orientation = "top"
+
+    # Dynamic sizing tuned for GUI embedding.
+    # - W grows gently with sample count
+    # - H reserves room for rotated labels + heatmap
+    fig_w = float(max(12, min(0.18 * (n_samples if not should_truncate else max_leaf_labels), 24)))
+    fig_h = float(9.5 if show_heatmap else 8.0)
+
+    if show_labels and (not should_truncate):
+        fig_h = max(fig_h, 10.5)
+
+    if show_heatmap:
+        from matplotlib.gridspec import GridSpec
+
+        fig = plt.figure(figsize=(fig_w, fig_h))
+        gs = GridSpec(
+            2,
+            1,
+            height_ratios=[3.2, 1.3],
+            hspace=0.06,
+        )
+        ax = fig.add_subplot(gs[0, 0])
+        ax_hm = fig.add_subplot(gs[1, 0])
+    else:
+        fig, ax = plt.subplots(figsize=(fig_w, fig_h))
+        ax_hm = None
 
     # Determine dendrogram color threshold
     max_d = float(np.max(Z[:, 2])) if Z.size else 0.0
@@ -1781,34 +1853,59 @@ def perform_hierarchical_clustering(
         color_threshold = 0.7 * max_d
 
     # Plot dendrogram with improved visualization
-    dend = dendrogram(
-        Z,
-        ax=ax,
-        labels=labels if params.get("show_labels", False) else None,
-        leaf_font_size=8,
-        color_threshold=color_threshold,
-        above_threshold_color="#bcbcbc",  # Light gray for upper links
-    )
+    dend_kwargs: Dict[str, Any] = {
+        "ax": ax,
+        "orientation": orientation,
+        "leaf_font_size": 8,
+        "color_threshold": color_threshold,
+        "above_threshold_color": "#bcbcbc",  # Light gray for upper links
+    }
 
-    # Add threshold line
+    if should_truncate:
+        dend_kwargs.update(
+            {
+                "truncate_mode": "lastp",
+                "p": int(max(10, min(max_leaf_labels, max_full_dendrogram_leaves))),
+                "show_leaf_counts": True,
+                "no_labels": True,
+            }
+        )
+    else:
+        # Only show meaningful labels when explicitly requested AND manageable.
+        if show_labels and sample_labels and len(sample_labels) == n_samples and n_samples <= max_leaf_labels:
+            dend_kwargs["labels"] = sample_labels
+        else:
+            dend_kwargs["no_labels"] = True
+
+    dend = dendrogram(Z, **dend_kwargs)
+
+    # Threshold line (top orientation)
     ax.axhline(
         y=color_threshold,
         c="r",
-        lw=1,
+        lw=1.0,
         linestyle="--",
-        alpha=0.5,
+        alpha=0.55,
         label="Color Threshold",
+        zorder=10,
     )
 
-    ax.set_xlabel("Sample Index", fontsize=12, fontweight="bold")
+    ax.set_xlabel("Sample", fontsize=12, fontweight="bold")
     ax.set_ylabel("Distance", fontsize=12, fontweight="bold")
-    ax.set_title("Hierarchical Clustering Dendrogram", fontsize=14, fontweight="bold")
-    ax.grid(True, axis="y", alpha=0.3)
+    ax.grid(True, axis="y", alpha=0.25)
 
-    if params.get("show_labels", False):
+    title = "Hierarchical Clustering Dendrogram"
+    if should_truncate:
+        title += f" (showing last {max_leaf_labels} leaves)"
+    ax.set_title(title, fontsize=14, fontweight="bold")
+
+    if show_labels and (not should_truncate) and n_samples <= max_leaf_labels:
         plt.setp(ax.get_xticklabels(), rotation=90)
     
-    # Compute cluster assignments and add a clear legend
+    # Compute cluster assignments and add clear legends.
+    # We provide two independent visual guides:
+    # 1) Dataset/Group legend + colored leaf strip (stable mapping, independent of SciPy branch colors)
+    # 2) Cluster legend (colors reflect cluster assignment at the chosen threshold)
     # NOTE: Coloring leaf labels provides a stable legend mapping that doesn't depend
     # on SciPy's internal dendrogram branch coloring.
     cluster_ids = None
@@ -1820,7 +1917,69 @@ def perform_hierarchical_clustering(
     except Exception:
         cluster_ids = None
 
-    if cluster_ids is not None and params.get("show_labels", False):
+    # --- Dataset/Group color strip + legend (recommended for interpretability) ---
+    dataset_legend = None
+    try:
+        leaves = dend.get("leaves", []) or []
+        if (not should_truncate) and leaves and labels and len(labels) == n_samples:
+            ordered_groups = [str(labels[i]) for i in leaves]
+            unique_groups = list(dict.fromkeys(ordered_groups))  # preserve first-seen order
+
+            # Keep the legend readable; still show the color strip even if many groups.
+            if len(unique_groups) <= 6:
+                palette = get_high_contrast_colors(len(unique_groups))
+            else:
+                # tab20 provides more distinct colors when there are many datasets
+                pal = plt.cm.tab20(np.linspace(0, 1, len(unique_groups)))
+                palette = [
+                    f"#{int(c[0]*255):02x}{int(c[1]*255):02x}{int(c[2]*255):02x}" for c in pal
+                ]
+
+            group_to_color = {g: palette[i] for i, g in enumerate(unique_groups)}
+
+            # SciPy dendrogram x positions are 5, 15, 25, ... (step 10)
+            xs = np.arange(len(leaves)) * 10 + 5
+            y0 = -0.02 * max_d if max_d > 0 else -0.02
+            ax.scatter(
+                xs,
+                np.full_like(xs, y0, dtype=float),
+                c=[group_to_color[g] for g in ordered_groups],
+                s=18,
+                marker="s",
+                linewidths=0,
+                zorder=20,
+            )
+            try:
+                lo, hi = ax.get_ylim()
+                ax.set_ylim(bottom=min(lo, y0 * 4.0), top=hi)
+            except Exception:
+                pass
+
+            # Legend (cap at 12 entries to avoid cramping the GUI)
+            from matplotlib.patches import Patch
+
+            legend_groups = unique_groups[:12]
+            ds_handles = [
+                Patch(facecolor=group_to_color[g], edgecolor="#333333", label=str(g))
+                for g in legend_groups
+            ]
+            if len(unique_groups) > len(legend_groups):
+                ds_handles.append(Patch(facecolor="#ffffff", edgecolor="#ffffff", label=f"… +{len(unique_groups) - len(legend_groups)} more"))
+
+            dataset_legend = ax.legend(
+                handles=ds_handles,
+                title="Dataset/Group",
+                loc="upper left",
+                fontsize=8,
+                title_fontsize=9,
+                framealpha=0.92,
+            )
+            ax.add_artist(dataset_legend)
+    except Exception:
+        dataset_legend = None
+
+    # --- Cluster legend (only when clusters are computed and labels are visible) ---
+    if cluster_ids is not None and show_labels and (not should_truncate):
         # Map clusters (1..k) to a high-contrast palette
         unique_clusters = sorted(set(int(c) for c in cluster_ids))
         colors = get_high_contrast_colors(len(unique_clusters))
@@ -1831,8 +1990,13 @@ def perform_hierarchical_clustering(
         ordered_cluster_ids = [int(cluster_ids[i]) for i in leaves]
 
         # Color the tick labels by their assigned cluster
-        for tick_label, cid in zip(ax.get_xmajorticklabels(), ordered_cluster_ids):
-            tick_label.set_color(cluster_to_color.get(cid, "#000000"))
+        # (Only works when labels are actually shown.)
+        try:
+            tick_labels = ax.get_xmajorticklabels()
+            for tick_label, cid in zip(tick_labels, ordered_cluster_ids):
+                tick_label.set_color(cluster_to_color.get(cid, "#000000"))
+        except Exception:
+            pass
 
         # Cluster legend
         from matplotlib.patches import Patch
@@ -1847,8 +2011,98 @@ def perform_hierarchical_clustering(
             fontsize=9,
             framealpha=0.92,
         )
-    
-    plt.tight_layout()
+
+    # --- Optional spectral heatmap aligned to dendrogram leaves ---
+    leaves = dend.get("leaves", []) or []
+    ordered_cluster_ids = None
+    if cluster_ids is not None and leaves:
+        try:
+            ordered_cluster_ids = [int(cluster_ids[i]) for i in leaves]
+        except Exception:
+            ordered_cluster_ids = None
+
+    if ax_hm is not None and leaves:
+        try:
+            X_ordered = np.asarray(X, dtype=float)[leaves, :]
+            w = np.asarray(wavenumbers, dtype=float).reshape(-1)
+
+            # Row-wise normalization improves interpretability for heatmaps
+            # (shows pattern differences, not absolute intensity scaling).
+            row_min = np.nanmin(X_ordered, axis=1, keepdims=True)
+            row_max = np.nanmax(X_ordered, axis=1, keepdims=True)
+            denom = row_max - row_min
+            denom[~np.isfinite(denom)] = 1.0
+            denom[denom < 1e-12] = 1.0
+            X_norm = (X_ordered - row_min) / denom
+
+            im = ax_hm.imshow(
+                X_norm,
+                aspect="auto",
+                interpolation="nearest",
+                cmap=params.get("heatmap_cmap", "coolwarm"),
+            )
+
+            # Set meaningful wavenumber ticks (imshow uses pixel indices by default).
+            def _set_wavenumber_ticks(_ax, _w, max_ticks: int = 8):
+                try:
+                    _w = np.asarray(_w, dtype=float).reshape(-1)
+                    n_cols = int(_w.shape[0])
+                    if n_cols <= 0:
+                        return
+                    tick_idx = np.linspace(0, n_cols - 1, min(max_ticks, n_cols), dtype=int)
+                    tick_lbl = [f"{_w[i]:.0f}" for i in tick_idx]
+                    _ax.set_xticks(tick_idx)
+                    _ax.set_xticklabels(tick_lbl)
+                except Exception:
+                    pass
+
+            _set_wavenumber_ticks(ax_hm, w, max_ticks=8)
+            ax_hm.set_xlabel("Wavenumber (cm⁻¹)", fontsize=11, fontweight="bold")
+            ax_hm.set_ylabel("", fontsize=10)
+            ax_hm.set_yticks([])
+            ax_hm.grid(False)
+
+            # Draw cluster boundaries for quick visual segmentation.
+            if ordered_cluster_ids is not None and len(ordered_cluster_ids) == X_norm.shape[0]:
+                try:
+                    breaks = []
+                    for i in range(1, len(ordered_cluster_ids)):
+                        if ordered_cluster_ids[i] != ordered_cluster_ids[i - 1]:
+                            breaks.append(i)
+                    for b in breaks:
+                        ax_hm.axhline(b - 0.5, color="#111111", linewidth=0.6, alpha=0.35)
+                except Exception:
+                    pass
+
+            # Minimal colorbar (kept small to avoid cramping GUI).
+            try:
+                cbar = fig.colorbar(im, ax=ax_hm, fraction=0.025, pad=0.01)
+                cbar.set_label("Normalized intensity (0–1)", fontsize=9)
+                cbar.ax.tick_params(labelsize=8)
+            except Exception:
+                pass
+        except Exception as e:
+            create_logs(__name__, __file__, f"Failed to render dendrogram heatmap: {e}", status="debug")
+
+    # Provide layout hints for the embedded Matplotlib copy widget.
+    # (The widget may re-run tight_layout on the copied figure.)
+    try:
+        # Reserve bottom space when labels are shown, and when a heatmap is present.
+        bottom = 0.22 if (show_labels and (not should_truncate) and n_samples <= max_leaf_labels) else 0.12
+        if show_heatmap:
+            bottom = max(bottom, 0.14)
+        fig._tight_layout_rect = [0.06, bottom, 0.98, 0.95]
+        fig._tight_layout_pad = 1.2
+    except Exception:
+        pass
+
+    try:
+        fig.tight_layout(pad=getattr(fig, "_tight_layout_pad", 1.2), rect=getattr(fig, "_tight_layout_rect", None))
+    except Exception:
+        try:
+            plt.tight_layout()
+        except Exception:
+            pass
     
     # Dataset counts (stable, independent of dendrogram leaf order)
     dataset_ranges = []
@@ -1869,18 +2123,106 @@ def perform_hierarchical_clustering(
     summary += f"Linkage: {linkage_method}, Distance metric: {distance_metric}\\n"
     if n_clusters is not None:
         summary += f"Requested clusters: {int(n_clusters)} (color threshold = {color_threshold:.3g})\\n"
+    if should_truncate:
+        summary += f"Displayed dendrogram leaves: {max_leaf_labels} (truncated for readability)\n"
+    if show_heatmap:
+        summary += "✓ Spectral heatmap shown (rows reordered by dendrogram leaves)\n"
     summary += f"Total spectra: {X.shape[0]}\\n\\n"
     summary += "Dataset Information:\\n"
     for ds_info in dataset_ranges:
         summary += f"  {ds_info['name']}: samples {ds_info['start']}-{ds_info['end']} (n={ds_info['count']})\\n"
+
+    # Quantitative cluster quality metrics (best-effort).
+    metrics_lines: List[str] = []
+    metrics_payload: Dict[str, Any] = {}
+    try:
+        if cluster_ids is not None:
+            cids = np.asarray(cluster_ids, dtype=int)
+            uniq = sorted(set(int(v) for v in cids))
+            if len(uniq) >= 2 and len(uniq) < n_samples:
+                try:
+                    from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
+
+                    sil_metric = "euclidean" if linkage_method == "ward" else distance_metric
+                    sil = float(silhouette_score(X, cids, metric=sil_metric))
+                    db = float(davies_bouldin_score(X, cids))
+                    ch = float(calinski_harabasz_score(X, cids))
+                    metrics_payload.update({"silhouette": sil, "davies_bouldin": db, "calinski_harabasz": ch})
+                    metrics_lines.append(f"Silhouette: {sil:.3f} (higher=better)")
+                    metrics_lines.append(f"Davies–Bouldin: {db:.3f} (lower=better)")
+                    metrics_lines.append(f"Calinski–Harabasz: {ch:.1f} (higher=better)")
+                except Exception:
+                    pass
+
+        try:
+            from scipy.cluster.hierarchy import cophenet
+
+            coph_corr, _ = cophenet(Z, pdist(X))
+            if np.isfinite(coph_corr):
+                metrics_payload["cophenetic_correlation"] = float(coph_corr)
+                metrics_lines.append(f"Cophenetic correlation: {float(coph_corr):.3f} (closer to 1=better) ")
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+    detailed_summary = f"Linkage matrix shape: {Z.shape}\n"
+    if metrics_lines:
+        detailed_summary += "\nCluster Quality Metrics:\n" + "\n".join(f"- {s}" for s in metrics_lines) + "\n"
+
+    # Build a secondary plot: mean spectra per cluster (interpretable validation)
+    fig_means = None
+    try:
+        if cluster_ids is not None:
+            cids = np.asarray(cluster_ids, dtype=int)
+            uniq = sorted(set(int(v) for v in cids))
+            if len(uniq) >= 2 and len(uniq) <= 12:
+                fig_means, axm = plt.subplots(figsize=(12, 5))
+                palette = get_high_contrast_colors(len(uniq))
+                for i, cid in enumerate(uniq):
+                    mask = cids == cid
+                    if not np.any(mask):
+                        continue
+                    mean_spec = np.nanmean(np.asarray(X, dtype=float)[mask, :], axis=0)
+                    axm.plot(
+                        np.asarray(wavenumbers, dtype=float),
+                        mean_spec,
+                        linewidth=1.8,
+                        color=palette[i],
+                        label=f"Cluster {cid} (n={int(np.sum(mask))})",
+                        alpha=0.9,
+                    )
+                axm.set_title("Cluster Mean Spectra", fontsize=13, fontweight="bold")
+                axm.set_xlabel("Wavenumber (cm⁻¹)")
+                axm.set_ylabel("Intensity")
+                axm.grid(True, alpha=0.25)
+                axm.legend(loc="best", fontsize=9)
+                try:
+                    fig_means._tight_layout_rect = [0.08, 0.12, 0.98, 0.95]
+                    fig_means._tight_layout_pad = 1.2
+                except Exception:
+                    pass
+                try:
+                    fig_means.tight_layout(pad=1.2)
+                except Exception:
+                    pass
+    except Exception:
+        fig_means = None
     
     return {
         "primary_figure": fig,
-        "secondary_figure": None,
+        "secondary_figure": fig_means,
         "data_table": None,
         "summary_text": summary,
-        "detailed_summary": f"Linkage matrix shape: {Z.shape}",
-        "raw_results": {"linkage_matrix": Z, "labels": labels},
+        "detailed_summary": detailed_summary,
+        "raw_results": {
+            "linkage_matrix": Z,
+            "labels": labels,
+            "wavenumbers": np.asarray(wavenumbers, dtype=float),
+            "cluster_ids": (np.asarray(cluster_ids, dtype=int) if cluster_ids is not None else None),
+            "leaves": leaves,
+            "cluster_metrics": metrics_payload,
+        },
         "loadings_figure": None,  # Clustering does not produce loadings
     }
 
@@ -2259,7 +2601,7 @@ def create_spectrum_preview_figure(
     ax.set_title(title, fontsize=14, fontweight='bold')
     ax.legend(loc='upper right', fontsize=10, framealpha=0.9)
     ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
-    ax.invert_xaxis()  # Raman convention: high → low wavenumber
+    # Display wavenumber increasing left → right.
 
     # Adjust y-limits
     ax.set_ylim(-max_intensity_overall * 0.05, max_intensity_overall * 1.05)

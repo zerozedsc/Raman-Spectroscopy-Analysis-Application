@@ -275,6 +275,8 @@ print(f"Effect size (r): {r:.3f}")
 
 **Purpose**: Compare means across 3+ groups
 
+**In this application**: ANOVA is performed **at each wavenumber** across selected groups (datasets or grouped labels). Because this produces many tests (one per wavenumber), the app provides **multiple-testing correction**.
+
 ### One-Way ANOVA
 
 **Use When**: One categorical factor, 3+ groups
@@ -303,11 +305,27 @@ if p_value < 0.05:
     print("Significant difference among groups")
 ```
 
-**Important Note**: ANOVA is currently disabled in the application UI. For comparing two groups, use **Pairwise Statistical Tests** instead. For multiple group comparisons, manual statistical analysis is required.
+### Application Parameters
 
-### Post-Hoc Tests (For Reference Only)
+| Parameter                 |  Default | Description                                                                    |
+| ------------------------- | -------: | ------------------------------------------------------------------------------ |
+| `alpha`                   |     0.05 | Significance level (threshold applied to raw p-values or corrected values)     |
+| `p_adjust`                | `fdr_bh` | Multiple-testing correction across wavenumbers: `none`, `fdr_bh`, `bonferroni` |
+| `post_hoc`                |   `none` | Optional post-hoc testing for significant wavenumbers: `none`, `tukey`         |
+| `max_posthoc_wavenumbers` |       20 | Cap to keep post-hoc computation responsive (0 disables)                       |
+| `show_mean_overlay`       |     True | Show mean spectra overlay by group                                             |
+| `highlight_significant`   |     True | Highlight significant wavenumber regions on the overlay                        |
 
-**Note**: Post-hoc tests are not currently implemented in the application. This section is provided for reference if you need to perform these tests manually in Python.
+### Grouped Mode vs Simple Mode
+
+- **Simple mode**: each selected **dataset** is treated as one group.
+- **Grouped mode**: datasets are mapped into user-defined groups (same grouping shared with the ML page). ANOVA is run across those **group labels**.
+
+### Post-Hoc Tests (Optional)
+
+**Why needed**: ANOVA tells you “at least one group differs”, but not which pairs differ.
+
+The application can optionally compute **Tukey’s HSD** for a limited number of significant wavenumbers (controlled by `max_posthoc_wavenumbers`).
 
 **Why Needed**: ANOVA tells you groups differ, but not which specific pairs are different
 
@@ -393,7 +411,7 @@ print(f"η² = {eta_squared:.3f}")
 - ✗ Unequal variances → Welch's ANOVA
 - ✗ Repeated measures → Repeated-measures ANOVA
 
-**Note**: ANOVA is available in the application but currently disabled in the UI. Use pairwise statistical tests for two-group comparisons.
+**Note**: For exactly 2 groups, use **Pairwise Statistical Tests** (Welch t-test / Mann–Whitney / Wilcoxon) with optional FDR correction.
 
 ---
 
