@@ -661,15 +661,15 @@ def get_main_stylesheet(font_family: str) -> str:
         }}
         
         /* --- Home Page Typography --- */
-        #homeTitleContainer {
+        #homeTitleContainer {{
             background-color: transparent;
-        }
+        }}
 
-        #homeAppIcon {
+        #homeAppIcon {{
             background-color: #e7f3ff;
             border: 1px solid #cfe8ff;
             border-radius: 10px;
-        }
+        }}
 
         #homeTitle {{
             font-size: 30px;
@@ -686,10 +686,10 @@ def get_main_stylesheet(font_family: str) -> str:
             padding-left: 2px;
         }}
 
-        #homeTitleDivider {
+        #homeTitleDivider {{
             background-color: #e9ecef;
             margin-top: 6px;
-        }
+        }}
 
         #homeVersion {{
             font-size: 12px;
