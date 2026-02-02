@@ -845,7 +845,7 @@ S004,Treated,2026-01-24,10:45,Alice,Raman-500,50mW,10s,2,Good quality
 
 - **[クイックスタート](../quick-start.md)** - 5分で開始
 - **[前処理ガイド](preprocessing.md)** - データの前処理
-- **[分析ガイド](analysis.md)** - データ分析
+- **[解析ガイド](analysis.md)** - データ解析
 - **[FAQ](../faq.md)** - よくある質問
 - **[トラブルシューティング](../troubleshooting.md)** - 問題解決
 

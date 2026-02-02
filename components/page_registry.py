@@ -25,9 +25,9 @@ def create_workspace_pages() -> Dict[str, QWidget]:
     # Local imports to avoid accidental import cycles during application startup.
     from pages.data_package_page import DataPackagePage
     from pages.preprocess_page import PreprocessPage
-    from pages.analysis_page import AnalysisPage
+    from pages.exploratory_analysis_page import AnalysisPage
     from pages.home_page import HomePage
-    from pages.machine_learning_page import MachineLearningPage
+    from pages.modeling_classification_page import MachineLearningPage
 
     return {
         "home": HomePage(),

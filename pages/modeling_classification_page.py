@@ -67,7 +67,7 @@ from functions.visualization.pca_decision_boundary import (
 	create_pca_scatter_figure,
 )
 from components.widgets.grouping.dnd_widgets import DatasetSourceList, GroupDropList
-from pages.machine_learning_page_utils.thread import MLTrainingOutput, MLTrainingThread
+from pages.modeling_classification_page_utils.thread import MLTrainingOutput, MLTrainingThread
 from utils import LOCALIZE, PROJECT_MANAGER, RAMAN_DATA, register_groups_changed_listener
 
 from components.widgets.icons import load_icon
@@ -2238,7 +2238,7 @@ class MachineLearningPage(QWidget):
 				default_seed = 0
 
 		try:
-			from pages.machine_learning_page_utils.shap_parameter_dialog import SHAPParameterDialog
+			from pages.modeling_classification_page_utils.shap_parameter_dialog import SHAPParameterDialog
 		except Exception as e:
 			QMessageBox.critical(self, LOCALIZE("COMMON.error"), str(e))
 			return
@@ -2262,7 +2262,7 @@ class MachineLearningPage(QWidget):
 		)
 
 		try:
-			from pages.machine_learning_page_utils.shap_explain_dialog import SHAPExplainDialog
+			from pages.modeling_classification_page_utils.shap_explain_dialog import SHAPExplainDialog
 		except Exception as e:
 			QMessageBox.critical(self, LOCALIZE("COMMON.error"), str(e))
 			return

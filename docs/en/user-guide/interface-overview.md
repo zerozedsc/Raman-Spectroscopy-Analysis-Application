@@ -130,7 +130,7 @@ The application uses **page-based architecture** where each major function has i
 - Apply to dataset
 - Save pipeline for reuse
 
-#### Analysis Page
+#### Exploratory Analysis Page
 **Purpose**: Exploratory and statistical analysis
 
 ![Analysis Page](../../assets/screenshots/en/analysis-page.png)
@@ -150,7 +150,7 @@ The application uses **page-based architecture** where each major function has i
 - Generate visualizations
 - Export figures and data
 
-#### Machine Learning Page
+#### Modeling & Classification Page
 **Purpose**: Train, validate, and deploy ML models
 
 ![Machine Learning Page](../../assets/screenshots/en/ml-page.png)

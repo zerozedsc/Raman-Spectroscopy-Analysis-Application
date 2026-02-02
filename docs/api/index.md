@@ -164,8 +164,8 @@ class MyMethod(PreprocessingMethod):
 #### Adding a New Analysis Method
 
 ```python
-from pages.analysis_page_utils.registry import register_analysis
-from pages.analysis_page_utils.base import AnalysisMethod
+from pages.exploratory_analysis_page_utils.registry import register_analysis
+from pages.exploratory_analysis_page_utils.base import AnalysisMethod
 
 @register_analysis(
     name="My Analysis",

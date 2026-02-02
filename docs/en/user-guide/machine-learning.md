@@ -16,7 +16,7 @@ Complete guide to building, training, evaluating, and deploying machine learning
 (ml-overview)=
 ## Overview
 
-### Machine Learning Page
+### Modeling & Classification Page
 
 The ML page provides a complete workflow for supervised learning:
 

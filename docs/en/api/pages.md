@@ -573,16 +573,16 @@ methods = preprocess.get_available_methods()
 ---
 
 (analysis-page)=
-## Analysis Page
+## Exploratory Analysis Page
 
-### pages/analysis_page.py
+### pages/exploratory_analysis_page.py
 
 Exploratory and statistical analysis interface.
 
 #### AnalysisPage Class
 
 ```python
-from pages.analysis_page import AnalysisPage
+from pages.exploratory_analysis_page import AnalysisPage
 
 analysis = AnalysisPage()
 analysis.load_data(preprocessed_data)
@@ -768,7 +768,7 @@ analysis.export_results('pdf')
 ---
 
 (machine-learning-page)=
-## Machine Learning Page
+## Modeling & Classification Page
 
 ### pages/machine_learning_page.py
 
@@ -777,7 +777,7 @@ Model training, evaluation, and prediction interface.
 #### MachineLearningPage Class
 
 ```python
-from pages.machine_learning_page import MachineLearningPage
+from pages.modeling_classification_page import MachineLearningPage
 
 ml = MachineLearningPage()
 ml.load_data(preprocessed_data)

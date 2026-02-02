@@ -187,7 +187,7 @@ runner.start()
 Hot-reload a Python module.
 
 ```python
-runner.reload_module('pages.analysis_page')
+runner.reload_module('pages.exploratory_analysis_page')
 ```
 
 **Parameters**:

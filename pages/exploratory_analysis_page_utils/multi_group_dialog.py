@@ -1,4 +1,4 @@
-"""pages.analysis_page_utils.multi_group_dialog
+"""pages.exploratory_analysis_page_utils.multi_group_dialog
 
 Backwards-compatible shim.
 

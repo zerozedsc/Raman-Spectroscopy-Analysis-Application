@@ -39,7 +39,7 @@ graph LR
     I --> J[Reporting]
 ```
 
-### Analysis Page Interface
+### Exploratory Analysis Page Interface
 
 ![Analysis Page Layout](../../assets/screenshots/en/analysis-page.png)
 

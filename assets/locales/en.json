@@ -155,14 +155,14 @@
     "TABS": {
         "data": "Data",
         "preprocessing": "Preprocessing",
-        "machine_learning": "Machine Learning",
-        "analysis": "Analysis",
+        "machine_learning": "Modeling&Classification",
+        "analysis": "Exploratory Analysis",
         "visualization": "Visualization",
         "real_time": "Real-Time",
         "home": "Home"
     },
     "ML_PAGE": {
-        "title": "Machine Learning",
+        "title": "Modeling & Classification",
         "available_datasets": "Available Datasets",
         "refresh": "Refresh",
         "no_datasets_loaded": "No datasets loaded.",
@@ -703,8 +703,8 @@
         }
     },
     "ANALYSIS_PAGE": {
-        "title": "Data Analysis",
-        "page_title": "Data Analysis",
+        "title": "Exploratory Analysis",
+        "page_title": "Exploratory Analysis",
         "welcome_title": "Choose Your Analysis Method",
         "welcome_subtitle": "Select from our comprehensive suite of analysis tools organized by category",
         "start_analysis_button": "Start Analysis",

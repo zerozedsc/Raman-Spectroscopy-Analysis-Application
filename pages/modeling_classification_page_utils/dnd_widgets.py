@@ -1,4 +1,4 @@
-"""pages.machine_learning_page_utils.dnd_widgets
+"""pages.modeling_classification_page_utils.dnd_widgets
 
 Backwards-compatible shim.
 

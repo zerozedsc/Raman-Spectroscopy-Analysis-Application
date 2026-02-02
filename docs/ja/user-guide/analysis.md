@@ -1,16 +1,16 @@
-# データ分析ガイド
+# データ解析ガイド
 
-ラマンスペクトルの包括的な分析手法
+ラマンスペクトルの包括的な解析手法
 
 ---
 
 ## 📋 目次
 
-- {ref}`探索的データ分析 <ug-analysis-exploratory>`
+- {ref}`探索的データ解析 <ug-analysis-exploratory>`
 - {ref}`次元削減 <ug-analysis-dim-reduction>`
 - {ref}`クラスタリング <ug-analysis-clustering>`
-- {ref}`統計分析 <ug-analysis-statistical>`
-- {ref}`相関分析 <ug-analysis-correlation>`
+- {ref}`統計解析 <ug-analysis-statistical>`
+- {ref}`相関解析 <ug-analysis-correlation>`
 - {ref}`ピーク解析 <ug-analysis-peaks>`
 - {ref}`結果の解釈 <ug-analysis-interpretation>`
 - {ref}`レポート作成 <ug-analysis-reporting>`
@@ -18,14 +18,14 @@
 ---
 
 (ug-analysis-exploratory)=
-## 探索的データ分析
+## 探索的データ解析
 
 ### データの概要把握
 
 #### 基本統計量
 
 ```
-分析タブ → 統計サマリー
+解析タブ → 統計サマリー
 
 表示される情報:
 - サンプル数: 150
