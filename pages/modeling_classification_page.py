@@ -398,6 +398,11 @@ class MachineLearningPage(QWidget):
 		self._connect_signals()
 		self.update_localized_text()
 		self.load_project_data()
+		# Initial SHAP button state (depends on whether a model is trained/loaded).
+		try:
+			self._sync_shap_button_state()
+		except Exception:
+			pass
 
 		# Runtime sync: refresh this page's groups when Analysis updates shared groups.
 		try:
@@ -890,12 +895,25 @@ class MachineLearningPage(QWidget):
 		svm_form.addRow(mk_label("ML_PAGE.params_svm_kernel", "Kernel"), self.svm_kernel)
 		svm_form.addRow(mk_label("ML_PAGE.params_svm_c", "C"), self.svm_C)
 		svm_form.addRow(mk_label("ML_PAGE.params_svm_gamma_mode", "Gamma Mode"), self.svm_gamma_mode)
-		svm_form.addRow(mk_label("ML_PAGE.params_svm_gamma_value", "Gamma Value"), self.svm_gamma_value)
+		self._svm_gamma_value_label = mk_label("ML_PAGE.params_svm_gamma_value", "Gamma Value")
+		svm_form.addRow(self._svm_gamma_value_label, self.svm_gamma_value)
 		svm_form.addRow(mk_label("ML_PAGE.params_svm_degree", "Degree (Poly)"), self.svm_degree)
 		self.model_params_stack.addTab(svm_tab, "svm")
 
 		def _sync_gamma_enabled():
-			self.svm_gamma_value.setEnabled(self.svm_gamma_mode.currentData() == "custom")
+			is_custom = self.svm_gamma_mode.currentData() == "custom"
+			self.svm_gamma_value.setEnabled(bool(is_custom))
+			# Hide the entire row unless gamma is custom.
+			try:
+				self.svm_gamma_value.setVisible(bool(is_custom))
+			except Exception:
+				pass
+			try:
+				lbl = getattr(self, "_svm_gamma_value_label", None)
+				if lbl is not None:
+					lbl.setVisible(bool(is_custom))
+			except Exception:
+				pass
 		_sync_gamma_enabled()
 		self.svm_gamma_mode.currentIndexChanged.connect(_sync_gamma_enabled)
 
@@ -1676,7 +1694,14 @@ class MachineLearningPage(QWidget):
 		self.save_model_button.setEnabled(enabled)
 		self.load_model_button.setEnabled(enabled)
 		self.export_report_button.setEnabled(enabled)
-		self.shap_button.setEnabled(enabled)
+		# SHAP availability depends on the currently trained/loaded model.
+		if not enabled:
+			self.shap_button.setEnabled(False)
+		else:
+			try:
+				self._sync_shap_button_state()
+			except Exception:
+				self.shap_button.setEnabled(True)
 		self.pca_view_combo.setEnabled(enabled)
 		self.evaluate_button.setEnabled(enabled)
 		self.eval_dataset_combo.setEnabled(enabled)
@@ -2190,14 +2215,84 @@ class MachineLearningPage(QWidget):
 
 		self.status_label.setText(LOCALIZE("ML_PAGE.status_done"))
 		self._set_controls_enabled(True)
-		# Enable SHAP once a model exists.
+		# Enable/disable SHAP depending on model support.
 		try:
-			self.shap_button.setEnabled(True)
+			self._sync_shap_button_state()
+		except Exception:
+			pass
+
+	def _shap_support_info(self) -> tuple[bool, str]:
+		"""Return (supported, reason/tooltip) for the SHAP button."""
+		# Must have a trained/loaded model
+		model = getattr(self, "_trained_model", None)
+		if model is None:
+			return False, "Train or load a model to use SHAP."
+
+		# Must have SHAP installed (portable builds may omit it)
+		try:
+			import importlib.util
+
+			if importlib.util.find_spec("shap") is None:
+				return False, "SHAP is not available in this build."
+		except Exception:
+			# If probing fails, don't hard-disable; the worker will error gracefully.
+			pass
+
+		# Worker currently requires predict_proba
+		if not hasattr(model, "predict_proba"):
+			return False, "This model does not support predict_proba (required for SHAP)."
+
+		model_key = str(getattr(self, "_trained_model_key", "") or "").strip()
+		params = dict(getattr(self, "_trained_model_params", {}) or {})
+
+		# Explicitly disable for the known-problematic case: non-linear SVM kernels.
+		if model_key == "svm":
+			kernel = str(params.get("kernel") or "").strip().lower()
+			# If kernel is missing, be conservative only for non-linear defaults.
+			if kernel and kernel != "linear":
+				return False, "SHAP is disabled for non-linear SVM kernels (rbf/poly/sigmoid)."
+			if not kernel:
+				# Training UI defaults to rbf; treat unknown as non-linear.
+				return False, "SHAP is disabled for non-linear SVM kernels (rbf/poly/sigmoid)."
+
+		# Linear regression "classifier" doesn't produce probabilistic outputs in this app.
+		if model_key == "linear_regression":
+			return False, "SHAP is not supported for this model."
+
+		return True, "Compute SHAP explanation for a selected spectrum."
+
+	def _sync_shap_button_state(self) -> None:
+		"""Apply SHAP enabled/tooltip state based on current runtime/model."""
+		btn = getattr(self, "shap_button", None)
+		if btn is None:
+			return
+		# During training we always disable SHAP.
+		try:
+			if self._training_thread is not None and self._training_thread.isRunning():
+				btn.setEnabled(False)
+				btn.setToolTip("Training in progress")
+				return
+		except Exception:
+			pass
+
+		supported, tip = self._shap_support_info()
+		btn.setEnabled(bool(supported))
+		try:
+			btn.setToolTip(str(tip or ""))
 		except Exception:
 			pass
 
 	def _run_shap(self):
 		"""Compute SHAP per-spectrum explanation using the already-trained model."""
+		# Guard: don't allow SHAP to run when disabled/unsupported.
+		try:
+			supported, tip = self._shap_support_info()
+			if not supported:
+				QMessageBox.information(self, LOCALIZE("COMMON.info"), str(tip or "SHAP is not available."))
+				return
+		except Exception:
+			pass
+
 		out = getattr(self, "_last_training_output", None)
 		if out is None:
 			QMessageBox.warning(self, LOCALIZE("COMMON.warning"), LOCALIZE("ML_PAGE.error_no_model"))
@@ -2459,7 +2554,7 @@ class MachineLearningPage(QWidget):
 			return
 
 		from pathlib import Path
-		from components.widgets import get_export_bundle_options
+		from components.widgets import get_export_bundle_options, show_export_summary_dialog
 
 		default_dir = self._default_report_export_dir()
 		base = self._default_model_basename()
@@ -2543,10 +2638,14 @@ class MachineLearningPage(QWidget):
 			return
 
 		self._append_log(f"[DEBUG] Exported ML report bundle ({len(created)} files)")
-		msg = "\n".join(created)
-		if missing:
-			msg += "\n\nMissing / not available:\n" + "\n".join(sorted(set(missing)))
-		QMessageBox.information(self, LOCALIZE("COMMON.info"), msg)
+		show_export_summary_dialog(
+			self,
+			title=LOCALIZE("COMMON.info"),
+			created_paths=created,
+			missing_items=missing,
+			open_folder=str(out_dir),
+			header_text=LOCALIZE("ML_PAGE.export_dialog_title"),
+		)
 
 	def _load_model(self):
 		default_dir = self._default_model_save_dir()
@@ -2596,6 +2695,10 @@ class MachineLearningPage(QWidget):
 		# Ensure actions are usable after loading.
 		try:
 			self._set_controls_enabled(True)
+		except Exception:
+			pass
+		try:
+			self._sync_shap_button_state()
 		except Exception:
 			pass
 		try:

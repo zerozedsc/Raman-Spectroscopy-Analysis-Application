@@ -35,6 +35,47 @@ class ExportManager(QObject):
         self.localize = localize_func
         self.project_manager = project_manager
 
+    def remember_export_directory(self, directory: str) -> None:
+        """Persist the last used export directory.
+
+        Preference order for future exports:
+        1) Per-project lastExportDir (if a project is open)
+        2) <project_root>/reports
+        3) User home
+
+        This is best-effort and never blocks export success.
+        """
+
+        try:
+            directory = str(directory or "").strip()
+            if not directory:
+                return
+            if not (self.project_manager and getattr(self.project_manager, "current_project_data", None)):
+                return
+
+            # Store in project JSON for per-project persistence.
+            self.project_manager.current_project_data["lastExportDir"] = directory
+            try:
+                self.project_manager.save_current_project()
+            except Exception:
+                # Non-fatal
+                pass
+        except Exception:
+            pass
+
+    def _get_project_root(self) -> Path | None:
+        """Return the current project's root directory if available."""
+
+        try:
+            if not (self.project_manager and self.project_manager.current_project_data):
+                return None
+            project_file = self.project_manager.current_project_data.get("projectFilePath")
+            if isinstance(project_file, str) and project_file.strip():
+                return Path(project_file).resolve().parent
+        except Exception:
+            return None
+        return None
+
     def export_plot_png(
         self, figure, default_filename: str = "analysis_plot.png"
     ) -> bool:
@@ -88,6 +129,10 @@ class ExportManager(QObject):
 
         try:
             figure.savefig(file_path, dpi=300, bbox_inches="tight", format="png")
+            try:
+                self.remember_export_directory(str(opts.directory))
+            except Exception:
+                pass
             self._show_success(
                 self.localize("ANALYSIS_PAGE.export_success").format(file_path)
             )
@@ -149,6 +194,10 @@ class ExportManager(QObject):
 
         try:
             figure.savefig(file_path, format="svg", bbox_inches="tight")
+            try:
+                self.remember_export_directory(str(opts.directory))
+            except Exception:
+                pass
             self._show_success(
                 self.localize("ANALYSIS_PAGE.export_success").format(file_path)
             )
@@ -218,6 +267,10 @@ class ExportManager(QObject):
                 df = data_table
 
             df.to_csv(file_path, index=False)
+            try:
+                self.remember_export_directory(str(opts.directory))
+            except Exception:
+                pass
             self._show_success(
                 self.localize("ANALYSIS_PAGE.export_success").format(file_path)
             )
@@ -311,6 +364,11 @@ class ExportManager(QObject):
                 df.to_csv(file_path, sep='\\t', index=False)
             elif selected_format == "pkl":
                 df.to_pickle(file_path)
+
+            try:
+                self.remember_export_directory(out_dir)
+            except Exception:
+                pass
             
             self._show_success(
                 self.localize("ANALYSIS_PAGE.export_success").format(file_path)
@@ -380,6 +438,11 @@ class ExportManager(QObject):
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             report_folder = Path(folder_path) / f"{method_name}_{timestamp}"
             report_folder.mkdir(parents=True, exist_ok=True)
+
+            try:
+                self.remember_export_directory(folder_path)
+            except Exception:
+                pass
 
             # Export plot
             if result.primary_figure:
@@ -451,14 +514,11 @@ class ExportManager(QObject):
             return False
 
         try:
-            # Get project path from current_project_data dict
-            project_path = Path(
-                self.project_manager.current_project_data.get("projectPath", "")
-            )
-            if not project_path or not project_path.exists():
+            project_root = self._get_project_root()
+            if not project_root or not project_root.exists():
                 self._show_error(self.localize("ANALYSIS_PAGE.invalid_project_path"))
                 return False
-            analysis_folder = project_path / "analyses"
+            analysis_folder = project_root / "analyses"
             analysis_folder.mkdir(exist_ok=True)
 
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -518,15 +578,21 @@ class ExportManager(QObject):
             Full path string
         """
         if self.project_manager and self.project_manager.current_project_data:
-            # Get project path from current_project_data dict
-            project_path_str = self.project_manager.current_project_data.get(
-                "projectPath", ""
-            )
-            if project_path_str:
-                project_path = Path(project_path_str)
-                # Keep consistent with ML page bundle export UX.
-                export_folder = project_path / "reports"
-                export_folder.mkdir(exist_ok=True)
+            # Prefer per-project last export dir when available.
+            try:
+                last_dir = self.project_manager.current_project_data.get("lastExportDir")
+                if isinstance(last_dir, str) and last_dir.strip():
+                    export_folder = Path(last_dir)
+                    export_folder.mkdir(parents=True, exist_ok=True)
+                    return str(export_folder / filename)
+            except Exception:
+                pass
+
+            # Otherwise default to <project_root>/reports
+            project_root = self._get_project_root()
+            if project_root:
+                export_folder = project_root / "reports"
+                export_folder.mkdir(parents=True, exist_ok=True)
                 return str(export_folder / filename)
 
         # Fallback to home directory

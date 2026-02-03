@@ -1175,6 +1175,14 @@ class AnalysisPage(QWidget):
                 method_label.setWordWrap(True)
             except Exception:
                 pass
+            try:
+                from PySide6.QtWidgets import QSizePolicy
+
+                method_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+                method_label.setMinimumWidth(0)
+                method_label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+            except Exception:
+                pass
             w_layout.addWidget(method_label)
 
             mode_label = QLabel(mode_line)
@@ -1619,7 +1627,7 @@ class AnalysisPage(QWidget):
             return
 
         from pathlib import Path
-        from components.widgets import get_export_analysis_bundle_options
+        from components.widgets import get_export_analysis_bundle_options, show_export_summary_dialog
 
         # Defaults
         try:
@@ -1633,12 +1641,68 @@ class AnalysisPage(QWidget):
         except Exception:
             default_dir = ""
 
+        # Collect any additional Matplotlib figures provided by the method.
+        extra_plots: List[tuple[str, str, bool]] = []
+        try:
+            from matplotlib.figure import Figure  # type: ignore
+
+            raw = getattr(self.current_result, "raw_results", None) or {}
+            if isinstance(raw, dict):
+                for k, v in raw.items():
+                    if isinstance(v, Figure):
+                        key = str(k or "").strip()
+                        if not key:
+                            continue
+                        # Derive a human-friendly label.
+                        label_key = key
+                        if label_key.endswith("_figure"):
+                            label_key = label_key[: -len("_figure")]
+                        label = label_key.replace("_", " ").strip().title()
+                        if not label:
+                            label = key
+                        extra_plots.append((key, label, True))
+        except Exception:
+            extra_plots = []
+
+        # Offer component selection for PCA loadings (and similar component-based plots)
+        component_plots: dict[str, dict] = {}
+        try:
+            raw0 = getattr(self.current_result, "raw_results", None) or {}
+            if isinstance(raw0, dict):
+                # PCA stores numeric arrays + a loadings_figure in raw_results
+                loadings = raw0.get("loadings")
+                wn = raw0.get("wavenumbers")
+                if loadings is not None and wn is not None:
+                    try:
+                        import numpy as np
+
+                        loadings_arr = np.asarray(loadings)
+                        n_comp = int(loadings_arr.shape[0]) if loadings_arr.ndim >= 2 else 0
+                        if n_comp > 0:
+                            component_plots["loadings_figure"] = {
+                                "label": "Loadings components to export (max 4):",
+                                "count": n_comp,
+                                "max_select": 4,
+                                "default": [1, 2] if n_comp >= 2 else [1],
+                            }
+                    except Exception:
+                        pass
+        except Exception:
+            component_plots = {}
+
         opts = get_export_analysis_bundle_options(
             self,
             title=self.localize("ANALYSIS_PAGE.export"),
             default_directory=default_dir,
             default_base_name=base,
             default_image_format="png",
+            additional_plots=extra_plots,
+            # Hide unavailable artifacts
+            show_data_csv=self.current_result.data_table is not None,
+            show_data_json=self.current_result.data_table is not None,
+            show_primary_plot=getattr(self.current_result, "primary_figure", None) is not None,
+            show_secondary_plot=getattr(self.current_result, "secondary_figure", None) is not None,
+            component_plots=component_plots,
             # Labels (keep simple if localization keys are missing)
             location_label="Save Location:",
             base_name_label="Base Name:",
@@ -1656,6 +1720,12 @@ class AnalysisPage(QWidget):
 
         out_dir = Path(opts.directory)
         img_ext = ".png" if opts.image_format == "png" else ".svg"
+
+        # Persist last-used export directory
+        try:
+            self.export_manager.remember_export_directory(str(out_dir))
+        except Exception:
+            pass
 
         created: List[str] = []
         missing: List[str] = []
@@ -1711,6 +1781,104 @@ class AnalysisPage(QWidget):
         if opts.export_secondary_plot:
             _save_fig(getattr(self.current_result, "secondary_figure", None), "analysis_secondary_plot")
 
+        # Additional plots from raw_results
+        try:
+            raw = getattr(self.current_result, "raw_results", None) or {}
+            if isinstance(raw, dict):
+                comp_export_map = {}
+                try:
+                    comp_export_map = {k: v for (k, v) in (getattr(opts, "component_exports", ()) or ())}
+                except Exception:
+                    comp_export_map = {}
+
+                def _export_pca_loadings_components(selected_pcs_1based: list[int], stem: str) -> bool:
+                    """Build a loadings figure containing only selected PCs and export it."""
+
+                    try:
+                        import numpy as np
+
+                        wn = np.asarray(raw.get("wavenumbers"), dtype=float)
+                        loadings_arr = np.asarray(raw.get("loadings"), dtype=float)
+                        evr = raw.get("explained_variance")
+                        evr_arr = np.asarray(evr, dtype=float) if evr is not None else None
+
+                        pcs = [int(x) for x in selected_pcs_1based if int(x) >= 1]
+                        pcs = pcs[:4]
+                        if not pcs:
+                            return False
+
+                        idxs = [pc - 1 for pc in pcs]
+                        idxs = [i for i in idxs if 0 <= i < loadings_arr.shape[0]]
+                        if not idxs:
+                            return False
+
+                        n = len(idxs)
+                        if n <= 2:
+                            rows, cols = (1, 2)
+                            figsize = (12, 4.8)
+                        else:
+                            rows, cols = (2, 2)
+                            figsize = (12, 9)
+
+                        fig, axes = plt.subplots(rows, cols, figsize=figsize, constrained_layout=True)
+                        axes_flat = np.ravel(axes) if hasattr(axes, "__iter__") else [axes]
+
+                        colors = plt.cm.tab10(np.linspace(0, 1, max(n, 3)))
+                        for j, pc_i in enumerate(idxs):
+                            ax = axes_flat[j]
+                            y = loadings_arr[pc_i, :]
+                            ax.plot(wn, y, color=colors[j], linewidth=1.2)
+                            var_txt = ""
+                            if evr_arr is not None and pc_i < evr_arr.shape[0]:
+                                var_txt = f" ({evr_arr[pc_i] * 100:.1f}%)"
+                            ax.set_title(f"PC{pc_i + 1}{var_txt}", fontsize=11, fontweight="bold")
+                            ax.set_xlabel("Wavenumber (cm⁻¹)")
+                            ax.set_ylabel("Loading")
+                            ax.grid(True, alpha=0.25)
+
+                        # Hide unused subplots
+                        for k in range(len(idxs), len(axes_flat)):
+                            try:
+                                axes_flat[k].axis("off")
+                            except Exception:
+                                pass
+
+                        p = out_dir / f"{stem}_{opts.base_name}{img_ext}"
+                        fig.savefig(str(p), dpi=300, bbox_inches="tight", format=opts.image_format)
+                        created.append(str(p))
+                        try:
+                            plt.close(fig)
+                        except Exception:
+                            pass
+                        return True
+                    except Exception:
+                        return False
+
+                for key in getattr(opts, "export_additional_plots", ()) or ():
+                    # Component-based export override (currently: PCA loadings)
+                    try:
+                        if str(key) == "loadings_figure":
+                            selected = comp_export_map.get("loadings_figure")
+                            if isinstance(selected, (list, tuple)) and len(selected) > 0:
+                                ok = _export_pca_loadings_components(list(selected), "analysis_loadings")
+                                if ok:
+                                    continue
+                    except Exception:
+                        pass
+
+                    fig = raw.get(key)
+                    if fig is None:
+                        missing.append(str(key))
+                        continue
+                    safe = str(key)
+                    if safe.endswith("_figure"):
+                        safe = safe[: -len("_figure")]
+                    safe = "".join(ch if (ch.isalnum() or ch in ("-", "_")) else "_" for ch in safe)
+                    safe = safe.strip(" _-") or "analysis_extra"
+                    _save_fig(fig, f"analysis_{safe}")
+        except Exception:
+            pass
+
         if not created:
             QMessageBox.warning(
                 self,
@@ -1719,11 +1887,14 @@ class AnalysisPage(QWidget):
             )
             return
 
-        msg = "\n".join(created)
-        if missing:
-            msg += "\n\nMissing / not available:\n" + "\n".join(sorted(set(missing)))
-
-        QMessageBox.information(self, self.localize("COMMON.info"), msg)
+        show_export_summary_dialog(
+            self,
+            title=self.localize("COMMON.info"),
+            created_paths=created,
+            missing_items=missing,
+            open_folder=str(out_dir),
+            header_text=self.localize("ANALYSIS_PAGE.export_success_title"),
+        )
 
     def _export_png(self):
         """Export current plot as PNG."""

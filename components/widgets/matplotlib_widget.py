@@ -1159,6 +1159,14 @@ class MatplotlibWidget(QWidget):
                         color = artist.get_color()
                         ha = artist.get_ha()
                         va = artist.get_va()
+                        try:
+                            rotation = float(artist.get_rotation() or 0.0)
+                        except Exception:
+                            rotation = 0.0
+                        try:
+                            rotation_mode = artist.get_rotation_mode()
+                        except Exception:
+                            rotation_mode = None
 
                         # Get bbox properties
                         bbox = artist.get_bbox_patch()
@@ -1203,6 +1211,8 @@ class MatplotlibWidget(QWidget):
                             color=color,
                             ha=ha,
                             va=va,
+                            rotation=rotation,
+                            rotation_mode=rotation_mode,
                             bbox=bbox_props,
                             arrowprops=arrowprops,
                             zorder=10,
@@ -1213,7 +1223,9 @@ class MatplotlibWidget(QWidget):
                         try:
                             if hasattr(new_anno, "draggable"):
                                 try:
-                                    new_anno.draggable(use_blit=True)
+                                    # Blitting can be glitchy with tight_layout() + QtAgg,
+                                    # so default to a safer full redraw.
+                                    new_anno.draggable(use_blit=False)
                                 except TypeError:
                                     # Older Matplotlib may not accept use_blit kwarg
                                     new_anno.draggable()

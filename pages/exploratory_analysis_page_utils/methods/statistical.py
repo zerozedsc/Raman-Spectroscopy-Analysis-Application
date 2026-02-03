@@ -229,6 +229,10 @@ def perform_peak_analysis(
     width_min = params.get("width_min", 5)
     top_n_peaks = params.get("top_n_peaks", 20)
     show_assignments = params.get("show_assignments", True)
+    assignment_label_orientation = str(
+        params.get("assignment_label_orientation", "horizontal")
+    ).strip().lower()
+    vertical_labels = assignment_label_orientation.startswith("v")
 
     # Load Raman peak assignments from JSON (only if enabled)
     raman_peaks_data = {}
@@ -337,6 +341,15 @@ def perform_peak_analysis(
     # Create primary figure: Spectrum with peaks
     fig1, ax1 = plt.subplots(figsize=(14, 7))
 
+    # Peak labels are intended to be user-adjustable (draggable) in the embedded
+    # Matplotlib widget. tight_layout() on resize can fight with draggable label
+    # positions and cause jumpy/unstable behavior, so we opt out for this figure.
+    try:
+        fig1._skip_tight_layout = True
+        fig1._tight_layout_on_resize = False
+    except Exception:
+        pass
+
     ax1.plot(
         wavenumbers, mean_spectrum, linewidth=1.5, color="blue", label="Mean spectrum"
     )
@@ -436,9 +449,14 @@ def perform_peak_analysis(
         # Find component assignment (only if enabled)
         assignment = find_peak_assignment(wavenumber) if show_assignments else ""
 
-        # Build annotation text: wavenumber on first line, assignment on second line
+        # Build annotation text.
+        # - horizontal: stacked (wavenumber + assignment on next line)
+        # - vertical: inline text, then rotated 90° for a compact vertical label
         if show_assignments and assignment:
-            annotation_text = f"{wavenumber:.0f} cm⁻¹\n{assignment}"
+            if vertical_labels:
+                annotation_text = f"{wavenumber:.0f} {assignment}"
+            else:
+                annotation_text = f"{wavenumber:.0f} cm⁻¹\n{assignment}"
         else:
             annotation_text = f"{wavenumber:.0f} cm⁻¹"
 
@@ -461,6 +479,8 @@ def perform_peak_analysis(
             ha="center",
             fontsize=7 if assignment else 8,
             fontweight="bold",
+            rotation=90 if vertical_labels else 0,
+            rotation_mode="anchor",
             bbox=dict(
                 boxstyle="round,pad=0.4",
                 facecolor=box_color,

@@ -525,6 +525,12 @@ ANALYSIS_METHODS: Dict[str, Dict[str, Dict[str, Any]]] = {
                     "default": True,
                     "label": "Show Biochemical Assignments",
                 },
+                "assignment_label_orientation": {
+                    "type": "combo",
+                    "options": ["horizontal", "vertical"],
+                    "default": "horizontal",
+                    "label": "Assignment Label Orientation",
+                },
             },
             "function": "perform_peak_analysis",
         },

@@ -55,6 +55,7 @@ ICON_PATHS = {
     "recent_project": "recent-project.svg",  # Used as "recent_projects" in home_page.py, utils.py
     # Application identity
     "app_icon": "app-icon.svg",
+    "documentation": "documentation.svg",  # Documentation button (home page)
     # Aliases for backward compatibility with utils.py ICON_PATHS
     "open_project": "load-project.svg",  # Alias for load_project
     "recent_projects": "recent-project.svg",  # Alias for recent_project (plural form)

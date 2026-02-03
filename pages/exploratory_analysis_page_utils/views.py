@@ -382,12 +382,14 @@ def create_history_sidebar(localize_func: Callable) -> QWidget:
     )
     # Expanded width range (used by horizontal collapse)
     sidebar._expanded_min_width = 200
-    sidebar._expanded_max_width = 280
+    # Allow user resizing via splitter; keep a sensible upper bound.
+    sidebar._expanded_max_width = 520
     sidebar._collapsed_width = 44
 
     sidebar.setMaximumWidth(sidebar._expanded_max_width)
     sidebar.setMinimumWidth(sidebar._expanded_min_width)
-    sidebar.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+    # IMPORTANT: do not use Fixed, otherwise splitter dragging won't resize the sidebar.
+    sidebar.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
     layout = QVBoxLayout(sidebar)
     layout.setContentsMargins(12, 12, 12, 12)
@@ -522,7 +524,7 @@ def create_history_sidebar(localize_func: Callable) -> QWidget:
             layout.setContentsMargins(12, 12, 12, 12)
             layout.setSpacing(12)
             sidebar.setMinimumWidth(getattr(sidebar, "_expanded_min_width", 200))
-            sidebar.setMaximumWidth(getattr(sidebar, "_expanded_max_width", 280))
+            sidebar.setMaximumWidth(getattr(sidebar, "_expanded_max_width", 520))
             sidebar.updateGeometry()
 
             # Force the list to re-layout embedded item widgets after a collapse/expand cycle.
@@ -564,6 +566,59 @@ def create_history_sidebar(localize_func: Callable) -> QWidget:
                 QTimer.singleShot(50, _refresh_list)
             except Exception:
                 pass
+
+    # When the sidebar is resized (e.g., splitter drag), recompute list item size hints
+    # so word-wrapped labels don't get clipped.
+    try:
+        from PySide6.QtCore import QTimer
+
+        _orig_resize_event = sidebar.resizeEvent
+
+        def _resize_event(ev):
+            try:
+                _orig_resize_event(ev)
+            except Exception:
+                pass
+            try:
+                # Defer to allow layout to settle.
+                def _refresh() -> None:
+                    try:
+                        history_list.doItemsLayout()
+                    except Exception:
+                        pass
+                    try:
+                        vw = int(history_list.viewport().width())
+                        for i in range(history_list.count()):
+                            it = history_list.item(i)
+                            w = history_list.itemWidget(it)
+                            if w is not None and vw > 0:
+                                try:
+                                    w.setFixedWidth(max(140, vw - 4))
+                                except Exception:
+                                    pass
+                                try:
+                                    it.setSizeHint(w.sizeHint())
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
+                    try:
+                        history_list.updateGeometry()
+                    except Exception:
+                        pass
+                    try:
+                        history_list.viewport().update()
+                    except Exception:
+                        pass
+
+                QTimer.singleShot(0, _refresh)
+                QTimer.singleShot(40, _refresh)
+            except Exception:
+                pass
+
+        sidebar.resizeEvent = _resize_event
+    except Exception:
+        pass
 
     def _toggle() -> None:
         _set_collapsed(not bool(getattr(sidebar, "_history_collapsed", False)))

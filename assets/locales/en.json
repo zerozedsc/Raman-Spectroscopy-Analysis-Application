@@ -30,7 +30,10 @@
         "project_exists_error": "Project '{name}' already exists.",
         "project_not_found_error": "Project file not found: {path}",
         "open_project_error": "Failed to open project. Please try again.",
-        "project_file_filter": "Project Files (*.json)"
+        "project_file_filter": "Project Files (*.json)",
+        "documentation_button": "Documentation",
+        "documentation_tooltip": "Open documentation",
+        "documentation_open_failed": "Failed to open documentation."
     },
     "DATA_PACKAGE_PAGE": {
         "importer_title": "Import New Dataset",
@@ -151,6 +154,14 @@
         "cancel": "Cancel",
         "close": "Close",
         "unknown": "Unknown"
+    },
+    "EXPORT_SUMMARY": {
+        "title": "Export",
+        "header": "Export completed",
+        "created_files_header": "Created files:",
+        "missing_items_header": "Missing / not available:",
+        "copy_button": "Copy",
+        "open_folder_button": "Open folder"
     },
     "TABS": {
         "data": "Data",

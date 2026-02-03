@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, Iterable, Optional
 
 from PySide6.QtCore import Qt
@@ -14,10 +14,14 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPlainTextEdit,
     QPushButton,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
+
+from utils import LOCALIZE
 
 
 _EXPORT_DIALOG_STYLESHEET = """
@@ -116,6 +120,98 @@ QDialogButtonBox QPushButton {
 """
 
 
+def show_export_summary_dialog(
+    parent: QWidget,
+    *,
+    title: str,
+    created_paths: Iterable[str],
+    missing_items: Iterable[str] = (),
+    open_folder: str | None = None,
+    header_text: str | None = None,
+) -> None:
+    """Show a nicer export summary dialog than a raw QMessageBox.
+
+    This is used by bundle export flows (Analysis/ML), where the output may
+    be a long list of files.
+    """
+
+    dialog = QDialog(parent)
+    dialog.setWindowTitle(_safe_str(title) or LOCALIZE("EXPORT_SUMMARY.title"))
+    dialog.setMinimumWidth(720)
+    dialog.setStyleSheet(_EXPORT_DIALOG_STYLESHEET)
+
+    layout = QVBoxLayout(dialog)
+    layout.setSpacing(14)
+    layout.setContentsMargins(20, 20, 20, 20)
+
+    header = QLabel(_safe_str(header_text) or LOCALIZE("EXPORT_SUMMARY.header"))
+    header.setObjectName("infoLabel")
+    header.setWordWrap(True)
+    layout.addWidget(header)
+
+    created = [str(p) for p in created_paths if str(p).strip()]
+    missing = [str(m) for m in missing_items if str(m).strip()]
+
+    text = ""
+    if created:
+        text += LOCALIZE("EXPORT_SUMMARY.created_files_header") + "\n" + "\n".join(created)
+    if missing:
+        if text:
+            text += "\n\n"
+        text += LOCALIZE("EXPORT_SUMMARY.missing_items_header") + "\n" + "\n".join(sorted(set(missing)))
+
+    box = QPlainTextEdit()
+    box.setReadOnly(True)
+    box.setPlainText(text.strip())
+    box.setMinimumHeight(220)
+    box.setStyleSheet(
+        "QPlainTextEdit { background: white; border: 1px solid #e0e0e0; border-radius: 6px; padding: 10px; font-family: Consolas, 'Courier New', monospace; font-size: 11px; }"
+    )
+    layout.addWidget(box)
+
+    # Action row
+    actions = QHBoxLayout()
+    actions.addStretch()
+
+    copy_btn = QPushButton(LOCALIZE("EXPORT_SUMMARY.copy_button"))
+
+    def _copy() -> None:
+        try:
+            from PySide6.QtWidgets import QApplication
+
+            cb = QApplication.clipboard()
+            if cb is not None:
+                cb.setText(box.toPlainText())
+        except Exception:
+            pass
+
+    copy_btn.clicked.connect(_copy)
+    actions.addWidget(copy_btn)
+
+    if open_folder:
+        open_btn = QPushButton(LOCALIZE("EXPORT_SUMMARY.open_folder_button"))
+
+        def _open_folder() -> None:
+            try:
+                from PySide6.QtGui import QDesktopServices
+                from PySide6.QtCore import QUrl
+
+                QDesktopServices.openUrl(QUrl.fromLocalFile(str(open_folder)))
+            except Exception:
+                pass
+
+        open_btn.clicked.connect(_open_folder)
+        actions.addWidget(open_btn)
+
+    layout.addLayout(actions)
+
+    buttons = QDialogButtonBox(QDialogButtonBox.Ok)
+    buttons.accepted.connect(dialog.accept)
+    layout.addWidget(buttons)
+
+    dialog.exec()
+
+
 _WINDOWS_RESERVED_BASENAMES = {
     "CON",
     "PRN",
@@ -175,6 +271,11 @@ class ExportAnalysisBundleOptions:
     export_data_json: bool = False
     export_primary_plot: bool = True
     export_secondary_plot: bool = False
+    export_additional_plots: tuple[str, ...] = ()
+    # Optional component selections for component-based plots.
+    # Represented as ((artifact_key, (components...)), ...)
+    # Components are 1-based indices (PC1 => 1) for UI readability.
+    component_exports: tuple[tuple[str, tuple[int, ...]], ...] = ()
 
 
 def _safe_str(x: object) -> str:
@@ -518,6 +619,16 @@ def get_export_analysis_bundle_options(
     default_directory: str | None = None,
     default_base_name: str | None = None,
     default_image_format: str = "png",
+    # Extra figures (dynamic)
+    additional_plots: Iterable[tuple[str, str, bool]] = (),
+    # Which base artifacts are offered (hide if not available)
+    show_data_csv: bool = True,
+    show_data_json: bool = True,
+    show_primary_plot: bool = True,
+    show_secondary_plot: bool = True,
+    # Component-based export (optional)
+    # Format: {"loadings_figure": {"label": "...", "count": 10, "max_select": 4, "default": [1,2]}}
+    component_plots: dict | None = None,
     # Defaults
     default_export_data_csv: bool = True,
     default_export_data_json: bool = False,
@@ -598,19 +709,158 @@ def get_export_analysis_bundle_options(
     layout.addWidget(section)
 
     cb_data_csv = QCheckBox(_safe_str(data_csv_label))
-    cb_data_csv.setChecked(bool(default_export_data_csv))
+    cb_data_csv.setChecked(bool(default_export_data_csv) and bool(show_data_csv))
+    cb_data_csv.setVisible(bool(show_data_csv))
+    if not show_data_csv:
+        cb_data_csv.setChecked(False)
+
     cb_data_json = QCheckBox(_safe_str(data_json_label))
-    cb_data_json.setChecked(bool(default_export_data_json))
+    cb_data_json.setChecked(bool(default_export_data_json) and bool(show_data_json))
+    cb_data_json.setVisible(bool(show_data_json))
+    if not show_data_json:
+        cb_data_json.setChecked(False)
 
     cb_primary = QCheckBox(_safe_str(primary_plot_label))
-    cb_primary.setChecked(bool(default_export_primary_plot))
-    cb_secondary = QCheckBox(_safe_str(secondary_plot_label))
-    cb_secondary.setChecked(bool(default_export_secondary_plot))
+    cb_primary.setChecked(bool(default_export_primary_plot) and bool(show_primary_plot))
+    cb_primary.setVisible(bool(show_primary_plot))
+    if not show_primary_plot:
+        cb_primary.setChecked(False)
 
-    layout.addWidget(cb_data_csv)
-    layout.addWidget(cb_data_json)
-    layout.addWidget(cb_primary)
-    layout.addWidget(cb_secondary)
+    cb_secondary = QCheckBox(_safe_str(secondary_plot_label))
+    cb_secondary.setChecked(bool(default_export_secondary_plot) and bool(show_secondary_plot))
+    cb_secondary.setVisible(bool(show_secondary_plot))
+    if not show_secondary_plot:
+        cb_secondary.setChecked(False)
+
+    for cb in (cb_data_csv, cb_data_json, cb_primary, cb_secondary):
+        if cb.isVisible():
+            layout.addWidget(cb)
+
+    # Additional plots (dynamic list)
+    extra_specs = [(str(k or "").strip(), str(lbl or "").strip(), bool(checked)) for (k, lbl, checked) in additional_plots]
+    extra_specs = [(k, lbl or k, checked) for (k, lbl, checked) in extra_specs if k]
+    extra_checkboxes: list[tuple[str, QCheckBox]] = []
+    extra_checkbox_by_key: dict[str, QCheckBox] = {}
+    if extra_specs:
+        extra_header = QLabel("Additional plots:")
+        extra_header.setStyleSheet("font-weight: 700;")
+        layout.addWidget(extra_header)
+
+        extra_container = QWidget()
+        extra_container_layout = QVBoxLayout(extra_container)
+        extra_container_layout.setContentsMargins(0, 0, 0, 0)
+        extra_container_layout.setSpacing(6)
+
+        for key, label, checked in extra_specs:
+            cb = QCheckBox(_safe_str(label))
+            cb.setChecked(bool(checked))
+            extra_container_layout.addWidget(cb)
+            extra_checkboxes.append((key, cb))
+            extra_checkbox_by_key[key] = cb
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        scroll.setWidget(extra_container)
+        scroll.setMaximumHeight(220)
+        layout.addWidget(scroll)
+
+    # Component-based exports (optional)
+    # Render only when specs are provided.
+    component_checkbox_by_key: dict[str, list[tuple[int, QCheckBox]]] = {}
+    component_container_by_key: dict[str, QWidget] = {}
+    if isinstance(component_plots, dict) and component_plots:
+        comp_header = QLabel("Components:")
+        comp_header.setStyleSheet("font-weight: 700;")
+        layout.addWidget(comp_header)
+
+        def _enforce_limit(boxes: list[QCheckBox], max_select: int) -> None:
+            try:
+                max_select = int(max_select)
+            except Exception:
+                max_select = 4
+            max_select = max(1, max_select)
+
+            checked = [b for b in boxes if bool(b.isChecked())]
+            if len(checked) < max_select:
+                # Re-enable all
+                for b in boxes:
+                    b.setEnabled(True)
+                return
+
+            # If at limit, disable unchecked boxes to avoid selecting too many.
+            for b in boxes:
+                if not bool(b.isChecked()):
+                    b.setEnabled(False)
+
+        for artifact_key, spec in component_plots.items():
+            try:
+                artifact_key = _safe_str(artifact_key)
+                if not artifact_key:
+                    continue
+                if not isinstance(spec, dict):
+                    continue
+
+                label = _safe_str(spec.get("label") or artifact_key)
+                count = int(spec.get("count") or 0)
+                if count <= 0:
+                    continue
+                max_select = int(spec.get("max_select") or 4)
+                max_select = max(1, max_select)
+                default_sel = spec.get("default")
+                if not isinstance(default_sel, (list, tuple)):
+                    default_sel = []
+                default_sel = [int(x) for x in default_sel if str(x).strip().isdigit()]
+
+                section_label = QLabel(label)
+                section_label.setStyleSheet("font-weight: 600;")
+                layout.addWidget(section_label)
+
+                container = QWidget()
+                container_layout = QVBoxLayout(container)
+                container_layout.setContentsMargins(0, 0, 0, 0)
+                container_layout.setSpacing(6)
+
+                boxes: list[QCheckBox] = []
+                rows: list[tuple[int, QCheckBox]] = []
+                for i in range(1, count + 1):
+                    cb = QCheckBox(f"PC{i}")
+                    cb.setChecked(bool(i in default_sel))
+                    boxes.append(cb)
+                    rows.append((i, cb))
+                    container_layout.addWidget(cb)
+
+                # Enforce max selection
+                def _make_on_change(_boxes: list[QCheckBox], _max: int):
+                    return lambda _state=None: _enforce_limit(_boxes, _max)
+
+                on_change = _make_on_change(boxes, max_select)
+                for cb in boxes:
+                    cb.stateChanged.connect(on_change)
+                _enforce_limit(boxes, max_select)
+
+                scroll2 = QScrollArea()
+                scroll2.setWidgetResizable(True)
+                scroll2.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+                scroll2.setFrameShape(QScrollArea.NoFrame)
+                scroll2.setWidget(container)
+                scroll2.setMaximumHeight(180)
+                layout.addWidget(scroll2)
+
+                component_checkbox_by_key[artifact_key] = rows
+                component_container_by_key[artifact_key] = container
+
+                # Enable component selection only when the corresponding plot is selected.
+                dep_cb = extra_checkbox_by_key.get(artifact_key)
+                if dep_cb is not None:
+                    container.setEnabled(bool(dep_cb.isChecked()))
+                    dep_cb.toggled.connect(container.setEnabled)
+                else:
+                    # If the plot isn't offered in this dialog, keep it disabled.
+                    container.setEnabled(False)
+            except Exception:
+                continue
 
     buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
     buttons.accepted.connect(dialog.accept)
@@ -643,6 +893,14 @@ def get_export_analysis_bundle_options(
         export_data_json=bool(cb_data_json.isChecked()),
         export_primary_plot=bool(cb_primary.isChecked()),
         export_secondary_plot=bool(cb_secondary.isChecked()),
+        export_additional_plots=tuple(
+            key for (key, cb) in extra_checkboxes if cb is not None and bool(cb.isChecked())
+        ),
+        component_exports=tuple(
+            (k, tuple(i for (i, cb) in rows if cb is not None and bool(cb.isChecked())))
+            for (k, rows) in component_checkbox_by_key.items()
+            if isinstance(rows, list)
+        ),
     )
 
 

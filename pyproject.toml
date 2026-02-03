@@ -90,3 +90,19 @@ docs = [
 where = ["."]
 include = ["components*", "configs*", "functions*", "pages*"]
 exclude = ["tests*", "docs*", "build_scripts*", "assets*", "readme*", ".AGI-BANKS*", ".docs*"]
+
+[tool.pytest.ini_options]
+# Collect tests only from the dedicated test suite folder.
+# The repository also contains legacy build scripts and ad-hoc test scripts that
+# are not intended to be collected by pytest and may require optional deps.
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+norecursedirs = [
+    "build",
+    "dist",
+    "build_scripts",
+    "test_script",
+    "projects",
+    ".venv",
+    "__pycache__",
+]

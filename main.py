@@ -11,11 +11,24 @@ import tempfile
 
 # Early imports - only absolute essentials
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QTimer, Qt, qInstallMessageHandler
 from PySide6.QtGui import QFontDatabase, QIcon
 
 # Import splash screen (lightweight)
 from splash_screen import create_splash
+
+
+def _qt_message_handler(mode, context, message):
+    """Filter out known-benign Qt warnings while preserving other messages."""
+    try:
+        if "QFont::setPointSize: Point size <= 0 (-1)" in str(message):
+            return
+        stream = sys.stderr or getattr(sys, "__stderr__", None)
+        if stream is not None:
+            stream.write(str(message) + "\n")
+    except Exception:
+        # Never allow Qt logging to crash the app (portable builds may lack stderr)
+        return
 
 
 def get_app_icon() -> QIcon:
@@ -249,6 +262,12 @@ def main():
     
     # Parse command-line arguments FIRST (before any other imports)
     args = parse_arguments()
+
+    # Filter known-benign Qt warnings (keeps console/logs clean, especially in frozen builds)
+    try:
+        qInstallMessageHandler(_qt_message_handler)
+    except Exception:
+        pass
     
     # Set global DEBUG mode early (before creating logs)
     import configs.configs as cfg

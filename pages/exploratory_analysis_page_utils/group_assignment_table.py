@@ -209,6 +209,14 @@ class GroupAssignmentTable(QWidget):
         header.setSectionResizeMode(1, QHeaderView.Fixed)
         self.table.setColumnWidth(1, 200)
 
+        # Prevent cell-widget overlap (combo boxes can be taller than default row height).
+        try:
+            vheader = self.table.verticalHeader()
+            vheader.setSectionResizeMode(QHeaderView.Fixed)
+            vheader.setDefaultSectionSize(56)
+        except Exception:
+            pass
+
         # Populate table
         create_logs(__name__, __file__, f"Populating table with {len(self.dataset_names)} datasets", status="debug")
         for row, dataset_name in enumerate(self.dataset_names):
@@ -222,6 +230,10 @@ class GroupAssignmentTable(QWidget):
             name_item = QTableWidgetItem(dataset_name)
             name_item.setFlags(name_item.flags() & ~Qt.ItemIsEditable)
             name_item.setFont(QFont("Segoe UI", 10))
+            try:
+                name_item.setTextAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+            except Exception:
+                pass
             self.table.setItem(row, 0, name_item)
 
             # Group selector (dropdown)
@@ -293,6 +305,11 @@ class GroupAssignmentTable(QWidget):
 
             create_logs(__name__, __file__, f"Created group combo for row {row} with font size 11", status="debug")
             self.table.setCellWidget(row, 1, group_combo)
+            try:
+                # Keep each row tall enough for the combo + padding to avoid visual overlap.
+                self.table.setRowHeight(row, max(56, self.table.rowHeight(row)))
+            except Exception:
+                pass
 
         main_layout.addWidget(self.table)
 

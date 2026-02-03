@@ -16,6 +16,14 @@
         "open_project_dialog_title": "プロジェクトを開く",
         "new_project_desc": "新しい分析プロジェクトを作成します。",
         "open_project_desc": "既存のプロジェクトファイルを開きます。",
+        "EXPORT_SUMMARY": {
+            "title": "エクスポート",
+            "header": "エクスポートが完了しました",
+            "created_files_header": "作成したファイル:",
+            "missing_items_header": "未作成 / 利用不可:",
+            "copy_button": "コピー",
+            "open_folder_button": "フォルダーを開く"
+        },
         "last_modified_label": "最終更新: {date}",
         "settings_button": "設定",
         "settings_dialog_title": "設定",
@@ -30,7 +38,10 @@
         "project_exists_error": "プロジェクト '{name}' は既に存在します。",
         "project_not_found_error": "プロジェクトファイルが見つかりません: {path}",
         "open_project_error": "プロジェクトを開けませんでした。もう一度お試しください。",
-        "project_file_filter": "プロジェクトファイル (*.json)"
+        "project_file_filter": "プロジェクトファイル (*.json)",
+        "documentation_button": "ドキュメント",
+        "documentation_tooltip": "ドキュメントを開く",
+        "documentation_open_failed": "ドキュメントを開けませんでした。"
     },
     "DATA_PACKAGE_PAGE": {
         "importer_title": "新規データセットのインポート",

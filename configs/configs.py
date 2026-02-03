@@ -318,21 +318,51 @@ def create_logs(
     
     # Determine whether to show console output
     should_show_console = DEBUG if show_console is None else show_console
+
+    def _get_console_stream():
+        """Return a writable text stream for console output.
+
+        In portable/frozen GUI builds, sys.stdout/sys.stderr can be None.
+        Prefer the original stdio streams when available.
+        """
+        for cand in (
+            getattr(sys, "stdout", None),
+            getattr(sys, "__stdout__", None),
+            getattr(sys, "stderr", None),
+            getattr(sys, "__stderr__", None),
+        ):
+            if cand is None:
+                continue
+            if hasattr(cand, "write"):
+                return cand
+        return None
     
     # Handle console-only output with UTF-8 encoding to prevent UnicodeEncodeError
     if status == "console":
         if should_show_console:
-            try:
-                # Use UTF-8 encoding for console output
-                sys.stdout.buffer.write((log_message + '\n').encode('utf-8'))
-                sys.stdout.flush()
-            except (AttributeError, IOError):
-                # Fallback if buffer is not available
+            stream = _get_console_stream()
+            if stream is not None:
+                msg = str(log_message)
+                # Try text write first (works for sys.__stdout__ in frozen mode).
                 try:
-                    print(log_message)
-                except UnicodeEncodeError:
-                    # Last resort: replace non-ASCII characters
-                    print(log_message.encode('ascii', 'replace').decode('ascii'))
+                    stream.write(msg + "\n")
+                    try:
+                        stream.flush()
+                    except Exception:
+                        pass
+                except Exception:
+                    # Fallback: try buffered bytes write.
+                    try:
+                        buf = getattr(stream, "buffer", None)
+                        if buf is not None and hasattr(buf, "write"):
+                            buf.write((msg + "\n").encode("utf-8", errors="replace"))
+                            try:
+                                buf.flush()
+                            except Exception:
+                                pass
+                    except Exception:
+                        # No usable console stream in this runtime.
+                        pass
         return  # Exit early for console-only messages
     
     # Skip debug-level logs in production mode (when DEBUG=False)
@@ -399,13 +429,14 @@ def create_logs(
             logger.addHandler(file_handler)
 
         # Stream handler for terminal output (only when enabled)
-        has_stdout_stream = any(
-            isinstance(h, logging.StreamHandler) and getattr(h, "stream", None) is sys.stdout
+        console_stream = _get_console_stream() if should_show_console else None
+        has_console_stream = any(
+            isinstance(h, logging.StreamHandler) and getattr(h, "stream", None) is console_stream
             for h in logger.handlers
         )
 
-        if should_show_console and not has_stdout_stream:
-            stream_handler = logging.StreamHandler(sys.stdout)
+        if console_stream is not None and not has_console_stream:
+            stream_handler = logging.StreamHandler(console_stream)
             stream_handler.setFormatter(formatter)
 
             # Best-effort UTF-8 console

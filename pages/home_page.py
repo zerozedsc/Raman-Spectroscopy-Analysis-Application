@@ -19,8 +19,8 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QDialogButtonBox,
 )
-from PySide6.QtCore import Qt, QSize, Signal, QPropertyAnimation, QEasingCurve, QTimer
-from PySide6.QtGui import QIcon, QPixmap, QPainter, QMouseEvent, QFont
+from PySide6.QtCore import Qt, QSize, Signal, QPropertyAnimation, QEasingCurve, QTimer, QUrl
+from PySide6.QtGui import QIcon, QPixmap, QPainter, QMouseEvent, QFont, QDesktopServices
 from PySide6.QtSvg import QSvgRenderer
 from configs.configs import create_logs
 from components.widgets import *
@@ -331,19 +331,93 @@ class HomePage(QWidget):
         layout.addWidget(actions_container)
         layout.addStretch()  # Push content to top
 
-        # Bottom-left version label (user requested)
+        # Bottom-left version label + documentation link (user requested)
+        bottom_row = QWidget()
+        bottom_row.setObjectName("homeBottomRow")
+        bottom_layout = QHBoxLayout(bottom_row)
+        bottom_layout.setContentsMargins(0, 0, 0, 0)
+        bottom_layout.setSpacing(10)
+
         try:
             version_text = str(CONFIGS.get("version") or "").strip()
         except Exception:
             version_text = ""
+
         if version_text:
             version_label = QLabel(version_text)
             version_label.setObjectName("homeVersion")
-            version_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom)
+            version_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             version_label.setWordWrap(False)
-            layout.addWidget(version_label)
+            bottom_layout.addWidget(version_label)
+        else:
+            bottom_layout.addStretch(1)
+
+        docs_button = QPushButton(LOCALIZE("HOME_PAGE.documentation_button"))
+        docs_button.setObjectName("homeDocsButton")
+        docs_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        try:
+            docs_button.setIcon(load_icon("documentation", QSize(16, 16), "#0078d4"))
+        except Exception:
+            pass
+        try:
+            docs_button.setToolTip(LOCALIZE("HOME_PAGE.documentation_tooltip"))
+        except Exception:
+            pass
+        try:
+            docs_button.clicked.connect(self.handle_open_documentation)
+        except Exception:
+            pass
+        bottom_layout.addWidget(docs_button)
+
+        layout.addWidget(bottom_row)
 
         return sidebar
+
+    def handle_open_documentation(self) -> None:
+        """Open online documentation in the user's default browser (EN/JA based on language)."""
+        try:
+            lang = str(getattr(LOCALIZEMANAGER, "current_lang", "") or CONFIGS.get("language") or "en")
+            lang = lang.strip().lower()
+            lang = "ja" if lang.startswith("ja") else "en"
+
+            # Prefer configurable URL if present; otherwise fall back to the canonical RTD links.
+            url = ""
+            try:
+                if lang == "ja":
+                    url = str(CONFIGS.get("documentation_url_ja") or "").strip()
+                else:
+                    url = str(CONFIGS.get("documentation_url_en") or "").strip()
+            except Exception:
+                url = ""
+
+            if not url:
+                if lang == "ja":
+                    url = "https://raman-spectroscopy-analysis-application.readthedocs.io/ja/latest/"
+                else:
+                    url = "https://raman-spectroscopy-analysis-application.readthedocs.io/en/latest/"
+
+            ok = QDesktopServices.openUrl(QUrl(url))
+            create_logs(
+                "HomePage",
+                "documentation",
+                f"Open documentation (lang={lang}): {url} (ok={ok})",
+                status="info",
+            )
+            if not ok:
+                raise RuntimeError("QDesktopServices.openUrl returned False")
+
+        except Exception as e:
+            create_logs(
+                "HomePage",
+                "documentation",
+                f"Failed to open documentation: {e}",
+                status="error",
+            )
+            QMessageBox.warning(
+                self,
+                LOCALIZE("COMMON.error"),
+                str(LOCALIZE("HOME_PAGE.documentation_open_failed")),
+            )
 
     def _create_title_section(self) -> QWidget:
         title_container = QWidget()

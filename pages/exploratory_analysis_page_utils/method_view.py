@@ -1273,6 +1273,13 @@ class DatasetSelectionWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(12)  # Consistent spacing
 
+        # Ensure minimum width to prevent toolbar controls from being clipped
+        # (especially critical in portable builds where font metrics may differ)
+        try:
+            self.setMinimumWidth(480)
+        except Exception:
+            pass
+
         # --- 1. HEADER ROW (Label + Toggle) ---
         header_container = QWidget()
         header_layout = QHBoxLayout(header_container)
@@ -2121,8 +2128,9 @@ class MethodView(QWidget):
         self.results_panel = self._build_right_panel()
 
         # UX: ensure the left settings panel doesn't feel cramped.
+        # Increased from 440 to 560 to prevent dataset selector clipping in portable builds.
         try:
-            left_panel.setMinimumWidth(440)
+            left_panel.setMinimumWidth(560)
         except Exception:
             pass
 

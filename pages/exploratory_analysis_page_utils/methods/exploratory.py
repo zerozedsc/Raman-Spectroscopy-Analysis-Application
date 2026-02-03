@@ -7,7 +7,13 @@ t-SNE, and clustering techniques.
 
 import numpy as np
 import pandas as pd
-import seaborn as sns  # ✅ Phase 4: Publication-quality statistical visualizations
+try:
+    import seaborn as sns  # ✅ Phase 4: Publication-quality statistical visualizations
+
+    _SEABORN_AVAILABLE = True
+except Exception:
+    sns = None  # type: ignore
+    _SEABORN_AVAILABLE = False
 from typing import Dict, Any, Callable, Optional, Tuple, List
 import matplotlib
 import warnings
@@ -109,12 +115,27 @@ def get_high_contrast_colors(num_groups: int) -> List[str]:
         # Blue, Red, Green, Orange, Purple, Cyan
         return ["#0066cc", "#ff4444", "#00cc66", "#ff9900", "#9933ff", "#00cccc"]
     else:
-        # For 7+ groups, use tab10 with good spacing
-        colors = plt.cm.tab10(np.linspace(0, 0.9, num_groups))
-        return [
-            f"#{int(c[0]*255):02x}{int(c[1]*255):02x}{int(c[2]*255):02x}"
-            for c in colors
-        ]
+        # For 7+ groups, tab10 interpolation can produce very similar colors.
+        # Prefer discrete palettes with more distinct hues.
+        try:
+            if _SEABORN_AVAILABLE and sns is not None:
+                if num_groups <= 20:
+                    pal = sns.color_palette("tab20", n_colors=num_groups)
+                else:
+                    # husl spreads hues evenly; good for many categories
+                    pal = sns.color_palette("husl", n_colors=num_groups)
+            else:
+                raise ImportError("seaborn not available")
+            return [
+                f"#{int(r * 255):02x}{int(g * 255):02x}{int(b * 255):02x}"
+                for (r, g, b) in pal
+            ]
+        except Exception:
+            colors = plt.cm.tab20(np.linspace(0, 1, max(num_groups, 3)))
+            return [
+                f"#{int(c[0]*255):02x}{int(c[1]*255):02x}{int(c[2]*255):02x}"
+                for c in colors
+            ]
 
 
 # =============================================================================
