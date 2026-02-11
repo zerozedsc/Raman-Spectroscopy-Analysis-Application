@@ -29,6 +29,36 @@ except ImportError:
 from configs.configs import create_logs
 
 
+class FABCFixed:
+    """
+    Fixed wrapper for FABC that avoids the x_data duplicate kwarg bug.
+
+    ramanspy's PybaselinesCorrector._pybaselines_broadcaster already passes
+    x_data=spectral_axis, but FABC.__init__ also stores x_data in kwargs.
+    When _process_object calls self(**self.kwargs), both x_data values
+    collide in numpy.apply_along_axis.
+
+    This wrapper strips x_data from the inner FABC's stored kwargs after
+    construction so the broadcaster can pass it cleanly.
+    """
+
+    def __init__(self, **kwargs):
+        from ramanspy.preprocessing.baseline import FABC
+        # Remove x_data from our kwargs before passing to FABC
+        kwargs.pop("x_data", None)
+        self._inner = FABC(**kwargs)
+        # Also strip x_data from the inner FABC's stored kwargs
+        # (FABC.__init__ has x_data=None as default, which gets stored)
+        self._inner.kwargs.pop("x_data", None)
+
+    def apply(self, spectra):
+        """Apply FABC via the inner ramanspy instance."""
+        return self._inner.apply(spectra)
+
+    def __call__(self, *args, **kwargs):
+        return self._inner(*args, **kwargs)
+
+
 class BaselineCorrection:
     """
     A comprehensive baseline correction class for Raman spectroscopy.
@@ -102,7 +132,7 @@ class BaselineCorrection:
                     "class": ASPLS,
                     "category": "least_squares",
                     "description": "Asymmetric Smoothing Penalized Least Squares",
-                    "default_params": {"lam": 1e6, "alpha": 0.5},
+                    "default_params": {"lam": 1e6},
                     "suitable_for": ["biological", "peak_preserving"],
                     "computational_cost": "medium",
                 },
@@ -190,7 +220,7 @@ class BaselineCorrection:
                     "computational_cost": "low",
                 },
                 "FABC": {
-                    "class": FABC,
+                    "class": FABCFixed,
                     "category": "specialized",
                     "description": "Fully Automated Baseline Correction",
                     "default_params": {"lam": 1e6},
